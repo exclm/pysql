@@ -138,6 +138,7 @@ Example:
                 print '\nSelected Max Num rows (%d)' % self.rc                 
         except Exception, e:
             print e
+            
 
     def do_sql(self,args):
         '''prints sql statement give the sql_id (Oracle 10gR2)'''

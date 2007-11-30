@@ -120,24 +120,21 @@ class sqlpython(cmd.Cmd):
     do_q = do_quit
     do_exit = do_quit
 
-class Statement(object):
-    prompt2 = ' > '
-    stmtEndSearchString = r'(.*)(%s)\s*(\d+)?\s*$' % sqlpython.terminatorSearchString
-    stmtEnd = re.compile(stmtEndSearchString, re.MULTILINE | re.DOTALL)
-    def __init__(self, firstline):
-        v_Lines = []
-        v_Line = firstline
-        while 1:
-            m = self.stmtEnd.search(v_Line)
-            if m:
-                v_Line, self.outformat, suffix = m.groups()
-                v_Lines.append(v_Line) 
-                self.query = '\n'.join(v_Lines)
-                self.rowlimit = int(suffix or 0)
-                return
-            v_Lines.append(v_Line)
-            v_Line = raw_input(self.prompt2)
-        self.query = '\n'.join(v_Lines)
+stmtEndSearchString = r'(.*)(%s)\s*(\d+)?\s*$' % terminatorSearchString
+stmtEndFinder = re.compile(stmtEndSearchString, re.MULTILINE | re.DOTALL)
+prompt2 = ' > '
+
+def finishStatement(firstline):
+    lines = [firstline]
+    while 1:
+        m = stmtEndFinder.search(lines[-1])
+        if m:
+            return '\n'.join(lines)
+        lines.append(raw_input(prompt2))
+
+def findTerminator(statement):
+    m = stmtEndFinder.search(statement)
+    return m.groups()
     
 def pmatrix(rows,desc,maxlen=30):
     '''prints a matrix, used by sqlpython to print queries' result sets'''

@@ -266,11 +266,13 @@ class sqlpyPlus(sqlpython.sqlpython):
         sqlpython.sqlpython.__init__(self)
         self.binds = CaselessDict()
         self.sqlBuffer = []
+        self.history = []
         self.settable = ['maxtselctrows', 'maxfetch', 'autobind', 'failover', 'timeout'] # settables must be lowercase
         self.stdoutBeforeSpool = sys.stdout
         self.spoolFile = None
         self.autobind = False
         self.failover = False
+        self.singleline = '''desc describe'''.split()
 
     def default(self, arg, do_everywhere=False):
         sqlpython.sqlpython.default(self, arg, do_everywhere)
@@ -305,6 +307,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         interpreted, but after the input prompt is generated and issued.
         Makes commands case-insensitive (but unfortunately does not alter command completion).
         """
+        '''
         savestdout = sys.stdout
         pipefilename = 'sqlpython.pipeline.tmp'
         pipedCommands = pipeSeparator.separate(line)
@@ -317,13 +320,17 @@ class sqlpyPlus(sqlpython.sqlpython):
             f.close()
             sys.stdout = savestdout
             os.system('%s < %s' % (pipedCommands[1], pipefilename))
+        '''
         try:
             args = line.split(None,1)
             args[0] = args[0].lower()
-            return ' '.join(args)
+            statement = ' '.join(args)            
+            if args[0] not in self.singleline:
+                statement = finishStatement(statement)
+            return statement
         except Exception:
             return line
-
+    
     def do_shortcuts(self,arg):
         """Lists available first-character shortcuts
         (i.e. '!dir' is equivalent to 'shell dir')"""
@@ -364,15 +371,17 @@ class sqlpyPlus(sqlpython.sqlpython):
     def output_as_html_table(self):
         result = ''.join('<th>%s</th>' % c for c in self.colnames)
         result = ['  <tr>\n    %s\n  </tr>' % result]
+        print result
+        print type(result)
         for row in self.rows:
             result.append('  <tr>\n    %s\n  </tr>' %
                           (''.join('<td>%s</td>' %
                                    str('' if (itm is None) else itm)
                            for itm in row)))                
-            result = '''<table id="%s">
+        result = '''<table id="%s">
 %s
 </table>''' % (self.tblname, '\n'.join(result))
-        return '\n'.join(result)
+        return result
 
     def output_as_list(self, align):
         result = []
@@ -421,10 +430,12 @@ class sqlpyPlus(sqlpython.sqlpython):
         ("help terminators" for details)
         """
         bindVarsIn = bindVarsIn or {}
-        stmt = sqlpython.Statement('select '+arg)
-        self.query = stmt.query
-        if stmt.outformat == '\\t':
-            self.do_tselect(' '.join(self.query.split()[1:]) + ';', stmt.rowlimit)
+        self.query = 'select ' + arg
+        (self.query, terminator, rowlimit) = sqlpython.findTerminator(self.query)
+        rowlimit = int(rowlimit or 0)
+        if terminator == '\\t':
+            self.do_tselect(' '.join(self.query.split()[1:]) + ';', rowlimit)
+            return
         else:
             try:
                 self.varsUsed = findBinds(self.query, self.binds, bindVarsIn)
@@ -433,7 +444,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                 self.desc = self.curs.description
                 self.rc = self.curs.rowcount
                 if self.rc > 0:
-                    print '\n' + self.output(stmt.outformat, stmt.rowlimit)
+                    print '\n' + self.output(outformat, rowlimit)
                 if self.rc == 0:
                     print '\nNo rows Selected.\n'
                 elif self.rc == 1: 
@@ -627,6 +638,10 @@ class sqlpyPlus(sqlpython.sqlpython):
         'run [N]: runs the SQL that was run N commands ago'	
         for pos in self.bufferPositions(arg):
             self.onecmd(self.sqlBuffer[-1-pos])
+    def do_history(self, arg):
+        for (i, itm) in enumerate(self.history):
+            print '-------------------------[%d]' % (i+1)
+            print itm
     def do_list(self, arg):
         'list [N]: lists the SQL that was run N commands ago'
         for pos in self.bufferPositions(arg):
