@@ -134,7 +134,10 @@ def finishStatement(firstline):
 
 def findTerminator(statement):
     m = stmtEndFinder.search(statement)
-    return m.groups()
+    if m:
+        return m.groups()
+    else:
+        return statement, None, None
     
 def pmatrix(rows,desc,maxlen=30):
     '''prints a matrix, used by sqlpython to print queries' result sets'''
