@@ -100,7 +100,7 @@ class sqlpython(cmd.Cmd):
     do_sen = do_senora       
         
     def default(self, arg, do_everywhere = False):
-        self.query = Statement(arg).query
+        self.query = finishStatement(arg)
         try:
             self.curs.execute(self.query)
             print '\nExecuted\n'
@@ -120,7 +120,7 @@ class sqlpython(cmd.Cmd):
     do_q = do_quit
     do_exit = do_quit
 
-stmtEndSearchString = r'(.*)(%s)\s*(\d+)?\s*$' % terminatorSearchString
+stmtEndSearchString = r'(.*)(%s)\s*(\d+)?\s*$' % sqlpython.terminatorSearchString
 stmtEndFinder = re.compile(stmtEndSearchString, re.MULTILINE | re.DOTALL)
 prompt2 = ' > '
 

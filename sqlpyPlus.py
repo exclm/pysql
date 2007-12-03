@@ -272,7 +272,8 @@ class sqlpyPlus(sqlpython.sqlpython):
         self.spoolFile = None
         self.autobind = False
         self.failover = False
-        self.singleline = '''desc describe'''.split()
+        self.singleline = '''select insert update delete
+        create drop alter'''.split()
 
     def default(self, arg, do_everywhere=False):
         sqlpython.sqlpython.default(self, arg, do_everywhere)
@@ -324,9 +325,9 @@ class sqlpyPlus(sqlpython.sqlpython):
         try:
             args = line.split(None,1)
             args[0] = args[0].lower()
-            statement = ' '.join(args)            
-            if args[0] not in self.singleline:
-                statement = finishStatement(statement)
+            statement = ' '.join(args)      
+            if args[0] in self.singleline:
+                statement = sqlpython.finishStatement(statement)
             return statement
         except Exception:
             return line
@@ -371,8 +372,6 @@ class sqlpyPlus(sqlpython.sqlpython):
     def output_as_html_table(self):
         result = ''.join('<th>%s</th>' % c for c in self.colnames)
         result = ['  <tr>\n    %s\n  </tr>' % result]
-        print result
-        print type(result)
         for row in self.rows:
             result.append('  <tr>\n    %s\n  </tr>' %
                           (''.join('<td>%s</td>' %
@@ -440,11 +439,11 @@ class sqlpyPlus(sqlpython.sqlpython):
             try:
                 self.varsUsed = findBinds(self.query, self.binds, bindVarsIn)
                 self.curs.execute(self.query, self.varsUsed)
-                self.rows = self.curs.fetchmany(min(self.maxfetch, (stmt.rowlimit or self.maxfetch)))
+                self.rows = self.curs.fetchmany(min(self.maxfetch, (rowlimit or self.maxfetch)))
                 self.desc = self.curs.description
                 self.rc = self.curs.rowcount
                 if self.rc > 0:
-                    print '\n' + self.output(outformat, rowlimit)
+                    print '\n' + self.output(terminator, rowlimit)
                 if self.rc == 0:
                     print '\nNo rows Selected.\n'
                 elif self.rc == 1: 
