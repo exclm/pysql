@@ -109,9 +109,9 @@ Example:
 
     def do_tselect(self, arg, rowlimit=None):  
         '''executes a query and prints the result in trasposed form. Useful when querying tables with many columns''' 
-        self.query = sqlpython.Statement('select '+arg).query
+        self.query = 'select ' + arg # sqlpython.finishStatement('select '+arg)
+        (self.query, terminator, rowlimit) = sqlpython.findTerminator(self.query)        
         try:
-            print self.query
             self.curs.execute(self.query)
             rows = self.curs.fetchmany(min(self.maxtselctrows, rowlimit or self.maxtselctrows))
             desc = self.curs.description

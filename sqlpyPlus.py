@@ -26,6 +26,74 @@ or with a python-like shorthand
 """
 # note in cmd.cmd about supporting emacs commands?
 
+descQueries = {
+'TABLE': """
+ atc.column_name,
+            CASE atc.nullable WHEN 'Y' THEN 'NULL' ELSE 'NOT NULL' END "Null?",
+            atc.data_type ||
+              CASE atc.data_type WHEN 'DATE' THEN ''
+                             ELSE '(' ||
+                               CASE atc.data_type WHEN 'NUMBER' THEN TO_CHAR(atc.data_precision) ||
+                                 CASE atc.data_scale WHEN 0 THEN ''
+                                                 ELSE ',' || TO_CHAR(atc.data_scale) END
+                                              ELSE TO_CHAR(atc.data_length) END 
+                             END ||
+              CASE atc.data_type WHEN 'DATE' THEN '' ELSE ')' END
+              data_type
+FROM all_tab_columns atc
+WHERE atc.table_name = :object_name
+AND      atc.owner = :owner
+ORDER BY atc.column_id;""",
+'PROCEDURE':"""
+	     argument_name,	     
+	     data_type,
+	     in_out,
+	     default_value
+FROM all_arguments
+WHERE object_name = :object_name
+AND      owner = :owner
+AND      package_name IS NULL
+AND      argument_name IS NOT NULL
+ORDER BY sequence;""",    
+'PackageObjects':"""
+SELECT DISTINCT object_name
+FROM all_arguments
+WHERE package_name = :package_name
+AND      owner = :owner""",
+'PackageObjArgs':"""
+             object_name,
+	     argument_name,	     
+	     data_type,
+	     in_out,
+	     default_value
+FROM all_arguments
+WHERE package_name = :package_name
+AND      object_name = :object_name
+AND      owner = :owner
+AND      argument_name IS NOT NULL
+ORDER BY sequence""",
+'TRIGGER':"""
+       trigger_name,
+       trigger_type,
+       triggering_event,
+       table_owner,
+       base_object_type,
+       table_name,
+       column_name,
+       when_clause,
+       status,
+       description,
+       action_type,
+       crossedition
+FROM   all_triggers
+WHERE  owner = :owner
+AND    trigger_name = :object_name
+\\t
+"""
+    }
+descQueries['VIEW'] = descQueries['TABLE']
+descQueries['FUNCTION'] = descQueries['PROCEDURE']
+
 queries = {
 'resolve': """
 SELECT object_type, object_name, owner FROM (
@@ -46,51 +114,6 @@ SELECT object_type, object_name, owner FROM (
     AND   ao.object_type != 'SYNONYM'
 	AND      asyn.owner = 'PUBLIC'
 ) ORDER BY priority ASC""",
-'descTable': """
- atc.column_name,
-            CASE atc.nullable WHEN 'Y' THEN 'NULL' ELSE 'NOT NULL' END "Null?",
-            atc.data_type ||
-              CASE atc.data_type WHEN 'DATE' THEN ''
-                             ELSE '(' ||
-                               CASE atc.data_type WHEN 'NUMBER' THEN TO_CHAR(atc.data_precision) ||
-                                 CASE atc.data_scale WHEN 0 THEN ''
-                                                 ELSE ',' || TO_CHAR(atc.data_scale) END
-                                              ELSE TO_CHAR(atc.data_length) END 
-                             END ||
-              CASE atc.data_type WHEN 'DATE' THEN '' ELSE ')' END
-              data_type
-FROM all_tab_columns atc
-WHERE atc.table_name = :object_name
-AND      atc.owner = :owner
-ORDER BY atc.column_id;""",
-'PackageObjects':"""
-SELECT DISTINCT object_name
-FROM all_arguments
-WHERE package_name = :package_name
-AND      owner = :owner""",
-'PackageObjArgs':"""
-             object_name,
-	     argument_name,	     
-	     data_type,
-	     in_out,
-	     default_value
-FROM all_arguments
-WHERE package_name = :package_name
-AND      object_name = :object_name
-AND      owner = :owner
-AND      argument_name IS NOT NULL
-ORDER BY sequence""",
-'descProcedure':"""
-	     argument_name,	     
-	     data_type,
-	     in_out,
-	     default_value
-FROM all_arguments
-WHERE object_name = :object_name
-AND      owner = :owner
-AND      package_name IS NULL
-AND      argument_name IS NOT NULL
-ORDER BY sequence;""",
 'tabComments': """
 SELECT comments
 FROM    all_tab_comments
@@ -311,8 +334,9 @@ class sqlpyPlus(sqlpython.sqlpython):
         self.spoolFile = None
         self.autobind = False
         self.failover = False
-        self.singleline = '''select insert update delete
+        self.multiline = '''select insert update delete tselect
         create drop alter'''.split()
+        self.excludeFromHistory = '''run r list l history hi ed'''.split()
 
     def default(self, arg, do_everywhere=False):
         sqlpython.sqlpython.default(self, arg, do_everywhere)
@@ -347,27 +371,32 @@ class sqlpyPlus(sqlpython.sqlpython):
         interpreted, but after the input prompt is generated and issued.
         Makes commands case-insensitive (but unfortunately does not alter command completion).
         """
+
         '''
-        savestdout = sys.stdout
-        pipefilename = 'sqlpython.pipeline.tmp'
         pipedCommands = pipeSeparator.separate(line)
         if len(pipedCommands) > 1:
-            f = open(pipefilename,'w')
-            sys.stdout = f
-            self.precmd(pipedCommands[0])
-            self.onecmd(pipedCommands[0])
-            self.postcmd(False, pipedCommands[0])
-            f.close()
-            sys.stdout = savestdout
-            os.system('%s < %s' % (pipedCommands[1], pipefilename))
+            pipefilename = 'sqlpython.pipe.tmp'                        
+            for (idx, pipedCommand) in enumerate(pipedCommands[:-1]):
+                savestdout = sys.stdout
+                f = open(pipefilename,'w')
+                sys.stdout = f
+                self.precmd(pipedCommand)
+                self.onecmd(pipedCommand)
+                self.postcmd(False, pipedCommands[0])
+                f.close()
+                sys.stdout = savestdout
+                f = os.popen('%s < %s' % (pipedCommands[idx+1], pipefilename))
+                f.read()
+            
         '''
         try:
             args = line.split(None,1)
             args[0] = args[0].lower()
             statement = ' '.join(args)      
-            if args[0] in self.singleline:
+            if args[0] in self.multiline:
                 statement = sqlpython.finishStatement(statement)
-            self.history.append(statement)
+            if args[0] not in self.excludeFromHistory:
+                self.history.append(statement)
             return statement
         except Exception:
             return line
@@ -454,6 +483,8 @@ class sqlpyPlus(sqlpython.sqlpython):
             result = '\n'.join(result)
         elif outformat == '\\h':
             result = self.output_as_html_table()
+        elif outformat == '\\t':
+            
         else:
             result = sqlpython.pmatrix(self.rows, self.curs.description, self.maxfetch)
         return result
@@ -555,15 +586,13 @@ class sqlpyPlus(sqlpython.sqlpython):
         "emulates SQL*Plus's DESCRIBE"
         object_type, owner, object_name = self.resolve(arg.strip(self.terminator).upper())
         print "%s %s.%s" % (object_type, owner, object_name)
-        if object_type in ('TABLE','VIEW'):
-            self.do_select(queries['descTable'],{'object_name':object_name, 'owner':owner})
+        if object_type in ('TABLE','VIEW','PROCEDURE','FUNCTION','TRIGGER'):
+            self.do_select(descQueries[object_type],{'object_name':object_name, 'owner':owner})
         elif object_type == 'PACKAGE':
-            self.curs.execute(queries['PackageObjects'], {'package_name':object_name, 'owner':owner})
+            self.curs.execute(descQueries['PackageObjects'], {'package_name':object_name, 'owner':owner})
             for (packageObj_name,) in self.curs:
                 print packageObj_name
-                self.do_select(queries['PackageObjArgs'],{'package_name':object_name, 'owner':owner, 'object_name':packageObj_name})
-        else:
-            self.do_select(queries['descProcedure'],{'owner':owner, 'object_name':object_name})
+                self.do_select(descQueries['PackageObjArgs'],{'package_name':object_name, 'owner':owner, 'object_name':packageObj_name})
     do_desc = do_describe
     
     def do_comments(self, arg):
@@ -593,6 +622,9 @@ class sqlpyPlus(sqlpython.sqlpython):
             object_type, owner, object_name = '', '', ''
         return object_type, owner, object_name
 
+    def do_resolve(self, arg):
+        print self.resolve(arg)
+        
     def do_shell(self, arg):
         'execute a command as if at the OS prompt.'
         os.system(arg)
@@ -799,7 +831,23 @@ class sqlpyPlus(sqlpython.sqlpython):
             self.do_setbind(arg[1:])
         else:
             self.default('exec %s' % arg)
-            
+
+    def do_cat(self, arg):
+        targets = arg.split()
+        for target in targets:
+            self.do_select('* from %s' % target)
+    
+    def do_grep(self, arg):
+        """grep PATTERN TABLE - search for term in any of TABLE's fields"""
+        targets = arg.split()
+        pattern = targets.pop(0)
+        for target in targets:
+            sql = []
+            self.curs.execute('select * from %s where 1=0' % target)
+            sql = ' or '.join("%s LIKE '%%%s%%'" % (d[0], pattern) for d in self.curs.description)
+            sql = '* FROM %s WHERE %s' % (target, sql)
+            self.do_select(sql)
+
 def _test():
     import doctest
     doctest.testmod()
