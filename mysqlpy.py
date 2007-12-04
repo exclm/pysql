@@ -107,38 +107,10 @@ Example:
         except Exception, e:
             print e
 
-    def do_tselect(self, arg, rowlimit=None):  
+    def do_tselect(self, arg):  
         '''executes a query and prints the result in trasposed form. Useful when querying tables with many columns''' 
-        self.query = 'select ' + arg # sqlpython.finishStatement('select '+arg)
-        (self.query, terminator, rowlimit) = sqlpython.findTerminator(self.query)        
-        try:
-            self.curs.execute(self.query)
-            rows = self.curs.fetchmany(min(self.maxtselctrows, rowlimit or self.maxtselctrows))
-            desc = self.curs.description
-            self.rc = self.curs.rowcount
-            rows.insert(0,[desc[x][0] for x in range(len(desc))]) # adds column name to the row set
-            transpr = [[rows[y][x] for y in range(len(rows))]for x in range(len(rows[0]))] # matrix transpose
-            newdesc = [['ROW N.'+str(y),10] for y in range(len(rows))]
-            for x in range(len(desc)):
-                if str(desc[x][1]) == "<type 'cx_Oracle.BINARY'>":  # handles RAW columns
-                    rname = transpr[x][0]
-                    transpr[x] = map(binascii.b2a_hex, transpr[x])
-                    transpr[x][0] = rname
-            self.debg=transpr
-            newdesc[0][0] = 'COLUMN NAME'
-            if self.rc > 0:
-                print '\n' + sqlpython.pmatrix(transpr,newdesc)
-            if self.rc == 0:
-                print '\nNo rows Selected.\n'
-            elif self.rc == 1: 
-                print '\n1 row selected.\n'
-            elif self.rc < self.maxtselctrows:
-                print '\n%d rows selected.\n' % self.rc
-            else:
-                print '\nSelected Max Num rows (%d)' % self.rc                 
-        except Exception, e:
-            print e
-            
+        
+        self.do_select(arg, override_terminator='\\t')            
 
     def do_sql(self,args):
         '''prints sql statement give the sql_id (Oracle 10gR2)'''

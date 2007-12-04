@@ -26,8 +26,19 @@ or with a python-like shorthand
 """
 # note in cmd.cmd about supporting emacs commands?
 
+pullQueries = {
+'PROCEDURE':("""
+text
+FROM   all_source
+WHERE  owner = :owner
+AND    name = :object_name
+""",)
+    }
+pullQueries['TRIGGER'] = pullQueries['PROCEDURE']
+pullQueries['FUNCTION'] = pullQueries['PROCEDURE']
+
 descQueries = {
-'TABLE': """
+'TABLE': ("""
  atc.column_name,
             CASE atc.nullable WHEN 'Y' THEN 'NULL' ELSE 'NOT NULL' END "Null?",
             atc.data_type ||
@@ -43,8 +54,8 @@ descQueries = {
 FROM all_tab_columns atc
 WHERE atc.table_name = :object_name
 AND      atc.owner = :owner
-ORDER BY atc.column_id;""",
-'PROCEDURE':"""
+ORDER BY atc.column_id;""",),
+'PROCEDURE': ("""
 	     argument_name,	     
 	     data_type,
 	     in_out,
@@ -54,13 +65,13 @@ WHERE object_name = :object_name
 AND      owner = :owner
 AND      package_name IS NULL
 AND      argument_name IS NOT NULL
-ORDER BY sequence;""",    
-'PackageObjects':"""
+ORDER BY sequence;""",),    
+'PackageObjects':("""
 SELECT DISTINCT object_name
 FROM all_arguments
 WHERE package_name = :package_name
-AND      owner = :owner""",
-'PackageObjArgs':"""
+AND      owner = :owner""",),
+'PackageObjArgs':("""
              object_name,
 	     argument_name,	     
 	     data_type,
@@ -71,25 +82,46 @@ WHERE package_name = :package_name
 AND      object_name = :object_name
 AND      owner = :owner
 AND      argument_name IS NOT NULL
-ORDER BY sequence""",
-'TRIGGER':"""
-       trigger_name,
-       trigger_type,
-       triggering_event,
+ORDER BY sequence""",),
+'TRIGGER':("""
+       description
+FROM   all_triggers
+WHERE  owner = :owner
+AND    trigger_name = :object_name
+""",
+"""
        table_owner,
        base_object_type,
        table_name,
        column_name,
        when_clause,
        status,
-       description,
        action_type,
        crossedition
 FROM   all_triggers
 WHERE  owner = :owner
 AND    trigger_name = :object_name
 \\t
-"""
+""",
+),
+'INDEX':("""
+index_type,
+table_owner,
+table_name,
+table_type,
+uniqueness,
+compression,
+partitioned,
+temporary,
+generated,
+secondary,
+dropped,
+visibility
+FROM   all_indexes
+WHERE  owner = :owner
+AND    index_name = :object_name
+\\t
+""",)
     }
 descQueries['VIEW'] = descQueries['TABLE']
 descQueries['FUNCTION'] = descQueries['PROCEDURE']
@@ -484,12 +516,23 @@ class sqlpyPlus(sqlpython.sqlpython):
         elif outformat == '\\h':
             result = self.output_as_html_table()
         elif outformat == '\\t':
-            
+            rows = [self.colnames]
+            rows.extend(list(self.rows))
+            transpr = [[rows[y][x] for y in range(len(rows))]for x in range(len(rows[0]))] # matrix transpose
+            newdesc = [['ROW N.'+str(y),10] for y in range(len(rows))]
+            for x in range(len(self.curs.description)):
+                if str(self.curs.description[x][1]) == "<type 'cx_Oracle.BINARY'>":  # handles RAW columns
+                    rname = transpr[x][0]
+                    transpr[x] = map(binascii.b2a_hex, transpr[x])
+                    transpr[x][0] = rname
+            self.debg=transpr
+            newdesc[0][0] = 'COLUMN NAME'
+            result = '\n' + sqlpython.pmatrix(transpr,newdesc)            
         else:
             result = sqlpython.pmatrix(self.rows, self.curs.description, self.maxfetch)
         return result
                         
-    def do_select(self, arg, bindVarsIn=None):
+    def do_select(self, arg, bindVarsIn=None, override_terminator=None):
         """Fetch rows from a table.
         
         Limit the number of rows retrieved by appending
@@ -502,33 +545,31 @@ class sqlpyPlus(sqlpython.sqlpython):
         bindVarsIn = bindVarsIn or {}
         self.query = 'select ' + arg
         (self.query, terminator, rowlimit) = sqlpython.findTerminator(self.query)
+        if override_terminator:
+            terminator = override_terminator
         rowlimit = int(rowlimit or 0)
-        if terminator == '\\t':
-            self.do_tselect(' '.join(self.query.split()[1:]) + ';', rowlimit)
-            return
-        else:
-            try:
-                self.varsUsed = findBinds(self.query, self.binds, bindVarsIn)
-                self.curs.execute(self.query, self.varsUsed)
-                self.rows = self.curs.fetchmany(min(self.maxfetch, (rowlimit or self.maxfetch)))
-                self.desc = self.curs.description
-                self.rc = self.curs.rowcount
-                if self.rc > 0:
-                    print '\n' + self.output(terminator, rowlimit)
-                if self.rc == 0:
-                    print '\nNo rows Selected.\n'
-                elif self.rc == 1: 
-                    print '\n1 row selected.\n'
-                    if self.autobind:
-                        self.binds.update(dict(zip([d[0] for d in self.desc], self.rows[0])))
-                elif self.rc < self.maxfetch:
-                    print '\n%d rows selected.\n' % self.rc
-                else:
-                    print '\nSelected Max Num rows (%d)' % self.rc                 
-            except Exception, e:
-                print e
-                import traceback
-                traceback.print_exc(file=sys.stdout)
+        try:
+            self.varsUsed = findBinds(self.query, self.binds, bindVarsIn)
+            self.curs.execute(self.query, self.varsUsed)
+            self.rows = self.curs.fetchmany(min(self.maxfetch, (rowlimit or self.maxfetch)))
+            self.desc = self.curs.description
+            self.rc = self.curs.rowcount
+            if self.rc > 0:
+                print '\n' + self.output(terminator, rowlimit)
+            if self.rc == 0:
+                print '\nNo rows Selected.\n'
+            elif self.rc == 1: 
+                print '\n1 row selected.\n'
+                if self.autobind:
+                    self.binds.update(dict(zip([d[0] for d in self.desc], self.rows[0])))
+            elif self.rc < self.maxfetch:
+                print '\n%d rows selected.\n' % self.rc
+            else:
+                print '\nSelected Max Num rows (%d)' % self.rc                 
+        except Exception, e:
+            print e
+            import traceback
+            traceback.print_exc(file=sys.stdout)
         self.sqlBuffer.append(self.query)
 
     def showParam(self, param):
@@ -586,13 +627,15 @@ class sqlpyPlus(sqlpython.sqlpython):
         "emulates SQL*Plus's DESCRIBE"
         object_type, owner, object_name = self.resolve(arg.strip(self.terminator).upper())
         print "%s %s.%s" % (object_type, owner, object_name)
-        if object_type in ('TABLE','VIEW','PROCEDURE','FUNCTION','TRIGGER'):
-            self.do_select(descQueries[object_type],{'object_name':object_name, 'owner':owner})
+        descQ = descQueries.get(object_type)
+        if descQ:
+            for q in descQ:
+                self.do_select(q,bindVarsIn={'object_name':object_name, 'owner':owner})
         elif object_type == 'PACKAGE':
             self.curs.execute(descQueries['PackageObjects'], {'package_name':object_name, 'owner':owner})
             for (packageObj_name,) in self.curs:
                 print packageObj_name
-                self.do_select(descQueries['PackageObjArgs'],{'package_name':object_name, 'owner':owner, 'object_name':packageObj_name})
+                self.do_select(descQueries['PackageObjArgs'],bindVarsIn={'package_name':object_name, 'owner':owner, 'object_name':packageObj_name})
     do_desc = do_describe
     
     def do_comments(self, arg):
@@ -601,7 +644,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         if object_type:
             self.curs.execute(queries['tabComments'],{'table_name':object_name, 'owner':owner})
             print "%s %s.%s: %s" % (object_type, owner, object_name, self.curs.fetchone()[0])
-            self.do_select(queries['colComments'],{'owner':owner, 'object_name': object_name})
+            self.do_select(queries['colComments'],bindVarsIn={'owner':owner, 'object_name': object_name})
 
     def resolve(self, identifier):
         """Checks (my objects).name, (my synonyms).name, (public synonyms).name
