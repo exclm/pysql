@@ -32,6 +32,27 @@ text
 FROM   all_source
 WHERE  owner = :owner
 AND    name = :object_name
+""",),
+'PACKAGE':("""
+text
+FROM   all_source
+WHERE  owner = :owner
+AND    name = :object_name
+AND    type = 'PACKAGE_BODY'
+""",),
+'TYPE':("""
+text
+FROM   all_source
+WHERE  owner = :owner
+AND    name = :object_name
+AND    type = 'TYPE'
+""",
+"""
+text
+FROM   all_source
+WHERE  owner = :owner
+AND    name = :object_name
+AND    type = 'TYPE_BODY'
 """,)
     }
 pullQueries['TRIGGER'] = pullQueries['PROCEDURE']
@@ -145,6 +166,14 @@ SELECT object_type, object_name, owner FROM (
 	WHERE asyn.synonym_name = :objName
     AND   ao.object_type != 'SYNONYM'
 	AND      asyn.owner = 'PUBLIC'
+    UNION ALL 
+        SELECT 'DIRECTORY' object_type, dir.directory_name, dir.owner, 6 priority
+        FROM   all_directories dir
+        WHERE  dir.directory_name = :objName
+    UNION ALL 
+        SELECT 'DATABASE LINK' object_type, db_link, owner, 7 priority
+        FROM   all_db_links dbl
+        WHERE  dbl.db_link = :objName
 ) ORDER BY priority ASC""",
 'tabComments': """
 SELECT comments
@@ -622,6 +651,16 @@ class sqlpyPlus(sqlpython.sqlpython):
         print paramName, ' - was: ', current
         setattr(self, paramName.lower(), val)
         print 'now: ', val
+
+    def do_pull(self, arg):
+        "Displays source code."
+        
+        object_type, owner, object_name = self.resolve(arg.strip(self.terminator).upper())
+        print "%s %s.%s" % (object_type, owner, object_name)
+        pullQ = pullQueries.get(object_type)
+        if pullQ:
+            for q in pullQ:
+                self.do_select(q,bindVarsIn={'object_name':object_name, 'owner':owner})
     
     def do_describe(self, arg):
         "emulates SQL*Plus's DESCRIBE"
