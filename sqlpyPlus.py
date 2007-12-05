@@ -355,6 +355,8 @@ class HistoryItem(str):
         print self
         
 class History(list):
+    digitsOnly = re.compile('^[\d]+$')
+    rangeTo = re.compile(r'^\-\s*([-d])+$')
     def append(self, new):
         new = HistoryItem(new)
         list.append(self, new)
@@ -363,12 +365,21 @@ class History(list):
         for n in new:
             self.append(n)
     def get(self, getme):
-        try:
-            idx = int(getme)
+        getme = getme.strip()
+        if not getme:
+            return []
+        if self.digitsOnly.search(getme):        
             try:
-                return [self[idx-1]]
-            except IndexError:
-                return []
+                idx = int(getme)
+                try:
+                    return [self[idx-1]]
+                except IndexError:
+                    return []
+        m = self.rangeTo.search(getme)
+        if m:
+            return self[int(:m.group(1))]
+        
+            excep
         except ValueError:  # search for a string
             try:
                 getme = getme.strip()
@@ -382,7 +393,7 @@ class History(list):
             else:
                 def isin(hi):
                     return (getme.lower() in hi.lowercase)
-            return [itm for itm in self[:-1] if isin(itm)]
+            return [itm for itm in self if isin(itm)]
         
 class sqlpyPlus(sqlpython.sqlpython):
     def __init__(self):
@@ -456,12 +467,22 @@ class sqlpyPlus(sqlpython.sqlpython):
             statement = ' '.join(args)      
             if args[0] in self.multiline:
                 statement = sqlpython.finishStatement(statement)
-            if args[0] not in self.excludeFromHistory:
-                self.history.append(statement)
             return statement
         except Exception:
             return line
     
+    def postcmd(self, stop, line):
+        """Hook method executed just after a command dispatch is finished."""
+        command = line.split(None,1)[0].lower()
+        if command not in self.excludeFromHistory:
+            self.history.append(line)
+        return stop
+    
+    def onecmd_plus_hooks(self, line):                          
+        line = self.precmd(line)
+        stop = self.onecmd(line)
+        stop = self.postcmd(stop, line)
+
     def do_shortcuts(self,arg):
         """Lists available first-character shortcuts
         (i.e. '!dir' is equivalent to 'shell dir')"""
@@ -735,7 +756,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         originalOut = sys.stdout
         f = open(fname, 'w')
         sys.stdout = f
-        self.onecmd(arg)
+        self.onecmd_plus_hooks(arg)
         f.close()
         sys.stdout = originalOut
         
@@ -765,15 +786,6 @@ class sqlpyPlus(sqlpython.sqlpython):
 
     bufferPosPattern = re.compile('\d+')
     rangeIndicators = ('-',':')
-    
-    def last_matching_command(self, arg):
-        if not arg:
-            return self.history[-2]
-        else:
-            history = self.history.get(arg)
-            if history:
-                return history[-1]
-        return None
         
     def do_run(self, arg):
         """run [arg]: re-runs an earlier command
@@ -784,9 +796,9 @@ class sqlpyPlus(sqlpython.sqlpython):
         arg is /enclosed in forward-slashes/ -> run most recent by regex
         """        
         'run [N]: runs the SQL that was run N commands ago'
-        runme = self.last_matching_command(arg)
+        runme = self.last_matching(arg)
         print runme
-        self.onecmd(runme)
+        self.onecmd_plus_hooks(runme)
     do_r = do_run
     def do_history(self, arg):
         """history [arg]: lists past commands issued
@@ -802,11 +814,30 @@ class sqlpyPlus(sqlpython.sqlpython):
             history = self.history
         for hi in history:
             hi.pr()
+    def last_matching(self, arg):
+        try:
+            if arg:
+                return self.history.get(arg)[-1]
+            else:
+                return self.history[-1]
+        except:
+            return None        
     def do_list(self, arg):
-        """list: lists single most recent command issued"""
-        self.last_matching_command(None).pr()
+        """list [arg]: lists last command issued
+        
+        no arg -> list absolute last
+        arg is integer -> list one history item, by index
+        - arg, arg - (integer) -> list up to or after #arg
+        arg is string -> list last command matching string search
+        arg is /enclosed in forward-slashes/ -> regular expression search
+        """
+        try:
+            self.last_matching(arg).pr()
+        except:
+            pass
     do_hi = do_history
     do_l = do_list
+    do_li = do_list
     def load(self, fname):
         """Pulls command(s) into sql buffer.  Returns number of commands loaded."""
         try:
@@ -825,7 +856,10 @@ class sqlpyPlus(sqlpython.sqlpython):
     def do_ed(self, arg):
         'ed [N]: brings up SQL from N commands ago in text editor, and puts result in SQL buffer.'
         fname = 'sqlpython_temp.sql'
-        buffer = self.last_matching_command(arg)
+        buffer = self.last_matching(arg)
+        if not buffer:
+            print 'Nothing appropriate in buffer to edit.'
+            return
         f = open(fname, 'w')
         f.write(buffer)
         f.close()
@@ -834,15 +868,15 @@ class sqlpyPlus(sqlpython.sqlpython):
     do_edit = do_ed
     def do_get(self, fname):
         'Brings SQL commands from a file to the in-memory SQL buffer.'
-        commandsLoaded = self.load(fname)
-        if commandsLoaded:
-            self.do_list('1-%d' % (commandsLoaded-1))
+        numCommandsLoaded = self.load(fname)
+        if numCommandsLoaded:
+            self.do_list('%d -' % (len(self.history) - numCommandsLoaded))
     def do_getrun(self, fname):
         'Brings SQL commands from a file to the in-memory SQL buffer, and executes them.'
-        newCommands = self.load(fname) * -1
-        if newCommands:
-            for command in self.history[newCommands:]:
-                self.onecmd(command)
+        numCommandsLoaded = self.load(fname) * -1
+        if numCommandsLoaded:
+            for command in self.history[numCommandsLoaded:]:
+                self.onecmd_plus_hooks(command)
     def do_psql(self, arg):
         '''Shortcut commands emulating psql's backslash commands.
         
@@ -925,10 +959,16 @@ class sqlpyPlus(sqlpython.sqlpython):
         pattern = targets.pop(0)
         for target in targets:
             sql = []
-            self.curs.execute('select * from %s where 1=0' % target)
-            sql = ' or '.join("%s LIKE '%%%s%%'" % (d[0], pattern) for d in self.curs.description)
-            sql = '* FROM %s WHERE %s' % (target, sql)
-            self.do_select(sql)
+            print 'select * from %s where 1=0' % target
+            try:
+                self.curs.execute('select * from %s where 1=0' % target)
+                sql = ' or '.join("%s LIKE '%%%s%%'" % (d[0], pattern) for d in self.curs.description)
+                sql = '* FROM %s WHERE %s' % (target, sql)
+                self.do_select(sql)
+            except Exception, e:
+                print e
+                import traceback
+                traceback.print_exc(file=sys.stdout)                
 
 def _test():
     import doctest
