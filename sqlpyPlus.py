@@ -355,8 +355,7 @@ class HistoryItem(str):
         print self
         
 class History(list):
-    digitsOnly = re.compile('^[\d]+$')
-    rangeTo = re.compile(r'^\-\s*([-d])+$')
+    rangeFrom = re.compile(r'^([\d])+\s*\-$')
     def append(self, new):
         new = HistoryItem(new)
         list.append(self, new)
@@ -365,27 +364,19 @@ class History(list):
         for n in new:
             self.append(n)
     def get(self, getme):
-        getme = getme.strip()
-        if not getme:
+        try:
+            getme = int(getme)
+            if getme < 0:
+                return self[:(-1 * getme)]
+            else:
+                return self[getme-1]
+        except IndexError:
             return []
-        if self.digitsOnly.search(getme):        
-            try:
-                idx = int(getme)
-                try:
-                    return [self[idx-1]]
-                except IndexError:
-                    return []
-        m = self.rangeTo.search(getme)
-        if m:
-            return self[int(:m.group(1))]
-        
-            excep
-        except ValueError:  # search for a string
-            try:
-                getme = getme.strip()
-            except:
-                print "Don't know how to handle %s." % (str(getme))
-                return 
+        except (ValueError, TypeError):
+            getme = getme.strip()
+            mtch = self.rangeFrom.search(getme)
+            if mtch:
+                return self[(int(mtch.group(1))-1):]
             if getme.startswith(r'/') and getme.endswith(r'/'):
                 finder = re.compile(getme[1:-1], re.DOTALL | re.MULTILINE | re.IGNORECASE)
                 def isin(hi):
