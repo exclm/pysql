@@ -186,12 +186,12 @@ WHERE
 """
 }
 
-import sys, os, re, sqlpython, cx_Oracle, pyparsing
+import sys, os, re, sqlpython, cx_Oracle, pyparsing, flagReader
 
 if float(sys.version[:3]) < 2.3:
     def enumerate(lst):
         return zip(range(len(lst)), lst)
-    
+        
 class SoftwareSearcher(object):
     def __init__(self, softwareList, purpose):
         self.softwareList = softwareList
@@ -419,7 +419,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             while i < n and line[i] in self.identchars: i = i+1
             cmd, arg = line[:i], line[i:].strip()
         if cmd.lower() in ('select', 'sleect', 'insert', 'update', 'delete', 'describe',
-                          'desc', 'comments') \
+                          'desc', 'comments', 'pull', 'refs', 'desc', 'triggers') \
             and not hasattr(self, 'curs'):
             print 'Not connected.'
             return '', '', ''
@@ -662,15 +662,23 @@ class sqlpyPlus(sqlpython.sqlpython):
         setattr(self, paramName.lower(), val)
         print 'now: ', val
 
+    pullflags = flagReader.FlagSet([flagReader.Flag('full')])	    
     def do_pull(self, arg):
         "Displays source code."
         
+        options, arg = self.pullflags.parse(arg)
         object_type, owner, object_name = self.resolve(arg.strip(self.terminator).upper())
         print "%s %s.%s" % (object_type, owner, object_name)
 	print self.curs.callfunc('DBMS_METADATA.GET_DDL', cx_Oracle.CLOB,
 				 [object_type, object_name, owner])
-	print self.curs.callfunc('DBMS_METADATA.GET_DEPENDENT_DDL', cx_Oracle.CLOB,
-				 [object_type, object_name, owner])
+	if options.has_key('full'):
+	    if object_type == 'TABLE':
+		dependent_types = ['TRIGGER']
+            else:
+		dependent_types = []
+            for dependent_type in dependent_types:		
+		print self.curs.callfunc('DBMS_METADATA.GET_DEPENDENT_DDL', cx_Oracle.CLOB,
+					 [dependent_type, object_name, owner])
 
     def do_describe(self, arg):
         "emulates SQL*Plus's DESCRIBE"
