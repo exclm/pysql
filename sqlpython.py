@@ -98,12 +98,12 @@ class sqlpython(cmd.Cmd):
         '''Sends a command to a Senora session (http://senora.sourceforge.net/)'''
         self.designated_session(arg, pexpecter.SenoraSession)
     do_sen = do_senora       
-        
+
     def default(self, arg, do_everywhere = False):
-        self.query = finishStatement(arg)
+        self.query = finishStatement(arg).strip().rstrip(';')
         try:
             self.curs.execute(self.query)
-            print '\nExecuted\n'
+            print '\nExecuted%s\n' % ((self.curs.rowcount > 0) and ' (%d rows)' % self.curs.rowcount or '')
             if do_everywhere:
                 self.fail(arg, do_everywhere = True )
         except Exception, e:
