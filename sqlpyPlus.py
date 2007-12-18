@@ -26,38 +26,6 @@ or with a python-like shorthand
 """
 # note in cmd.cmd about supporting emacs commands?
 
-pullQueries = {
-'PROCEDURE':("""
-text
-FROM   all_source
-WHERE  owner = :owner
-AND    name = :object_name
-""",),
-'PACKAGE':("""
-text
-FROM   all_source
-WHERE  owner = :owner
-AND    name = :object_name
-AND    type = 'PACKAGE_BODY'
-""",),
-'TYPE':("""
-text
-FROM   all_source
-WHERE  owner = :owner
-AND    name = :object_name
-AND    type = 'TYPE'
-""",
-"""
-text
-FROM   all_source
-WHERE  owner = :owner
-AND    name = :object_name
-AND    type = 'TYPE_BODY'
-""",)
-    }
-pullQueries['TRIGGER'] = pullQueries['PROCEDURE']
-pullQueries['FUNCTION'] = pullQueries['PROCEDURE']
-
 descQueries = {
 'TABLE': ("""
  atc.column_name,
@@ -188,6 +156,34 @@ JOIN all_col_comments acc ON (atc.owner = acc.owner and atc.table_name = acc.tab
 WHERE atc.table_name = :object_name
 AND      atc.owner = :owner
 ORDER BY atc.column_id;""",
+#thanks to Senora.pm for "refs"
+'refs': """
+       NULL               referenced_by, 
+       c2.table_name      references, 
+       c1.constraint_name constraint
+FROM
+       user_constraints c1,
+       user_constraints c2
+WHERE
+       c1.table_name = :object_name
+       and c1.constraint_type ='R'
+       and c1.r_constraint_name = c2.constraint_name
+       and c1.r_owner = c2.owner
+       and c1.owner = :owner
+UNION
+SELECT c1.table_name      referenced_by, 
+       NULL               references, 
+       c1.constraint_name constraint
+FROM
+       user_constraints c1,
+       user_constraints c2
+WHERE
+       c2.table_name = :object_name
+       and c1.constraint_type ='R'
+       and c1.r_constraint_name = c2.constraint_name
+       and c1.r_owner = c2.owner
+       and c1.owner = :owner       
+"""
 }
 
 import sys, os, re, sqlpython, cx_Oracle, pyparsing
@@ -369,7 +365,7 @@ class History(list):
             if getme < 0:
                 return self[:(-1 * getme)]
             else:
-                return self[getme-1]
+                return [self[getme-1]]
         except IndexError:
             return []
         except (ValueError, TypeError):
@@ -399,7 +395,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         self.failover = False
         self.multiline = '''select insert update delete tselect
         create drop alter'''.split()
-        self.excludeFromHistory = '''run r list l history hi ed'''.split()
+        self.excludeFromHistory = '''run r list l history hi ed li'''.split()
 
     def default(self, arg, do_everywhere=False):
         sqlpython.sqlpython.default(self, arg, do_everywhere)
@@ -464,10 +460,12 @@ class sqlpyPlus(sqlpython.sqlpython):
     
     def postcmd(self, stop, line):
         """Hook method executed just after a command dispatch is finished."""
-        command = line.split(None,1)[0].lower()
-        if command not in self.excludeFromHistory:
-            self.history.append(line)
-        return stop
+	try:
+	    command = line.split(None,1)[0].lower()
+	    if command not in self.excludeFromHistory:
+		self.history.append(line)
+	finally:
+	    return stop
     
     def onecmd_plus_hooks(self, line):                          
         line = self.precmd(line)
@@ -669,11 +667,9 @@ class sqlpyPlus(sqlpython.sqlpython):
         
         object_type, owner, object_name = self.resolve(arg.strip(self.terminator).upper())
         print "%s %s.%s" % (object_type, owner, object_name)
-        pullQ = pullQueries.get(object_type)
-        if pullQ:
-            for q in pullQ:
-                self.do_select(q,bindVarsIn={'object_name':object_name, 'owner':owner})
-    
+	print self.curs.callfunc('DBMS_METADATA.GET_DDL', cx_Oracle.CLOB,
+				 [object_type, object_name, owner])
+
     def do_describe(self, arg):
         "emulates SQL*Plus's DESCRIBE"
         object_type, owner, object_name = self.resolve(arg.strip(self.terminator).upper())
@@ -683,10 +679,11 @@ class sqlpyPlus(sqlpython.sqlpython):
             for q in descQ:
                 self.do_select(q,bindVarsIn={'object_name':object_name, 'owner':owner})
         elif object_type == 'PACKAGE':
-            self.curs.execute(descQueries['PackageObjects'], {'package_name':object_name, 'owner':owner})
-            for (packageObj_name,) in self.curs:
+            self.curs.execute(descQueries['PackageObjects'][0], {'package_name':object_name, 'owner':owner})
+	    packageContents = self.curs.fetchall()
+            for (packageObj_name,) in packageContents:
                 print packageObj_name
-                self.do_select(descQueries['PackageObjArgs'],bindVarsIn={'package_name':object_name, 'owner':owner, 'object_name':packageObj_name})
+                self.do_select(descQueries['PackageObjArgs'][0],bindVarsIn={'package_name':object_name, 'owner':owner, 'object_name':packageObj_name})
     do_desc = do_describe
     
     def do_comments(self, arg):
@@ -949,8 +946,8 @@ class sqlpyPlus(sqlpython.sqlpython):
         targets = arg.split()
         pattern = targets.pop(0)
         for target in targets:
+            target = target.rstrip(';')
             sql = []
-            print 'select * from %s where 1=0' % target
             try:
                 self.curs.execute('select * from %s where 1=0' % target)
                 sql = ' or '.join("%s LIKE '%%%s%%'" % (d[0], pattern) for d in self.curs.description)
@@ -960,6 +957,11 @@ class sqlpyPlus(sqlpython.sqlpython):
                 print e
                 import traceback
                 traceback.print_exc(file=sys.stdout)                
+
+    def do_refs(self, arg):
+        object_type, owner, object_name = self.resolve(arg.strip(self.terminator).upper())
+	if object_type == 'TABLE':
+	    self.do_select(queries['refs'],bindVarsIn={'object_name':object_name, 'owner':owner})
 
 def _test():
     import doctest
