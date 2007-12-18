@@ -669,6 +669,8 @@ class sqlpyPlus(sqlpython.sqlpython):
         print "%s %s.%s" % (object_type, owner, object_name)
 	print self.curs.callfunc('DBMS_METADATA.GET_DDL', cx_Oracle.CLOB,
 				 [object_type, object_name, owner])
+	print self.curs.callfunc('DBMS_METADATA.GET_DEPENDENT_DDL', cx_Oracle.CLOB,
+				 [object_type, object_name, owner])
 
     def do_describe(self, arg):
         "emulates SQL*Plus's DESCRIBE"
