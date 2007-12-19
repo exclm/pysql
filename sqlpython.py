@@ -8,18 +8,18 @@
 # Best used with the companion modules sqlpyPlus and mysqlpy 
 # See also http://twiki.cern.ch/twiki/bin/view/PSSGroup/SqlPython
 
-import cmd,getpass,binascii,cx_Oracle,re
+import cmd2,getpass,binascii,cx_Oracle,re
 import pexpecter
     
     # complication! separate sessions ->
     # separate transactions !!!!!
     # also: timeouts, other session failures
 	    
-class sqlpython(cmd.Cmd):
+class sqlpython(cmd2.Cmd):
     '''A python module to reproduce Oracle's command line with focus on customization and extention'''
 
     def __init__(self):
-        cmd.Cmd.__init__(self)
+        cmd2.Cmd.__init__(self)
         self.prompt = 'SQL.No_Connection> '
         self.maxfetch = 1000
         self.failoverSessions = []
