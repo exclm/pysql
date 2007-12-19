@@ -664,7 +664,7 @@ class sqlpyPlus(sqlpython.sqlpython):
 
     pullflags = flagReader.FlagSet([flagReader.Flag('full')])	    
     def do_pull(self, arg):
-        "Displays source code."
+        "Displays source code (pull -f to get dependent objects as well)."
         
         options, arg = self.pullflags.parse(arg)
         object_type, owner, object_name = self.resolve(arg.strip(self.terminator).upper())
@@ -672,13 +672,12 @@ class sqlpyPlus(sqlpython.sqlpython):
 	print self.curs.callfunc('DBMS_METADATA.GET_DDL', cx_Oracle.CLOB,
 				 [object_type, object_name, owner])
 	if options.has_key('full'):
-	    if object_type == 'TABLE':
-		dependent_types = ['TRIGGER']
-            else:
-		dependent_types = []
-            for dependent_type in dependent_types:		
-		print self.curs.callfunc('DBMS_METADATA.GET_DEPENDENT_DDL', cx_Oracle.CLOB,
-					 [dependent_type, object_name, owner])
+            for dependent_type in ('OBJECT_GRANT', 'CONSTRAINT', 'TRIGGER'):	
+		try:
+		    print self.curs.callfunc('DBMS_METADATA.GET_DEPENDENT_DDL', cx_Oracle.CLOB,
+		 			 [dependent_type, object_name, owner])
+		except cx_Oracle.DatabaseError:
+		    pass
 
     def do_describe(self, arg):
         "emulates SQL*Plus's DESCRIBE"
