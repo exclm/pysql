@@ -5,11 +5,11 @@ Multi-line commands
 Case-insensitive commands
 Special-character shortcut commands
 Load commands from file
+Settable environment parameters
 
 still to do:
-environment (maxrows, etc.)
 edit
-
+>
 """
 import cmd, re, os
 
@@ -20,7 +20,9 @@ class Cmd(cmd.Cmd):
     shortcuts = {'?': 'help', '!': 'shell', '@': 'load'}   
     excludeFromHistory = '''run r list l history hi ed li eof'''.split()   
     defaultExtension = 'txt'
-    settable = ['prompt', 'continuationPrompt']
+    defaultFileName = 'command.txt'
+    editor = os.environ.get('EDITOR') or ''
+    settable = ['prompt', 'continuationPrompt', 'defaultFileName', 'editor']
     terminators = ';\n'
     def do_cmdenvironment(self, args):
 	self.stdout.write("""
@@ -191,8 +193,38 @@ class Cmd(cmd.Cmd):
     do_l = do_list
     do_li = do_list
 	
-    def do_load(self, fname):
+    def do_ed(self, arg):
+        'ed [N]: brings up SQL from N commands ago in text editor, and puts result in SQL buffer.'
+	if not self.editor:
+	    self.do_show('editor')
+	    return
+        buffer = self.last_matching(arg)
+        if not buffer:
+            print 'Nothing appropriate in buffer to edit.'
+            return
+        f = open(self.defaultFileName, 'w')
+        f.write(buffer)
+        f.close()
+	os.system('%s %s' % (self.editor, self.defaultFileName))
+        self.load(self.defaultFileName)
+    do_edit = do_ed
+    
+    def do_save(self, fname=None):
+	"""Saves most recent command to a file."""
+	
+	if fname is None:
+	    fname = self.defaultFileName
+        try:
+            f = open(fname, 'w')
+            f.write(self.history[-1])
+            f.close()
+        except Exception, e:
+            print 'Error saving %s: %s' % (fname, str(e))
+	    
+    def do_load(self, fname=None):
         """Runs command(s) from a file."""
+	if fname is None:
+	    fname = self.defaultFileName	
 	keepstate = Statekeeper(self, ('stdin','use_rawinput','prompt','continuationPrompt'))
 	try:
 	    self.stdin = open(fname, 'r')

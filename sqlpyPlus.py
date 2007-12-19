@@ -695,19 +695,6 @@ class sqlpyPlus(sqlpython.sqlpython):
         self.onecmd_plus_hooks(runme)
     do_r = do_run
 
-    def do_ed(self, arg):
-        'ed [N]: brings up SQL from N commands ago in text editor, and puts result in SQL buffer.'
-        fname = 'sqlpython_temp.sql'
-        buffer = self.last_matching(arg)
-        if not buffer:
-            print 'Nothing appropriate in buffer to edit.'
-            return
-        f = open(fname, 'w')
-        f.write(buffer)
-        f.close()
-        editSearcher.invoke(fname)
-        self.load(fname)
-    do_edit = do_ed
     def do_get(self, fname):
         'Brings SQL commands from a file to the in-memory SQL buffer.'
         numCommandsLoaded = self.load(fname)
@@ -747,14 +734,6 @@ class sqlpyPlus(sqlpython.sqlpython):
             self.onecmd('q')
         except KeyError:
             print 'psql command \%s not yet supported.' % abbrev        
-    def do_save(self, fname):
-        'save FILENAME: Saves most recent SQL command to disk.'
-        try:
-            f = open(fname, 'w')
-            f.write(self.sqlBuffer[-1])
-            f.close()
-        except Exception, e:
-            print 'Error saving %s: %s' % (fname, str(e))
         
     def do_print(self, arg):
         'print VARNAME: Show current value of bind variable VARNAME.'
