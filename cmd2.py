@@ -172,6 +172,8 @@ class Cmd(cmd.Cmd):
 	self.stdin.close()
 	self.stdin = stdin
 	self.use_rawinput = use_rawinput
+	self.stdin.flush()
+	self.lastcmd = ''
 
 class HistoryItem(str):
     def __init__(self, instr):
