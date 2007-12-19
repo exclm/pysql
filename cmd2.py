@@ -20,8 +20,8 @@ class Cmd(cmd.Cmd):
     shortcuts = {'?': 'help', '!': 'shell', '@': 'load'}   
     excludeFromHistory = '''run r list l history hi ed li eof'''.split()   
     defaultExtension = 'txt'
-    settable = []
-    terminators = r';\n'
+    settable = ['prompt', 'continuationPrompt']
+    terminators = ';\n'
     def do_cmdenvironment(self, args):
 	self.stdout.write("""
 	Commands are %(casesensitive)scase-sensitive.
@@ -94,7 +94,7 @@ class Cmd(cmd.Cmd):
 	return True
     do_eof = do_EOF
     
-    statementEndPattern = re.compile(r'[%s]\s*$' % self.terminators)	
+    statementEndPattern = re.compile(r'[%s]\s*$' % terminators)	
     def statementHasEnded(self, lines):
 	return bool(self.statementEndPattern.search(lines))
 	       
@@ -117,7 +117,7 @@ class Cmd(cmd.Cmd):
 	    line = '%s %s' % (shortcut, line[1:])
         i, n = 0, len(line)
         while i < n and line[i] in self.identchars: i = i+1
-        cmd, arg = line[:i], line[i:].strip()
+        cmd, arg = line[:i], line[i:].strip().strip(self.terminators)
         return cmd, arg, line
     
     def showParam(self, param):
@@ -133,22 +133,6 @@ class Cmd(cmd.Cmd):
         else:
             for param in self.settable:
                 self.showParam(param)
-		
-    def cast(self, current, new):
-        typ = type(current)
-        if typ == bool:
-            new = new.lower()            
-            try:
-                if (new=='on') or (new[0] in ('y','t')):
-                    return True
-                return False
-            except TypeError:
-                None
-        try:
-            return typ(new)
-        except:
-            print "Problem setting parameter (now %s) to %s; incorrect type?" % (current, new)
-            return current
     
     def do_set(self, arg):
         'Sets a parameter'        
@@ -158,10 +142,10 @@ class Cmd(cmd.Cmd):
 	    if paramName not in self.settable:
 		raise NotSettableError	    		
 	    currentVal = getattr(self, paramName)
-	    val = self.cast(currentVal, val.strip(self.terminators))
+	    val = cast(currentVal, val.strip(self.terminators))
 	    setattr(self, paramName, val)
-	    self.stdout.write(paramName, ' - was: %s\nnow: %s\n' % (currentVal, val))
-        except ValueError, AttributeError, NotSettableError:
+	    self.stdout.write('%s - was: %s\nnow: %s\n' % (paramName, currentVal, val))
+        except (ValueError, AttributeError, NotSettableError):
             self.do_show(arg)
 		
     def do_shell(self, arg):
@@ -206,15 +190,6 @@ class Cmd(cmd.Cmd):
     do_hi = do_history
     do_l = do_list
     do_li = do_list
-    
-    def breakupStatements(self, txt):
-	"""takes text that may include multiple statements and 
-	breaks it into a list of individual statements."""
-	result = ['']
-	for line in txt.splitlines():
-	    result[-1] += line
-	    if self.statementHasEnded(result[-1]):
-		result.append('')
 	
     def do_load(self, fname):
         """Runs command(s) from a file."""
@@ -276,6 +251,30 @@ class History(list):
 
 class NotSettableError(Exception):
     None    
+	
+def cast(current, new):
+    """Tries to force a new value into the same type as the current."""
+    typ = type(current)
+    print type(new)
+    if typ == bool:
+	new = new.lower()    
+	print new
+	try:
+	    print new == 'on'
+	    if (new=='on') or (new[0] in ('y','t')):
+		return True
+	    try:
+		return bool(int(new))
+	    except ValueError:
+		pass
+	    return False
+	except TypeError:
+	    pass
+    try:
+	return typ(new)
+    except:
+	print "Problem setting parameter (now %s) to %s; incorrect type?" % (current, new)
+	return current
 	
 class Statekeeper(object):
     def __init__(self, obj, attribs):

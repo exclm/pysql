@@ -547,57 +547,6 @@ class sqlpyPlus(sqlpython.sqlpython):
             traceback.print_exc(file=sys.stdout)
         self.sqlBuffer.append(self.query)
 
-    def showParam(self, param):
-        param = param.strip().lower()
-        if param in self.settable:
-            val = getattr(self, param)
-            print '%s: %s' % (param, str(getattr(self, param)))
-
-    def do_show(self, arg):
-        'Shows value of a (sqlpython, not ORACLE) parameter'
-        arg = arg.strip().lower()
-        if arg:
-            self.showParam(arg)
-        else:
-            for param in self.settable:
-                self.showParam(param)
-
-    def cast(self, current, new):
-        typ = type(current)
-        if typ == bool:
-            new = new.lower()            
-            try:
-                if (new=='on') or (new[0] in ('y','t')):
-                    return True
-                return False
-            except TypeError:
-                None
-        try:
-            return typ(new)
-        except:
-            print "Problem setting parameter (now %s) to %s; incorrect type?" % (current, new)
-            return current
-    
-    def do_set(self, arg):
-        'Sets a (sqlpython, not ORACLE) parameter'        
-        try:
-            paramName, val = arg.split(None, 1)
-        except Exception:
-            self.do_show(arg)
-            return
-        paramName = paramName.lower()
-        try:
-            current = getattr(self, paramName)
-            if callable(current):
-                raise NotSettableError
-        except (AttributeError, NotSettableError):
-            self.fail('set %s' % arg)
-            return
-        val = self.cast(current, val.strip(';'))
-        print paramName, ' - was: ', current
-        setattr(self, paramName.lower(), val)
-        print 'now: ', val
-
     pullflags = flagReader.FlagSet([flagReader.Flag('full')])	    
     def do_pull(self, arg):
         """Displays source code.
