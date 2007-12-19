@@ -299,9 +299,6 @@ class CaselessDict(dict):
         return d
     def pop(self, key, def_val=None):
         return dict.pop(self, key.lower(), def_val)
-    
-class NotSettableError(Exception):
-    None
 
 class Parser(object):
     comment_def = "--" + pyparsing.ZeroOrMore(pyparsing.CharsNotIn("\n"))    

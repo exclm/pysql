@@ -4,6 +4,7 @@ Searchable command history
 Multi-line commands
 Case-insensitive commands
 Special-character shortcut commands
+Load commands from file
 
 still to do:
 environment (maxrows, etc.)
@@ -12,18 +13,6 @@ edit
 """
 import cmd, re, os
 
-class Statekeeper(object):
-    def __init__(self, obj, attribs):
-	self.obj = obj
-	self.attribs = attribs
-	self.save()
-    def save(self):
-	for attrib in self.attribs:
-	    setattr(self, attrib, getattr(self.obj, attrib))
-    def restore(self):
-	for attrib in self.attribs:
-	    setattr(self.obj, attrib, getattr(self, attrib))
-	    
 class Cmd(cmd.Cmd):
     caseInsensitive = True
     multilineCommands = []
@@ -31,6 +20,19 @@ class Cmd(cmd.Cmd):
     shortcuts = {'?': 'help', '!': 'shell', '@': 'load'}   
     excludeFromHistory = '''run r list l history hi ed li eof'''.split()   
     defaultExtension = 'txt'
+    settable = []
+    terminators = r';\n'
+    def do_cmdenvironment(self, args):
+	self.stdout.write("""
+	Commands are %(casesensitive)scase-sensitive.
+	Commands may be terminated with: %(terminators)s
+	Settable parameters: %(settable)s
+	""" % 
+        { 'casesensitive': 'not ' if self.caseInsensitive else '',
+	  'terminators': ' '.join(self.terminators),
+	  'settable': ' '.join(self.settable)
+	})
+	
     def __init__(self, *args, **kwargs):	
         cmd.Cmd.__init__(self, *args, **kwargs)
         self.history = History()
@@ -92,12 +94,16 @@ class Cmd(cmd.Cmd):
 	return True
     do_eof = do_EOF
     
-    statementEndPattern = re.compile(r'[\n;]\s*$')	
+    statementEndPattern = re.compile(r'[%s]\s*$' % self.terminators)	
     def statementHasEnded(self, lines):
-	"""This version lets statements end with ; or with a blank line.
-	Override for your own needs."""
 	return bool(self.statementEndPattern.search(lines))
 	       
+    def clean(self, s):
+	"""cleans up a string"""
+	if self.caseInsensitive:
+	    return s.strip().lower()
+	return s.strip()
+    
     def parseline(self, line):
         """Parse the line into a command name and a string containing
         the arguments.  Returns a tuple containing (command, args, line).
@@ -114,6 +120,50 @@ class Cmd(cmd.Cmd):
         cmd, arg = line[:i], line[i:].strip()
         return cmd, arg, line
     
+    def showParam(self, param):
+        param = self.clean(param)
+        if param in self.settable:
+            val = getattr(self, param)
+            self.stdout.write('%s: %s\n' % (param, str(getattr(self, param))))
+
+    def do_show(self, arg):
+        'Shows value of a parameter'
+        if arg.strip():
+            self.showParam(arg)
+        else:
+            for param in self.settable:
+                self.showParam(param)
+		
+    def cast(self, current, new):
+        typ = type(current)
+        if typ == bool:
+            new = new.lower()            
+            try:
+                if (new=='on') or (new[0] in ('y','t')):
+                    return True
+                return False
+            except TypeError:
+                None
+        try:
+            return typ(new)
+        except:
+            print "Problem setting parameter (now %s) to %s; incorrect type?" % (current, new)
+            return current
+    
+    def do_set(self, arg):
+        'Sets a parameter'        
+        try:
+            paramName, val = arg.split(None, 1)
+	    paramName = self.clean(paramName)
+	    if paramName not in self.settable:
+		raise NotSettableError	    		
+	    currentVal = getattr(self, paramName)
+	    val = self.cast(currentVal, val.strip(self.terminators))
+	    setattr(self, paramName, val)
+	    self.stdout.write(paramName, ' - was: %s\nnow: %s\n' % (currentVal, val))
+        except ValueError, AttributeError, NotSettableError:
+            self.do_show(arg)
+		
     def do_shell(self, arg):
         'execute a command as if at the OS prompt.'
         os.system(arg)
@@ -224,5 +274,17 @@ class History(list):
                     return (getme.lower() in hi.lowercase)
             return [itm for itm in self if isin(itm)]
 
-    
+class NotSettableError(Exception):
+    None    
 	
+class Statekeeper(object):
+    def __init__(self, obj, attribs):
+	self.obj = obj
+	self.attribs = attribs
+	self.save()
+    def save(self):
+	for attrib in self.attribs:
+	    setattr(self, attrib, getattr(self.obj, attrib))
+    def restore(self):
+	for attrib in self.attribs:
+	    setattr(self.obj, attrib, getattr(self, attrib))	
