@@ -85,14 +85,12 @@ class Cmd(cmd.Cmd):
 	# but statementHasEnded needs a string arg; anyway, we're getting
 	# user input and users are slow.
 	
+    statementEndPattern = re.compile(r'[\n;]\s*$')	
     def statementHasEnded(self, lines):
 	"""This version lets statements end with ; or with a blank line.
 	Override for your own needs."""
-	print '>%s<' % (lines.splitlines()[-1])
-	if not lines.splitlines()[-1].strip():
-	    return True
-        return (lines.strip()[-1] == ';') 
-	
+	return bool(self.statementEndPattern.search(lines))
+	       
     def do_history(self, arg):
         """history [arg]: lists past commands issued
         
