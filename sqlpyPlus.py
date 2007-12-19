@@ -419,7 +419,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             while i < n and line[i] in self.identchars: i = i+1
             cmd, arg = line[:i], line[i:].strip()
         if cmd.lower() in ('select', 'sleect', 'insert', 'update', 'delete', 'describe',
-                          'desc', 'comments', 'pull', 'refs', 'desc', 'triggers') \
+                          'desc', 'comments', 'pull', 'refs', 'desc', 'triggers', 'find') \
             and not hasattr(self, 'curs'):
             print 'Not connected.'
             return '', '', ''
@@ -664,7 +664,9 @@ class sqlpyPlus(sqlpython.sqlpython):
 
     pullflags = flagReader.FlagSet([flagReader.Flag('full')])	    
     def do_pull(self, arg):
-        "Displays source code (pull -f to get dependent objects as well)."
+        """Displays source code.
+	
+	--full, -f: get dependent objects as well"""
         
         options, arg = self.pullflags.parse(arg)
         object_type, owner, object_name = self.resolve(arg.strip(self.terminator).upper())
@@ -679,6 +681,21 @@ class sqlpyPlus(sqlpython.sqlpython):
 		except cx_Oracle.DatabaseError:
 		    pass
 
+    findflags = flagReader.FlagSet([flagReader.Flag('insensitive')])	    
+    def do_find(self, arg):
+	"""Finds argument in source code.
+	
+	--insensitive, -i: case-insensitive search"""
+
+        options, arg = self.findflags.parse(arg)
+	if options.has_key('insensitive'):
+	    searchfor = "LOWER(text)"
+	    arg = arg.lower()
+	else:
+	    searchfor = "text"
+        print "* from all_source where %s like %%%s%%" % (searchfor, arg)	    
+	self.do_select("* from all_source where %s like '%%%s%%'" % (searchfor, arg))
+	
     def do_describe(self, arg):
         "emulates SQL*Plus's DESCRIBE"
         object_type, owner, object_name = self.resolve(arg.strip(self.terminator).upper())
