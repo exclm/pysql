@@ -17,7 +17,7 @@ class Cmd(cmd.Cmd):
     multilineCommands = []
     continuationPrompt = '> '    
     shortcuts = {'?': 'help', '!': 'shell', '@': 'load'}   
-    excludeFromHistory = '''run r list l history hi ed li'''.split()   
+    excludeFromHistory = '''run r list l history hi ed li eof'''.split()   
     defaultExtension = 'txt'
     def __init__(self, *args, **kwargs):	
         cmd.Cmd.__init__(self, *args, **kwargs)
@@ -76,6 +76,10 @@ class Cmd(cmd.Cmd):
 		line = line[:-1] # chop \n
 	return line
 			    
+    def do_EOF(self, arg):
+	return True
+    do_eof = do_EOF
+    
     statementEndPattern = re.compile(r'[\n;]\s*$')	
     def statementHasEnded(self, lines):
 	"""This version lets statements end with ; or with a blank line.
@@ -164,7 +168,6 @@ class Cmd(cmd.Cmd):
                 return 	    
 	use_rawinput = self.use_rawinput
 	self.use_rawinput = False
-	print 'stdin = ' + str(self.stdin)
 	self.cmdloop()
 	self.stdin.close()
 	self.stdin = stdin
