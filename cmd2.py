@@ -12,6 +12,18 @@ edit
 """
 import cmd, re, os
 
+class Statekeeper(object):
+    def __init__(self, obj, attribs):
+	self.obj = obj
+	self.attribs = attribs
+	self.save()
+    def save(self):
+	for attrib in self.attribs:
+	    setattr(self, attrib, getattr(self.obj, attrib))
+    def restore(self):
+	for attrib in self.attribs:
+	    setattr(self.obj, attrib, getattr(self, attrib))
+	    
 class Cmd(cmd.Cmd):
     caseInsensitive = True
     multilineCommands = []
@@ -156,25 +168,22 @@ class Cmd(cmd.Cmd):
 	
     def do_load(self, fname):
         """Runs command(s) from a file."""
-	stdin = self.stdin
+	keepstate = Statekeeper(self, ('stdin','use_rawinput','prompt','continuationPrompt'))
 	try:
 	    self.stdin = open(fname, 'r')
         except IOError, e:
             try:
                 self.stdin = open('%s.%s' % (fname, self.defaultExtension), 'r')
-            except:
+		self.use_rawinput = False
+		self.prompt = self.continuationPrompt = ''
+		self.cmdloop()
+		self.stdin.close()
+		self.lastcmd = ''		
+            except IOError:
                 print 'Problem opening file %s: \n%s' % (fname, e)
-		self.stdin = stdin
-                return 	    
-	use_rawinput = self.use_rawinput
-	self.use_rawinput = False
-	self.cmdloop()
-	self.stdin.close()
-	self.stdin = stdin
-	self.use_rawinput = use_rawinput
-	self.stdin.flush()
-	self.lastcmd = ''
-
+        finally:	
+	    keepstate.restore()
+	    
 class HistoryItem(str):
     def __init__(self, instr):
         str.__init__(self, instr)
