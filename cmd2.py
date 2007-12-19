@@ -4,15 +4,21 @@ Searchable command history
 Multi-line commands
 Case-insensitive commands
 Special-character shortcut commands
+
+still to do:
+environment (maxrows, etc.)
+edit
+
 """
 import cmd, re, os
 
 class Cmd(cmd.Cmd):
-    excludeFromHistory = '''run r list l history hi ed li'''.split()
     caseInsensitive = True
     multilineCommands = []
     continuationPrompt = '> '    
-    shortcuts = {'?': 'help', '!': 'shell'}    
+    shortcuts = {'?': 'help', '!': 'shell', '@': 'load'}   
+    excludeFromHistory = '''run r list l history hi ed li'''.split()   
+    defaultExtension = 'txt'
     def __init__(self, *args, **kwargs):	
         cmd.Cmd.__init__(self, *args, **kwargs)
         self.history = History()
@@ -46,12 +52,30 @@ class Cmd(cmd.Cmd):
     def finishStatement(self, firstline):
 	statement = firstline
 	while not self.statementHasEnded(statement):
-	    statement = '%s\n%s' % (statement, raw_input(self.continuationPrompt))
+	    statement = '%s\n%s' % (statement, self.pseudo_raw_input(self.continuationPrompt))
 	return statement
 	# assembling a list of lines and joining them at the end would be faster, 
 	# but statementHasEnded needs a string arg; anyway, we're getting
 	# user input and users are slow.
 	
+    def pseudo_raw_input(self, prompt):
+	"""copied from cmd's cmdloop; like raw_input, but accounts for changed stdin, stdout"""
+	
+	if self.use_rawinput:
+	    try:
+		line = raw_input(prompt)
+	    except EOFError:
+		line = 'EOF'
+	else:
+	    self.stdout.write(prompt)
+	    self.stdout.flush()
+	    line = self.stdin.readline()
+	    if not len(line):
+		line = 'EOF'
+	    else:
+		line = line[:-1] # chop \n
+	return line
+			    
     statementEndPattern = re.compile(r'[\n;]\s*$')	
     def statementHasEnded(self, lines):
 	"""This version lets statements end with ; or with a blank line.
@@ -91,7 +115,7 @@ class Cmd(cmd.Cmd):
         else:
             history = self.history
         for hi in history:
-            hi.pr()
+            self.stdout.write(hi.pr())
     def last_matching(self, arg):
         try:
             if arg:
@@ -110,12 +134,41 @@ class Cmd(cmd.Cmd):
         arg is /enclosed in forward-slashes/ -> regular expression search
         """
         try:
-            self.last_matching(arg).pr()
+            self.stdout.write(self.last_matching(arg).pr())
         except:
             pass
     do_hi = do_history
     do_l = do_list
     do_li = do_list
+    
+    def breakupStatements(self, txt):
+	"""takes text that may include multiple statements and 
+	breaks it into a list of individual statements."""
+	result = ['']
+	for line in txt.splitlines():
+	    result[-1] += line
+	    if self.statementHasEnded(result[-1]):
+		result.append('')
+	
+    def do_load(self, fname):
+        """Runs command(s) from a file."""
+	stdin = self.stdin
+	try:
+	    self.stdin = open(fname, 'r')
+        except IOError, e:
+            try:
+                self.stdin = open('%s.%s' % (fname, self.defaultExtension), 'r')
+            except:
+                print 'Problem opening file %s: \n%s' % (fname, e)
+		self.stdin = stdin
+                return 	    
+	use_rawinput = self.use_rawinput
+	self.use_rawinput = False
+	print 'stdin = ' + str(self.stdin)
+	self.cmdloop()
+	self.stdin.close()
+	self.stdin = stdin
+	self.use_rawinput = use_rawinput
 
 class HistoryItem(str):
     def __init__(self, instr):
@@ -123,8 +176,7 @@ class HistoryItem(str):
         self.lowercase = self.lower()
         self.idx = None
     def pr(self):
-        print '-------------------------[%d]' % (self.idx)
-        print self
+	return '-------------------------[%d]\n%s\n' % (self.idx, str(self))
         
 class History(list):
     rangeFrom = re.compile(r'^([\d])+\s*\-$')

@@ -342,6 +342,9 @@ def findBinds(target, existingBinds, givenBindVars = {}):
     return result
         
 class sqlpyPlus(sqlpython.sqlpython):
+    defaultExtension = 'sql'
+    multilineCommands = '''select insert update delete tselect
+        create drop alter'''.split()
     def __init__(self):
         sqlpython.sqlpython.__init__(self)
         self.binds = CaselessDict()
@@ -351,9 +354,6 @@ class sqlpyPlus(sqlpython.sqlpython):
         self.spoolFile = None
         self.autobind = False
         self.failover = False
-        self.multiline = '''select insert update delete tselect
-        create drop alter'''.split()
-
     def default(self, arg, do_everywhere=False):
         sqlpython.sqlpython.default(self, arg, do_everywhere)
         self.sqlBuffer.append(self.query)            
@@ -749,21 +749,6 @@ class sqlpyPlus(sqlpython.sqlpython):
         self.onecmd_plus_hooks(runme)
     do_r = do_run
 
-    def load(self, fname):
-        """Pulls command(s) into sql buffer.  Returns number of commands loaded."""
-        try:
-            f = open(fname, 'r')
-        except IOError, e:
-            try:
-                f = open('%s.sql' % fname, 'r')
-            except:
-                print 'Problem opening file %s: \n%s' % (fname, e)
-                return 0
-        txt = f.read()
-        f.close()
-        result = commandSeparator.separate(txt)
-        self.history.extend(result) 
-        return len(result)
     def do_ed(self, arg):
         'ed [N]: brings up SQL from N commands ago in text editor, and puts result in SQL buffer.'
         fname = 'sqlpython_temp.sql'
