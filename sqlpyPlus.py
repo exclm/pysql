@@ -693,7 +693,6 @@ class sqlpyPlus(sqlpython.sqlpython):
 	    arg = arg.lower()
 	else:
 	    searchfor = "text"
-        print "* from all_source where %s like %%%s%%" % (searchfor, arg)	    
 	self.do_select("* from all_source where %s like '%%%s%%'" % (searchfor, arg))
 	
     def do_describe(self, arg):
