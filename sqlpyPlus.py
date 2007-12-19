@@ -365,19 +365,11 @@ class sqlpyPlus(sqlpython.sqlpython):
         the arguments.  Returns a tuple containing (command, args, line).
         'command' and 'args' may be None if the line couldn't be parsed.	
         Overrides cmd.cmd.parseline to accept variety of shortcuts.."""
-        line = line.strip()
-        if not line:
-            return None, None, line
-        shortcut = self.shortcuts.get(line[0])
-        if shortcut:
-            cmd, arg = shortcut, line[1:].strip()
-        else:
-            i, n = 0, len(line)
-            while i < n and line[i] in self.identchars: i = i+1
-            cmd, arg = line[:i], line[i:].strip()
-        if cmd.lower() in ('select', 'sleect', 'insert', 'update', 'delete', 'describe',
+	
+	cmd, arg. line = sqlpython.parseline(self, line)
+        if cmd in ('select', 'sleect', 'insert', 'update', 'delete', 'describe',
                           'desc', 'comments', 'pull', 'refs', 'desc', 'triggers', 'find') \
-            and not hasattr(self, 'curs'):
+	       and not hasattr(self, 'curs'):
             print 'Not connected.'
             return '', '', ''
         return cmd, arg, line
@@ -425,7 +417,6 @@ class sqlpyPlus(sqlpython.sqlpython):
         (i.e. '!dir' is equivalent to 'shell dir')"""
         for (scchar, scto) in self.shortcuts.items():
             print '%s: %s' % (scchar, scto)
-
 
     def colnames(self):
         return [d[0] for d in curs.description]
@@ -688,10 +679,6 @@ class sqlpyPlus(sqlpython.sqlpython):
 
     def do_resolve(self, arg):
         print self.resolve(arg)
-        
-    def do_shell(self, arg):
-        'execute a command as if at the OS prompt.'
-        os.system(arg)
         
     def spoolstop(self):
         if self.spoolFile:

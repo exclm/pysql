@@ -1,51 +1,18 @@
-import cmd, re
+"""Variant on standard library's cmd with extra features:
 
-class HistoryItem(str):
-    def __init__(self, instr):
-        str.__init__(self, instr)
-        self.lowercase = self.lower()
-        self.idx = None
-    def pr(self):
-        print '-------------------------[%d]' % (self.idx)
-        print self
-        
-class History(list):
-    rangeFrom = re.compile(r'^([\d])+\s*\-$')
-    def append(self, new):
-        new = HistoryItem(new)
-        list.append(self, new)
-        new.idx = len(self)
-    def extend(self, new):
-        for n in new:
-            self.append(n)
-    def get(self, getme):
-        try:
-            getme = int(getme)
-            if getme < 0:
-                return self[:(-1 * getme)]
-            else:
-                return [self[getme-1]]
-        except IndexError:
-            return []
-        except (ValueError, TypeError):
-            getme = getme.strip()
-            mtch = self.rangeFrom.search(getme)
-            if mtch:
-                return self[(int(mtch.group(1))-1):]
-            if getme.startswith(r'/') and getme.endswith(r'/'):
-                finder = re.compile(getme[1:-1], re.DOTALL | re.MULTILINE | re.IGNORECASE)
-                def isin(hi):
-                    return finder.search(hi)
-            else:
-                def isin(hi):
-                    return (getme.lower() in hi.lowercase)
-            return [itm for itm in self if isin(itm)]
+Searchable command history
+Multi-line commands
+Case-insensitive commands
+Special-character shortcut commands
+"""
+import cmd, re, os
 
 class Cmd(cmd.Cmd):
     excludeFromHistory = '''run r list l history hi ed li'''.split()
     caseInsensitive = True
     multilineCommands = []
     continuationPrompt = '> '    
+    shortcuts = {'?': 'help', '!': 'shell'}    
     def __init__(self, *args, **kwargs):	
         cmd.Cmd.__init__(self, *args, **kwargs)
         self.history = History()
@@ -91,6 +58,26 @@ class Cmd(cmd.Cmd):
 	Override for your own needs."""
 	return bool(self.statementEndPattern.search(lines))
 	       
+    def parseline(self, line):
+        """Parse the line into a command name and a string containing
+        the arguments.  Returns a tuple containing (command, args, line).
+        'command' and 'args' may be None if the line couldn't be parsed.
+        """
+        line = line.strip()
+        if not line:
+            return None, None, line
+	shortcut = self.shortcuts.get(line[0])
+	if shortcut and hasattr(self, 'do_%s' % shortcut):
+	    line = '%s %s' % (shortcut, line[1:])
+        i, n = 0, len(line)
+        while i < n and line[i] in self.identchars: i = i+1
+        cmd, arg = line[:i], line[i:].strip()
+        return cmd, arg, line
+    
+    def do_shell(self, arg):
+        'execute a command as if at the OS prompt.'
+        os.system(arg)
+	
     def do_history(self, arg):
         """history [arg]: lists past commands issued
         
@@ -129,6 +116,47 @@ class Cmd(cmd.Cmd):
     do_hi = do_history
     do_l = do_list
     do_li = do_list
-    
+
+class HistoryItem(str):
+    def __init__(self, instr):
+        str.__init__(self, instr)
+        self.lowercase = self.lower()
+        self.idx = None
+    def pr(self):
+        print '-------------------------[%d]' % (self.idx)
+        print self
+        
+class History(list):
+    rangeFrom = re.compile(r'^([\d])+\s*\-$')
+    def append(self, new):
+        new = HistoryItem(new)
+        list.append(self, new)
+        new.idx = len(self)
+    def extend(self, new):
+        for n in new:
+            self.append(n)
+    def get(self, getme):
+        try:
+            getme = int(getme)
+            if getme < 0:
+                return self[:(-1 * getme)]
+            else:
+                return [self[getme-1]]
+        except IndexError:
+            return []
+        except (ValueError, TypeError):
+            getme = getme.strip()
+            mtch = self.rangeFrom.search(getme)
+            if mtch:
+                return self[(int(mtch.group(1))-1):]
+            if getme.startswith(r'/') and getme.endswith(r'/'):
+                finder = re.compile(getme[1:-1], re.DOTALL | re.MULTILINE | re.IGNORECASE)
+                def isin(hi):
+                    return finder.search(hi)
+            else:
+                def isin(hi):
+                    return (getme.lower() in hi.lowercase)
+            return [itm for itm in self if isin(itm)]
+
     
 	
