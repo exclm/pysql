@@ -88,6 +88,7 @@ class Cmd(cmd.Cmd):
     def statementHasEnded(self, lines):
 	"""This version lets statements end with ; or with a blank line.
 	Override for your own needs."""
+	print '>%s<' % (lines.splitlines()[-1])
 	if not lines.splitlines()[-1].strip():
 	    return True
         return (lines.strip()[-1] == ';') 
