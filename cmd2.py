@@ -42,10 +42,30 @@ class History(list):
             return [itm for itm in self if isin(itm)]
 
 class Cmd(cmd.Cmd):
-    def __init__(self, *args, **kwargs):
+    excludeFromHistory = '''run r list l history hi ed li'''.split()
+    caseInsensitive = True
+    multilineCommands = []
+    continuationPrompt = '> '    
+    def __init__(self, *args, **kwargs):	
         cmd.Cmd.__init__(self, *args, **kwargs)
         self.history = History()
-        self.excludeFromHistory = '''run r list l history hi ed li'''.split()
+	
+    def precmd(self, line):
+        """Hook method executed just before the command line is
+        interpreted, but after the input prompt is generated and issued.
+        
+        Makes commands case-insensitive (but unfortunately does not alter command completion).
+        """
+        try:
+            (command, args) = line.split(None,1)
+	except ValueError:
+	    (command, args) = line, ''
+	if self.caseInsensitive:
+	    command = command.lower()
+	statement = ' '.join([command, args])
+	if (not self.multilineCommands) or (command not in self.multilineCommands):
+	    return statement
+	return self.finishStatement(statement)
 
     def postcmd(self, stop, line):
         """Hook method executed just after a command dispatch is finished."""
@@ -55,6 +75,22 @@ class Cmd(cmd.Cmd):
 		self.history.append(line)
 	finally:
 	    return stop
+	
+    def finishStatement(self, firstline):
+	statement = firstline
+	while not self.statementHasEnded(statement):
+	    statement = '%s\n%s' % (statement, raw_input(self.continuationPrompt))
+	return statement
+	# assembling a list of lines and joining them at the end would be faster, 
+	# but statementHasEnded needs a string arg; anyway, we're getting
+	# user input and users are slow.
+	
+    def statementHasEnded(self, lines):
+	"""This version lets statements end with ; or with a blank line.
+	Override for your own needs."""
+	if not lines.splitlines()[-1].strip():
+	    return True
+        return (lines.strip()[-1] == ';') 
 	
     def do_history(self, arg):
         """history [arg]: lists past commands issued
@@ -94,4 +130,6 @@ class Cmd(cmd.Cmd):
     do_hi = do_history
     do_l = do_list
     do_li = do_list
+    
+    
 	
