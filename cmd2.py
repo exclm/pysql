@@ -255,6 +255,7 @@ class Cmd(cmd.Cmd):
 	    print "please use 'set editor' to specify your text editing program of choice."
 	    return
 	filename = self.defaultFileName
+	buffer = ''
 	try:
 	    arg = int(arg)
 	    buffer = self.last_matching(arg)
@@ -263,10 +264,12 @@ class Cmd(cmd.Cmd):
 		filename = arg
 	    else:
 		buffer = self.last_matching(arg)
-		f = open(filename, 'w')
-		f.write(buffer or '')
-		f.close()		
 
+	if buffer:
+	    f = open(filename, 'w')
+	    f.write(buffer or '')
+	    f.close()	
+		
 	os.system('%s %s' % (self.editor, filename))
         self.do_load(self.filename)
     do_edit = do_ed
