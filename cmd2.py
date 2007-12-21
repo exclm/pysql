@@ -1,14 +1,17 @@
-"""Variant on standard library's cmd with extra features:
+"""Variant on standard library's cmd with extra features.
 
-Searchable command history
+To use, simply override cmd2.Cmd instead of cmd.Cmd; use precisely as though you
+were using the standard library's cmd, while enjoying the extra features.
+
+Searchable command history (commands: "hi", "li", "run")
+Load commands from file, save to file, edit commands in file
 Multi-line commands
 Case-insensitive commands
-Special-character shortcut commands
-Load commands from file
+Special-character shortcut commands (beyond cmd's "@" and "!")
 Settable environment parameters
 
 todo:
-edit spits eof
+edited commands end with "EOF".  Hmm.
 flags
 >
 """
@@ -243,16 +246,29 @@ class Cmd(cmd.Cmd):
     do_li = do_list
 	
     def do_ed(self, arg):
-        'ed [N]: brings up SQL from N commands ago in text editor, and puts result in SQL buffer.'
+        """ed: edit most recent command in text editor
+        ed [N]: edit numbered command from history
+	ed [filename]: edit specified file name
+	
+	commands are run after editor is closed."""
 	if not self.editor:
 	    print "please use 'set editor' to specify your text editing program of choice."
 	    return
-        buffer = self.last_matching(arg)
-        f = open(self.defaultFileName, 'w')
-        f.write(buffer or '')
-        f.close()
-	os.system('%s %s' % (self.editor, self.defaultFileName))
-        self.do_load(self.defaultFileName)
+	filename = self.defaultFileName
+	try:
+	    arg = int(arg)
+	    buffer = self.last_matching(arg)
+	except:
+	    if arg:
+		filename = arg
+	    else:
+		buffer = self.last_matching(arg)
+		f = open(filename, 'w')
+		f.write(buffer or '')
+		f.close()		
+
+	os.system('%s %s' % (self.editor, filename))
+        self.do_load(self.filename)
     do_edit = do_ed
     
     def do_save(self, fname=None):
