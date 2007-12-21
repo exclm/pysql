@@ -680,20 +680,6 @@ class sqlpyPlus(sqlpython.sqlpython):
 
     bufferPosPattern = re.compile('\d+')
     rangeIndicators = ('-',':')
-        
-    def do_run(self, arg):
-        """run [arg]: re-runs an earlier command
-        
-        no arg -> run most recent command
-        arg is integer -> run one history item, by index
-        arg is string -> run most recent command by string search
-        arg is /enclosed in forward-slashes/ -> run most recent by regex
-        """        
-        'run [N]: runs the SQL that was run N commands ago'
-        runme = self.last_matching(arg)
-        print runme
-        self.onecmd_plus_hooks(runme)
-    do_r = do_run
 
     def do_get(self, fname):
         'Brings SQL commands from a file to the in-memory SQL buffer.'

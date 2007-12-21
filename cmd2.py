@@ -8,7 +8,7 @@ Load commands from file
 Settable environment parameters
 
 still to do:
-edit
+edit spits eof
 run
 >
 """
@@ -286,6 +286,23 @@ class Cmd(cmd.Cmd):
 	self.stdin.close()
 	keepstate.restore()
 	self.lastcmd = ''
+	
+    def do_run(self, arg):
+        """run [arg]: re-runs an earlier command
+        
+        no arg -> run most recent command
+        arg is integer -> run one history item, by index
+        arg is string -> run most recent command by string search
+        arg is /enclosed in forward-slashes/ -> run most recent by regex
+        """        
+        'run [N]: runs the SQL that was run N commands ago'
+        runme = self.last_matching(arg)
+        print runme
+	if runme:
+	    runme = self.precmd(runme)
+	    stop = self.onecmd(runme)
+	    stop = self.postcmd(stop, runme)
+    do_r = do_run	
 	    
 class HistoryItem(str):
     def __init__(self, instr):
