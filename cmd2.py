@@ -7,9 +7,9 @@ Special-character shortcut commands
 Load commands from file
 Settable environment parameters
 
-still to do:
+todo:
 edit spits eof
-run
+flags
 >
 """
 import cmd, re, os, sys
@@ -43,12 +43,16 @@ class Cmd(cmd.Cmd):
         cmd.Cmd.__init__(self, *args, **kwargs)
         self.history = History()
 	
-    def precmd(self, line):
-        """Hook method executed just before the command line is
-        interpreted, but after the input prompt is generated and issued.
-        
-        Makes commands case-insensitive (but unfortunately does not alter command completion).
-        """
+    def onecmd(self, line):
+        """Interpret the argument as though it had been typed in response
+        to the prompt.
+
+        This may be overridden, but should not normally need to be;
+        see the precmd() and postcmd() methods for useful execution hooks.
+        The return value is a flag indicating whether interpretation of
+        commands by the interpreter should stop.
+
+        """	
         try:
             (command, args) = line.split(None,1)
 	except ValueError:
@@ -56,18 +60,15 @@ class Cmd(cmd.Cmd):
 	if self.caseInsensitive:
 	    command = command.lower()
 	statement = ' '.join([command, args])
-	if (not self.multilineCommands) or (command not in self.multilineCommands):
-	    return statement
-	return self.finishStatement(statement)
-
-    def postcmd(self, stop, line):
-        """Hook method executed just after a command dispatch is finished."""
+	if command in self.multilineCommands:
+	    statement = self.finishStatement(statement)
+	stop = cmd.Cmd.onecmd(self, statement)
 	try:
-	    command = line.split(None,1)[0].lower()
+	    command = statement.split(None,1)[0].lower()
 	    if command not in self.excludeFromHistory:
-		self.history.append(line)
+		self.history.append(statement)
 	finally:
-	    return stop
+	    return stop	
 	
     def finishStatement(self, firstline):
 	statement = firstline
