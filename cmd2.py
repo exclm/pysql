@@ -94,9 +94,52 @@ class Cmd(cmd.Cmd):
 	    if not len(line):
 		line = 'EOF'
 	    else:
-		line = line[:-1] # chop \n
+		if line[-1] == '\n': # this was always true in Cmd
+		    line = line[:-1] 
 	return line
-			    
+			  
+    def cmdloop(self, intro=None):
+        """Repeatedly issue a prompt, accept input, parse an initial prefix
+        off the received input, and dispatch to action methods, passing them
+        the remainder of the line as argument.
+        """
+
+        # An almost perfect copy from Cmd; however, the pseudo_raw_input portion
+	# has been split out so that it can be called separately
+	
+        self.preloop()
+        if self.use_rawinput and self.completekey:
+            try:
+                import readline
+                self.old_completer = readline.get_completer()
+                readline.set_completer(self.complete)
+                readline.parse_and_bind(self.completekey+": complete")
+            except ImportError:
+                pass
+        try:
+            if intro is not None:
+                self.intro = intro
+            if self.intro:
+                self.stdout.write(str(self.intro)+"\n")
+            stop = None
+            while not stop:
+                if self.cmdqueue:
+                    line = self.cmdqueue.pop(0)
+                else:
+		    line = self.pseudo_raw_input(self.prompt)
+                line = self.precmd(line)
+                stop = self.onecmd(line)
+                stop = self.postcmd(stop, line)
+            self.postloop()
+        finally:
+            if self.use_rawinput and self.completekey:
+                try:
+                    import readline
+                    readline.set_completer(self.old_completer)
+                except ImportError:
+                    pass    
+
+    
     def do_EOF(self, arg):
 	return True
     do_eof = do_EOF
