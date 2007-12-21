@@ -139,14 +139,14 @@ class Cmd(cmd.Cmd):
                 except ImportError:
                     pass    
 
-    
     def do_EOF(self, arg):
 	return True
     do_eof = do_EOF
     
-    statementEndPattern = re.compile(r'([%s]\s*)|(EOF)$' % terminators)	
+    statementEndPattern = re.compile(r'[%s]\s*$' % terminators)	
     def statementHasEnded(self, lines):
-	return bool(self.statementEndPattern.search(lines))
+	return bool(self.statementEndPattern.search(lines)) \
+               or lines[-3:] == 'EOF'
 	       
     def clean(self, s):
 	"""cleans up a string"""
