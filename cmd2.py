@@ -231,15 +231,16 @@ class Cmd(cmd.Cmd):
         except IOError, e:
             try:
                 self.stdin = open('%s.%s' % (fname, self.defaultExtension), 'r')
-		self.use_rawinput = False
-		self.prompt = self.continuationPrompt = ''
-		self.cmdloop()
-		self.stdin.close()
-		self.lastcmd = ''		
-            except IOError:
+	    except IOError:
                 print 'Problem opening file %s: \n%s' % (fname, e)
-        finally:	
-	    keepstate.restore()
+		keepstate.restore()
+		return
+	self.use_rawinput = False
+	self.prompt = self.continuationPrompt = ''
+	self.cmdloop()
+	self.stdin.close()
+	keepstate.restore()
+	self.lastcmd = ''
 	    
 class HistoryItem(str):
     def __init__(self, instr):
