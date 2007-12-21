@@ -12,7 +12,7 @@ edit
 run
 >
 """
-import cmd, re, os
+import cmd, re, os, sys
 
 class Cmd(cmd.Cmd):
     caseInsensitive = True
@@ -22,7 +22,10 @@ class Cmd(cmd.Cmd):
     excludeFromHistory = '''run r list l history hi ed li eof'''.split()   
     defaultExtension = 'txt'
     defaultFileName = 'command.txt'
-    editor = os.environ.get('EDITOR') or ''
+    editor = os.environ.get('EDITOR')
+    if not editor:
+	if sys.platform[:3] == 'win':
+	    editor = 'notepad'
     settable = ['prompt', 'continuationPrompt', 'defaultFileName', 'editor', 'caseInsensitive']
     terminators = ';\n'
     def do_cmdenvironment(self, args):
@@ -201,11 +204,8 @@ class Cmd(cmd.Cmd):
 	    print "please use 'set editor' to specify your text editing program of choice."
 	    return
         buffer = self.last_matching(arg)
-        if not buffer:
-            print 'Nothing appropriate in buffer to edit.'
-            return
         f = open(self.defaultFileName, 'w')
-        f.write(buffer)
+        f.write(buffer or '')
         f.close()
 	os.system('%s %s' % (self.editor, self.defaultFileName))
         self.do_load(self.defaultFileName)
