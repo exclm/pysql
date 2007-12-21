@@ -2,7 +2,6 @@ import cmd2
 
 class test(cmd2.Cmd):
     binarypar = True
-    settable = ['prompt', 'binarypar']
     def do_sing(self, arg):
         '''Sings.  
         

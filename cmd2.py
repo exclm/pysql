@@ -9,6 +9,7 @@ Settable environment parameters
 
 still to do:
 edit
+run
 >
 """
 import cmd, re, os
@@ -22,7 +23,7 @@ class Cmd(cmd.Cmd):
     defaultExtension = 'txt'
     defaultFileName = 'command.txt'
     editor = os.environ.get('EDITOR') or ''
-    settable = ['prompt', 'continuationPrompt', 'defaultFileName', 'editor']
+    settable = ['prompt', 'continuationPrompt', 'defaultFileName', 'editor', 'caseInsensitive']
     terminators = ';\n'
     def do_cmdenvironment(self, args):
 	self.stdout.write("""
@@ -68,7 +69,8 @@ class Cmd(cmd.Cmd):
     def finishStatement(self, firstline):
 	statement = firstline
 	while not self.statementHasEnded(statement):
-	    statement = '%s\n%s' % (statement, self.pseudo_raw_input(self.continuationPrompt))
+	    inp = self.pseudo_raw_input(self.continuationPrompt)
+	    statement = '%s\n%s' % (statement, inp)
 	return statement
 	# assembling a list of lines and joining them at the end would be faster, 
 	# but statementHasEnded needs a string arg; anyway, we're getting
@@ -96,7 +98,7 @@ class Cmd(cmd.Cmd):
 	return True
     do_eof = do_EOF
     
-    statementEndPattern = re.compile(r'[%s]\s*$' % terminators)	
+    statementEndPattern = re.compile(r'([%s]\s*)|(EOF)$' % terminators)	
     def statementHasEnded(self, lines):
 	return bool(self.statementEndPattern.search(lines))
 	       
@@ -147,7 +149,7 @@ class Cmd(cmd.Cmd):
 	    val = cast(currentVal, val.strip(self.terminators))
 	    setattr(self, paramName, val)
 	    self.stdout.write('%s - was: %s\nnow: %s\n' % (paramName, currentVal, val))
-        except (ValueError, AttributeError, NotSettableError):
+        except (ValueError, AttributeError, NotSettableError), e:
             self.do_show(arg)
 		
     def do_shell(self, arg):
@@ -196,7 +198,7 @@ class Cmd(cmd.Cmd):
     def do_ed(self, arg):
         'ed [N]: brings up SQL from N commands ago in text editor, and puts result in SQL buffer.'
 	if not self.editor:
-	    self.do_show('editor')
+	    print "please use 'set editor' to specify your text editing program of choice."
 	    return
         buffer = self.last_matching(arg)
         if not buffer:
@@ -206,7 +208,7 @@ class Cmd(cmd.Cmd):
         f.write(buffer)
         f.close()
 	os.system('%s %s' % (self.editor, self.defaultFileName))
-        self.load(self.defaultFileName)
+        self.do_load(self.defaultFileName)
     do_edit = do_ed
     
     def do_save(self, fname=None):
@@ -283,31 +285,31 @@ class History(list):
             return [itm for itm in self if isin(itm)]
 
 class NotSettableError(Exception):
-    None    
+    pass
 	
 def cast(current, new):
     """Tries to force a new value into the same type as the current."""
     typ = type(current)
-    print type(new)
     if typ == bool:
-	new = new.lower()    
-	print new
 	try:
-	    print new == 'on'
-	    if (new=='on') or (new[0] in ('y','t')):
-		return True
-	    try:
-		return bool(int(new))
-	    except ValueError:
-		pass
-	    return False
-	except TypeError:
+	    return bool(int(new))
+	except ValueError, TypeError:
 	    pass
-    try:
-	return typ(new)
-    except:
-	print "Problem setting parameter (now %s) to %s; incorrect type?" % (current, new)
-	return current
+	try:
+	    new = new.lower()    
+	except:
+	    pass
+	if (new=='on') or (new[0] in ('y','t')):
+	    return True
+	if (new=='off') or (new[0] in ('n','f')):
+	    return False
+    else:
+	try:
+	    return typ(new)
+	except:
+	    pass
+    print "Problem setting parameter (now %s) to %s; incorrect type?" % (current, new)
+    return current
 	
 class Statekeeper(object):
     def __init__(self, obj, attribs):
