@@ -271,7 +271,7 @@ class Cmd(cmd.Cmd):
 	    f.close()	
 		
 	os.system('%s %s' % (self.editor, filename))
-        self.do_load(self.filename)
+        self.do_load(filename)
     do_edit = do_ed
     
     def do_save(self, fname=None):
