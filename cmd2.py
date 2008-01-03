@@ -12,10 +12,11 @@ Settable environment parameters
 
 todo:
 edited commands end with "EOF".  Hmm.
-flags
->
+example of flag usage
+> to dump to file
 """
 import cmd, re, os, sys
+import flagReader
 
 class Cmd(cmd.Cmd):
     caseInsensitive = True
@@ -45,6 +46,11 @@ class Cmd(cmd.Cmd):
     def __init__(self, *args, **kwargs):	
         cmd.Cmd.__init__(self, *args, **kwargs)
         self.history = History()
+	
+    def do_shortcuts(self, args):
+	"""Lists single-key shortcuts available."""
+	result = "\n".join('%s: %s' % (sc[0], sc[1]) for sc in self.shortcuts.items())
+	self.stdout.write("Single-key shortcuts for other commands:\n%s\n" % (result))
 	
     def onecmd(self, line):
         """Interpret the argument as though it had been typed in response

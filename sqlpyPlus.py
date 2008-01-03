@@ -186,7 +186,8 @@ WHERE
 """
 }
 
-import sys, os, re, sqlpython, cx_Oracle, pyparsing, flagReader
+import sys, os, re, sqlpython, cx_Oracle, pyparsing
+from cmd2 import flagReader
 
 if float(sys.version[:3]) < 2.3:
     def enumerate(lst):
