@@ -14,7 +14,7 @@ import pexpecter
     # complication! separate sessions ->
     # separate transactions !!!!!
     # also: timeouts, other session failures
-	    
+
 class sqlpython(cmd2.Cmd):
     '''A python module to reproduce Oracle's command line with focus on customization and extention'''
 
@@ -120,24 +120,8 @@ class sqlpython(cmd2.Cmd):
     do_q = do_quit
     do_exit = do_quit
 
-stmtEndSearchString = r'(.*)(%s)\s*(\d+)?\s*$' % sqlpython.terminatorSearchString
-stmtEndFinder = re.compile(stmtEndSearchString, re.MULTILINE | re.DOTALL)
-prompt2 = ' > '
-
-def finishStatement(firstline):
-    lines = [firstline]
-    while 1:
-        m = stmtEndFinder.search(lines[-1])
-        if m:
-            return '\n'.join(lines)
-        lines.append(raw_input(prompt2))
-
-def findTerminator(statement):
-    m = stmtEndFinder.search(statement)
-    if m:
-        return m.groups()
-    else:
-        return statement, None, None
+    stmtEndSearchString = r'(.*)(%s)\s*(\d+)?\s*$' % sqlpython.terminatorSearchString
+    statementEndPattern = re.compile(stmtEndSearchString, re.MULTILINE | re.DOTALL)
     
 def pmatrix(rows,desc,maxlen=30):
     '''prints a matrix, used by sqlpython to print queries' result sets'''

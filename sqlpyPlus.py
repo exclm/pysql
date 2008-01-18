@@ -45,10 +45,10 @@ WHERE atc.table_name = :object_name
 AND      atc.owner = :owner
 ORDER BY atc.column_id;""",),
 'PROCEDURE': ("""
-	     argument_name,	     
-	     data_type,
-	     in_out,
-	     default_value
+             argument_name,             
+             data_type,
+             in_out,
+             default_value
 FROM all_arguments
 WHERE object_name = :object_name
 AND      owner = :owner
@@ -62,10 +62,10 @@ WHERE package_name = :package_name
 AND      owner = :owner""",),
 'PackageObjArgs':("""
              object_name,
-	     argument_name,	     
-	     data_type,
-	     in_out,
-	     default_value
+             argument_name,             
+             data_type,
+             in_out,
+             default_value
 FROM all_arguments
 WHERE package_name = :package_name
 AND      object_name = :object_name
@@ -118,22 +118,22 @@ descQueries['FUNCTION'] = descQueries['PROCEDURE']
 queries = {
 'resolve': """
 SELECT object_type, object_name, owner FROM (
-	SELECT object_type, object_name, user owner, 1 priority
-	FROM   user_objects
-	WHERE object_name = :objName
+        SELECT object_type, object_name, user owner, 1 priority
+        FROM   user_objects
+        WHERE object_name = :objName
     UNION ALL
-	SELECT ao.object_type, ao.object_name, ao.owner, 2 priority
-	FROM    all_objects ao
-	JOIN      user_synonyms us ON (us.table_owner = ao.owner AND us.table_name = ao.object_name)
-	WHERE us.synonym_name = :objName
+        SELECT ao.object_type, ao.object_name, ao.owner, 2 priority
+        FROM    all_objects ao
+        JOIN      user_synonyms us ON (us.table_owner = ao.owner AND us.table_name = ao.object_name)
+        WHERE us.synonym_name = :objName
     AND   ao.object_type != 'SYNONYM'
     UNION ALL
-	SELECT ao.object_type, ao.object_name, ao.owner, 3 priority
-	FROM    all_objects ao
-	JOIN      all_synonyms asyn ON (asyn.table_owner = ao.owner AND asyn.table_name = ao.object_name)
-	WHERE asyn.synonym_name = :objName
+        SELECT ao.object_type, ao.object_name, ao.owner, 3 priority
+        FROM    all_objects ao
+        JOIN      all_synonyms asyn ON (asyn.table_owner = ao.owner AND asyn.table_name = ao.object_name)
+        WHERE asyn.synonym_name = :objName
     AND   ao.object_type != 'SYNONYM'
-	AND      asyn.owner = 'PUBLIC'
+        AND      asyn.owner = 'PUBLIC'
     UNION ALL 
         SELECT 'DIRECTORY' object_type, dir.directory_name, dir.owner, 6 priority
         FROM   all_directories dir
@@ -150,7 +150,7 @@ WHERE owner = :owner
 AND      table_name = :table_name""",
 'colComments': """
 atc.column_name,
-             acc.comments	     
+             acc.comments             
 FROM all_tab_columns atc
 JOIN all_col_comments acc ON (atc.owner = acc.owner and atc.table_name = acc.table_name and atc.column_name = acc.column_name)
 WHERE atc.table_name = :object_name
@@ -361,13 +361,13 @@ class sqlpyPlus(sqlpython.sqlpython):
     def parseline(self, line):
         """Parse the line into a command name and a string containing
         the arguments.  Returns a tuple containing (command, args, line).
-        'command' and 'args' may be None if the line couldn't be parsed.	
+        'command' and 'args' may be None if the line couldn't be parsed.        
         Overrides cmd.cmd.parseline to accept variety of shortcuts.."""
-	
-	cmd, arg. line = sqlpython.parseline(self, line)
+        
+        cmd, arg. line = sqlpython.parseline(self, line)
         if cmd in ('select', 'sleect', 'insert', 'update', 'delete', 'describe',
                           'desc', 'comments', 'pull', 'refs', 'desc', 'triggers', 'find') \
-	       and not hasattr(self, 'curs'):
+               and not hasattr(self, 'curs'):
             print 'Not connected.'
             return '', '', ''
         return cmd, arg, line
@@ -508,6 +508,13 @@ class sqlpyPlus(sqlpython.sqlpython):
             result = sqlpython.pmatrix(self.rows, self.curs.description, self.maxfetch)
         return result
                         
+    def findTerminator(statement):
+        m = self.statementEndPattern.search(statement)
+        if m:
+            return m.groups()
+        else:
+            return statement, None, None
+    
     def do_select(self, arg, bindVarsIn=None, override_terminator=None):
         """Fetch rows from a table.
         
@@ -520,7 +527,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         """
         bindVarsIn = bindVarsIn or {}
         self.query = 'select ' + arg
-        (self.query, terminator, rowlimit) = sqlpython.findTerminator(self.query)
+        (self.query, terminator, rowlimit) = self.findTerminator(self.query)
         if override_terminator:
             terminator = override_terminator
         rowlimit = int(rowlimit or 0)
@@ -548,39 +555,39 @@ class sqlpyPlus(sqlpython.sqlpython):
             traceback.print_exc(file=sys.stdout)
         self.sqlBuffer.append(self.query)
 
-    pullflags = flagReader.FlagSet([flagReader.Flag('full')])	    
+    pullflags = flagReader.FlagSet([flagReader.Flag('full')])            
     def do_pull(self, arg):
         """Displays source code.
-	
-	--full, -f: get dependent objects as well"""
+        
+        --full, -f: get dependent objects as well"""
         
         options, arg = self.pullflags.parse(arg)
         object_type, owner, object_name = self.resolve(arg.strip(self.terminator).upper())
         print "%s %s.%s" % (object_type, owner, object_name)
-	print self.curs.callfunc('DBMS_METADATA.GET_DDL', cx_Oracle.CLOB,
-				 [object_type, object_name, owner])
-	if options.has_key('full'):
-            for dependent_type in ('OBJECT_GRANT', 'CONSTRAINT', 'TRIGGER'):	
-		try:
-		    print self.curs.callfunc('DBMS_METADATA.GET_DEPENDENT_DDL', cx_Oracle.CLOB,
-		 			 [dependent_type, object_name, owner])
-		except cx_Oracle.DatabaseError:
-		    pass
+        print self.curs.callfunc('DBMS_METADATA.GET_DDL', cx_Oracle.CLOB,
+                                 [object_type, object_name, owner])
+        if options.has_key('full'):
+            for dependent_type in ('OBJECT_GRANT', 'CONSTRAINT', 'TRIGGER'):        
+                try:
+                    print self.curs.callfunc('DBMS_METADATA.GET_DEPENDENT_DDL', cx_Oracle.CLOB,
+                                          [dependent_type, object_name, owner])
+                except cx_Oracle.DatabaseError:
+                    pass
 
-    findflags = flagReader.FlagSet([flagReader.Flag('insensitive')])	    
+    findflags = flagReader.FlagSet([flagReader.Flag('insensitive')])            
     def do_find(self, arg):
-	"""Finds argument in source code.
-	
-	--insensitive, -i: case-insensitive search"""
+        """Finds argument in source code.
+        
+        --insensitive, -i: case-insensitive search"""
 
         options, arg = self.findflags.parse(arg)
-	if options.has_key('insensitive'):
-	    searchfor = "LOWER(text)"
-	    arg = arg.lower()
-	else:
-	    searchfor = "text"
-	self.do_select("* from all_source where %s like '%%%s%%'" % (searchfor, arg))
-	
+        if options.has_key('insensitive'):
+            searchfor = "LOWER(text)"
+            arg = arg.lower()
+        else:
+            searchfor = "text"
+        self.do_select("* from all_source where %s like '%%%s%%'" % (searchfor, arg))
+        
     def do_describe(self, arg):
         "emulates SQL*Plus's DESCRIBE"
         object_type, owner, object_name = self.resolve(arg.strip(self.terminator).upper())
@@ -591,7 +598,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                 self.do_select(q,bindVarsIn={'object_name':object_name, 'owner':owner})
         elif object_type == 'PACKAGE':
             self.curs.execute(descQueries['PackageObjects'][0], {'package_name':object_name, 'owner':owner})
-	    packageContents = self.curs.fetchall()
+            packageContents = self.curs.fetchall()
             for (packageObj_name,) in packageContents:
                 print packageObj_name
                 self.do_select(descQueries['PackageObjArgs'][0],bindVarsIn={'package_name':object_name, 'owner':owner, 'object_name':packageObj_name})
@@ -780,8 +787,8 @@ class sqlpyPlus(sqlpython.sqlpython):
 
     def do_refs(self, arg):
         object_type, owner, object_name = self.resolve(arg.strip(self.terminator).upper())
-	if object_type == 'TABLE':
-	    self.do_select(queries['refs'],bindVarsIn={'object_name':object_name, 'owner':owner})
+        if object_type == 'TABLE':
+            self.do_select(queries['refs'],bindVarsIn={'object_name':object_name, 'owner':owner})
 
 def _test():
     import doctest
