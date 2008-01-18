@@ -364,46 +364,13 @@ class sqlpyPlus(sqlpython.sqlpython):
         'command' and 'args' may be None if the line couldn't be parsed.        
         Overrides cmd.cmd.parseline to accept variety of shortcuts.."""
         
-        cmd, arg. line = sqlpython.parseline(self, line)
+        cmd, arg, line = sqlpython.sqlpython.parseline(self, line)
         if cmd in ('select', 'sleect', 'insert', 'update', 'delete', 'describe',
                           'desc', 'comments', 'pull', 'refs', 'desc', 'triggers', 'find') \
                and not hasattr(self, 'curs'):
             print 'Not connected.'
             return '', '', ''
         return cmd, arg, line
-
-    def precmd(self, line):
-        """Hook method executed just before the command line is
-        interpreted, but after the input prompt is generated and issued.
-        Makes commands case-insensitive (but unfortunately does not alter command completion).
-        """
-
-        '''
-        pipedCommands = pipeSeparator.separate(line)
-        if len(pipedCommands) > 1:
-            pipefilename = 'sqlpython.pipe.tmp'                        
-            for (idx, pipedCommand) in enumerate(pipedCommands[:-1]):
-                savestdout = sys.stdout
-                f = open(pipefilename,'w')
-                sys.stdout = f
-                self.precmd(pipedCommand)
-                self.onecmd(pipedCommand)
-                self.postcmd(False, pipedCommands[0])
-                f.close()
-                sys.stdout = savestdout
-                f = os.popen('%s < %s' % (pipedCommands[idx+1], pipefilename))
-                f.read()
-            
-        '''
-        try:
-            args = line.split(None,1)
-            args[0] = args[0].lower()
-            statement = ' '.join(args)      
-            if args[0] in self.multiline:
-                statement = sqlpython.finishStatement(statement)
-            return statement
-        except Exception:
-            return line
     
     def onecmd_plus_hooks(self, line):                          
         line = self.precmd(line)
@@ -508,7 +475,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             result = sqlpython.pmatrix(self.rows, self.curs.description, self.maxfetch)
         return result
                         
-    def findTerminator(statement):
+    def findTerminator(self, statement):
         m = self.statementEndPattern.search(statement)
         if m:
             return m.groups()

@@ -120,7 +120,7 @@ class sqlpython(cmd2.Cmd):
     do_q = do_quit
     do_exit = do_quit
 
-    stmtEndSearchString = r'(.*)(%s)\s*(\d+)?\s*$' % sqlpython.terminatorSearchString
+    stmtEndSearchString = r'(.*)(%s)\s*(\d+)?\s*$' % terminatorSearchString
     statementEndPattern = re.compile(stmtEndSearchString, re.MULTILINE | re.DOTALL)
     
 def pmatrix(rows,desc,maxlen=30):
