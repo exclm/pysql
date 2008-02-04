@@ -469,7 +469,6 @@ class sqlpyPlus(sqlpython.sqlpython):
                     rname = transpr[x][0]
                     transpr[x] = map(binascii.b2a_hex, transpr[x])
                     transpr[x][0] = rname
-            self.debg=transpr
             newdesc[0][0] = 'COLUMN NAME'
             result = '\n' + sqlpython.pmatrix(transpr,newdesc)            
         else:
