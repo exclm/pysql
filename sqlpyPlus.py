@@ -341,8 +341,10 @@ def findBinds(target, existingBinds, givenBindVars = {}):
         
 class sqlpyPlus(sqlpython.sqlpython):
     defaultExtension = 'sql'
+    shortcuts = {'?': 'help', '@': 'getrun', '!': 'shell', ':': 'setbind', '\\': 'psql'}    
     multilineCommands = '''select insert update delete tselect
         create drop alter'''.split()
+    defaultFileName = 'afiedt.buf'
     def __init__(self):
         sqlpython.sqlpython.__init__(self)
         self.binds = CaselessDict()
@@ -357,7 +359,6 @@ class sqlpyPlus(sqlpython.sqlpython):
         self.sqlBuffer.append(self.query)            
 
     # overrides cmd's parseline
-    shortcuts = {'?': 'help', '@': 'getrun', '!': 'shell', ':': 'setbind', '\\': 'psql'}
     def parseline(self, line):
         """Parse the line into a command name and a string containing
         the arguments.  Returns a tuple containing (command, args, line).
@@ -482,6 +483,8 @@ class sqlpyPlus(sqlpython.sqlpython):
         else:
             return statement, None, None
     
+    legalOracle = re.compile('[a-zA-Z_$#]')
+    
     def do_select(self, arg, bindVarsIn=None, override_terminator=None):
         """Fetch rows from a table.
         
@@ -511,7 +514,9 @@ class sqlpyPlus(sqlpython.sqlpython):
             elif self.rc == 1: 
                 print '\n1 row selected.\n'
                 if self.autobind:
-                    self.binds.update(dict(zip([d[0] for d in self.desc], self.rows[0])))
+                    self.binds.update(dict(zip([''.join(l for l in d[0] if l.isalnum()) for d in self.desc], self.rows[0])))
+                    if len(self.desc) == 1:
+                        self.binds['_'] = self.rows[0][0]
             elif self.rc < self.maxfetch:
                 print '\n%d rows selected.\n' % self.rc
             else:
