@@ -475,6 +475,9 @@ class sqlpyPlus(sqlpython.sqlpython):
             result = sqlpython.pmatrix(self.rows, self.curs.description, self.maxfetch)
         return result
                         
+    statementEndPattern = re.compile(r'(.*)(;|\\[gGhtxicCsS])\s*(\d*)$')
+    # what about quote-enclosed?
+    
     def findTerminator(self, statement):
         m = self.statementEndPattern.search(statement)
         if m:
