@@ -382,7 +382,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         """Lists available first-character shortcuts
         (i.e. '!dir' is equivalent to 'shell dir')"""
         for (scchar, scto) in self.shortcuts.items():
-            print '%s: %s' % (scchar, scto)
+            self.stdout.write('%s: %s\n') % (scchar, scto)
 
     def colnames(self):
         return [d[0] for d in curs.description]
@@ -475,7 +475,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             result = sqlpython.pmatrix(self.rows, self.curs.description, self.maxfetch)
         return result
                         
-    statementEndPattern = re.compile(r'(.*)(;|\\[gGhtxicCsS])\s*(\d*)$')
+    statementEndPattern = re.compile(r'(.*)(;|\\[gGhtxicCsS])\s*(\d*)$', re.DOTALL | re.MULTILINE)
     # what about quote-enclosed?
     
     def findTerminator(self, statement):
@@ -505,24 +505,25 @@ class sqlpyPlus(sqlpython.sqlpython):
         rowlimit = int(rowlimit or 0)
         try:
             self.varsUsed = findBinds(self.query, self.binds, bindVarsIn)
+            #import pdb; pdb.set_trace()
             self.curs.execute(self.query, self.varsUsed)
             self.rows = self.curs.fetchmany(min(self.maxfetch, (rowlimit or self.maxfetch)))
             self.desc = self.curs.description
             self.rc = self.curs.rowcount
             if self.rc > 0:
-                print '\n' + self.output(terminator, rowlimit)
+                self.stdout.write('\n' + self.output(terminator, rowlimit) + '\n')
             if self.rc == 0:
-                print '\nNo rows Selected.\n'
+                self.stdout.write('\nNo rows Selected.\n\n')
             elif self.rc == 1: 
-                print '\n1 row selected.\n'
+                self.stdout.write('\n1 row selected.\n\n')
                 if self.autobind:
                     self.binds.update(dict(zip([''.join(l for l in d[0] if l.isalnum()) for d in self.desc], self.rows[0])))
                     if len(self.desc) == 1:
                         self.binds['_'] = self.rows[0][0]
             elif self.rc < self.maxfetch:
-                print '\n%d rows selected.\n' % self.rc
+                self.stdout.write('\n%d rows selected.\n\n' % self.rc)
             else:
-                print '\nSelected Max Num rows (%d)' % self.rc                 
+                self.stdout.write('\nSelected Max Num rows (%d)\n' % self.rc)
         except Exception, e:
             print e
             import traceback
@@ -537,14 +538,14 @@ class sqlpyPlus(sqlpython.sqlpython):
         
         options, arg = self.pullflags.parse(arg)
         object_type, owner, object_name = self.resolve(arg.strip(self.terminator).upper())
-        print "%s %s.%s" % (object_type, owner, object_name)
-        print self.curs.callfunc('DBMS_METADATA.GET_DDL', cx_Oracle.CLOB,
-                                 [object_type, object_name, owner])
+        self.stdout.write("%s %s.%s\n" % (object_type, owner, object_name))
+        self.stdout.write(self.curs.callfunc('DBMS_METADATA.GET_DDL', cx_Oracle.CLOB,
+                                 [object_type, object_name, owner])+'\n')
         if options.has_key('full'):
             for dependent_type in ('OBJECT_GRANT', 'CONSTRAINT', 'TRIGGER'):        
                 try:
-                    print self.curs.callfunc('DBMS_METADATA.GET_DEPENDENT_DDL', cx_Oracle.CLOB,
-                                          [dependent_type, object_name, owner])
+                    self.stdout.write(self.curs.callfunc('DBMS_METADATA.GET_DEPENDENT_DDL', cx_Oracle.CLOB,
+                                          [dependent_type, object_name, owner])+'\n')
                 except cx_Oracle.DatabaseError:
                     pass
 
@@ -565,7 +566,7 @@ class sqlpyPlus(sqlpython.sqlpython):
     def do_describe(self, arg):
         "emulates SQL*Plus's DESCRIBE"
         object_type, owner, object_name = self.resolve(arg.strip(self.terminator).upper())
-        print "%s %s.%s" % (object_type, owner, object_name)
+        self.stdout.write("%s %s.%s\n" % (object_type, owner, object_name))
         descQ = descQueries.get(object_type)
         if descQ:
             for q in descQ:
@@ -583,7 +584,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         object_type, owner, object_name = self.resolve(arg.strip(self.terminator).upper())
         if object_type:
             self.curs.execute(queries['tabComments'],{'table_name':object_name, 'owner':owner})
-            print "%s %s.%s: %s" % (object_type, owner, object_name, self.curs.fetchone()[0])
+            self.stdout.write("%s %s.%s: %s\n" % (object_type, owner, object_name, self.curs.fetchone()[0]))
             self.do_select(queries['colComments'],bindVarsIn={'owner':owner, 'object_name': object_name})
 
     def resolve(self, identifier):
@@ -606,8 +607,8 @@ class sqlpyPlus(sqlpython.sqlpython):
         return object_type, owner, object_name
 
     def do_resolve(self, arg):
-        print self.resolve(arg)
-        
+        self.stdout.write(self.resolve(arg)+'\n')
+                          
     def spoolstop(self):
         if self.spoolFile:
             sys.stdout = self.stdoutBeforeSpool
@@ -709,9 +710,9 @@ class sqlpyPlus(sqlpython.sqlpython):
             if arg[0] == ':':
                 arg = arg[1:]
             try:
-                print self.binds[arg]
+                self.stdout.write(self.binds[arg]+'\n')
             except KeyError:
-                print 'No bind variable ', arg
+                self.stdout.write('No bind variable %s\n' % arg)
         else:
             self.do_setbind('')
     def do_setbind(self, arg):
