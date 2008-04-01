@@ -511,19 +511,19 @@ class sqlpyPlus(sqlpython.sqlpython):
             self.desc = self.curs.description
             self.rc = self.curs.rowcount
             if self.rc > 0:
-                self.stdout.write('\n' + self.output(terminator, rowlimit) + '\n')
+                print '\n' + self.output(terminator, rowlimit)
             if self.rc == 0:
-                self.stdout.write('\nNo rows Selected.\n\n')
+                print '\nNo rows Selected.\n'
             elif self.rc == 1: 
-                self.stdout.write('\n1 row selected.\n\n')
+                print '\n1 row selected.\n'
                 if self.autobind:
                     self.binds.update(dict(zip([''.join(l for l in d[0] if l.isalnum()) for d in self.desc], self.rows[0])))
                     if len(self.desc) == 1:
                         self.binds['_'] = self.rows[0][0]
             elif self.rc < self.maxfetch:
-                self.stdout.write('\n%d rows selected.\n\n' % self.rc)
+                print '\n%d rows selected.\n' % self.rc
             else:
-                self.stdout.write('\nSelected Max Num rows (%d)\n' % self.rc)
+                print '\nSelected Max Num rows (%d)' % self.rc
         except Exception, e:
             print e
             import traceback
