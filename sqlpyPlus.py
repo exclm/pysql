@@ -511,7 +511,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             self.desc = self.curs.description
             self.rc = self.curs.rowcount
             if self.rc > 0:
-                print '\n' + self.output(terminator, rowlimit)
+                self.stdout.write('\n%s\n' % (self.output(terminator, rowlimit)))
             if self.rc == 0:
                 print '\nNo rows Selected.\n'
             elif self.rc == 1: 
