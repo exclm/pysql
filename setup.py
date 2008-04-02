@@ -20,15 +20,12 @@ setup(name="sqlpython",
       packages=find_packages(),
       install_requires=['pyparsing','cmd2','cx_Oracle'],
       keywords = 'client oracle database',
-      features = 'pexpect',
-      classifiers = classifiers,
       license = 'MIT',
       maintainer = 'Catherine Devlin',
       maintainer_email = 'catherine.devlin@gmail.com',
       platforms = ['any'],
       entry_points = """
                    [console_scripts]
-                   sqlpython = sqlpython.mysqlpy:run"""
+                   sqlpython = sqlpython.mysqlpy:run"""      
      )
- 
- 
+
