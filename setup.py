@@ -26,6 +26,6 @@ setup(name="sqlpython",
       platforms = ['any'],
       entry_points = """
                    [console_scripts]
-                   sqlpython = sqlpython.mysqlpy:run"""      
+                   sqlpython = mysqlpy:run"""      
      )
 
