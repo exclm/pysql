@@ -26,10 +26,9 @@ setup(name="sqlpython",
       maintainer = 'Catherine Devlin',
       maintainer_email = 'catherine.devlin@gmail.com',
       platforms = ['any'],
-      entry_points={
-      "console_scripts": [
-      "sqlpython = mysqlpy:run",]
-      },
+      entry_points = """
+                   [console_scripts]
+                   sqlpython = sqlpython.mysqlpy:run"""
      )
  
  
