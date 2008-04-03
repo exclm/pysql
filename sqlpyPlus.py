@@ -505,7 +505,6 @@ class sqlpyPlus(sqlpython.sqlpython):
         rowlimit = int(rowlimit or 0)
         try:
             self.varsUsed = findBinds(self.query, self.binds, bindVarsIn)
-            #import pdb; pdb.set_trace()
             self.curs.execute(self.query, self.varsUsed)
             self.rows = self.curs.fetchmany(min(self.maxfetch, (rowlimit or self.maxfetch)))
             self.desc = self.curs.description
@@ -671,7 +670,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             self.do_list('%d -' % (len(self.history) - numCommandsLoaded))
     def do_getrun(self, fname):
         'Brings SQL commands from a file to the in-memory SQL buffer, and executes them.'
-        numCommandsLoaded = self.load(fname) * -1
+        numCommandsLoaded = self.do_load(fname) * -1
         if numCommandsLoaded:
             for command in self.history[numCommandsLoaded:]:
                 self.onecmd_plus_hooks(command)
