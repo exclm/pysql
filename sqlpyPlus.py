@@ -726,6 +726,20 @@ class sqlpyPlus(sqlpython.sqlpython):
     def do__dir_schemas(self, arg):
         self.do_select("""owner, count(*) AS objects FROM all_objects GROUP BY owner ORDER BY owner""") 
         
+    def do_head(self, arg):
+        nrows = 10
+        args = arg.split()
+        if len(args) > 1:
+            for a in args:
+                if a[0] == '-':
+                    try:
+                        nrows = int(a[1:])
+                        args.remove(a)
+                    except:
+                        pass
+            arg = ' '.join(args)
+        self.do_select('* from %s;%d' % (arg, nrows))
+        
     def do_print(self, arg):
         'print VARNAME: Show current value of bind variable VARNAME.'
         if arg: 
