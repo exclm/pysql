@@ -76,7 +76,7 @@ Example:
         from gv$session_longops
         where time_remaining>0;
         '''
-
+       
     def do_top9i(self,args):
         '''Runs query_top9i defined above, to display active sessions in Oracle 9i'''
         self.do_select(self.query_top9i)

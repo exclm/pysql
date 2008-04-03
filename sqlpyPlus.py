@@ -382,7 +382,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         """Lists available first-character shortcuts
         (i.e. '!dir' is equivalent to 'shell dir')"""
         for (scchar, scto) in self.shortcuts.items():
-            self.stdout.write('%s: %s\n') % (scchar, scto)
+            print '%s: %s' % (scchar, scto)
 
     def colnames(self):
         return [d[0] for d in curs.description]
@@ -649,7 +649,9 @@ class sqlpyPlus(sqlpython.sqlpython):
     def do_compare(self, args):
         """COMPARE query1 TO query2 - uses external tool to display differences.
     
-        Sorting is recommended to avoid false hits."""
+        Sorting is recommended to avoid false hits.
+        Will attempt to use a graphical diff/merge tool like kdiff3, meld, or Araxis Merge, 
+        if they are installed."""
         fnames = []
         args2 = args.split(' to ')
         for n in range(len(args2)):
