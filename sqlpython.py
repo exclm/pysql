@@ -100,7 +100,7 @@ class sqlpython(cmd2.Cmd):
     do_sen = do_senora       
 
     def default(self, arg, do_everywhere = False):
-        self.query = finishStatement(arg).strip().rstrip(';')
+        self.query = self.finishStatement(arg).strip().rstrip(';')
         try:
             self.curs.execute(self.query)
             print '\nExecuted%s\n' % ((self.curs.rowcount > 0) and ' (%d rows)' % self.curs.rowcount or '')

@@ -19,8 +19,6 @@ setup(name="sqlpython",
       install_requires=['pyparsing','cmd2','cx_Oracle'],
       keywords = 'client oracle database',
       license = 'MIT',
-      maintainer = 'Catherine Devlin',
-      maintainer_email = 'catherine.devlin@gmail.com',
       platforms = ['any'],
       entry_points = """
                    [console_scripts]
