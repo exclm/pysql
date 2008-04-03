@@ -688,6 +688,12 @@ class sqlpyPlus(sqlpython.sqlpython):
         \o spool
         \p list
         \w save
+        \db _dir_tablespaces
+        \dd comments
+        \dn _dir_schemas
+        \dt _dir_tables
+        \dv _dir_views
+        \di _dir_indexes
         \? help psql'''
         commands = {}
         for c in self.do_psql.__doc__.splitlines()[2:]:
@@ -703,11 +709,26 @@ class sqlpyPlus(sqlpython.sqlpython):
             self.onecmd('%s %s' % (commands[abbrev], args))
             self.onecmd('q')
         except KeyError:
-            print 'psql command \%s not yet supported.' % abbrev        
+            print 'psql command \%s not yet supported.' % abbrev
+            
+    def do__dir_tables(self, arg):
+        self.do_select("""table_name, 'TABLE' as type, owner FROM all_tables WHERE table_name LIKE '%%%s%%'""" % arg.upper())        
+
+    def do__dir_views(self, arg):
+        self.do_select("""view_name, 'VIEW' as type, owner FROM all_views WHERE view_name LIKE '%%%s%%'""" % arg.upper()) 
+
+    def do__dir_indexes(self, arg):
+        self.do_select("""index_name, index_type, owner FROM all_indexes WHERE index_name LIKE '%%%s%%' OR table_name LIKE '%%%s%%'""" % (arg.upper(), arg.upper())) 
+
+    def do__dir_tablespaces(self, arg):
+        self.do_select("""tablespace_name, file_name from dba_data_files""") 
+
+    def do__dir_schemas(self, arg):
+        self.do_select("""owner, count(*) AS objects FROM all_objects GROUP BY owner ORDER BY owner""") 
         
     def do_print(self, arg):
         'print VARNAME: Show current value of bind variable VARNAME.'
-        if arg:
+        if arg: 
             if arg[0] == ':':
                 arg = arg[1:]
             try:
