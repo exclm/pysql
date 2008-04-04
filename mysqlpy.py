@@ -9,7 +9,7 @@
 #           http://catherine.devlin.googlepages.com/
 
 from sqlpyPlus import *
-import binascii
+import binascii, sys
 
 class mysqlpy(sqlpyPlus):
     '''
@@ -152,6 +152,10 @@ Example:
 def run():
     my=mysqlpy()
     print my.__doc__
+    try:
+        my.do_connect(sys.argv[1])
+    except IndexError:
+        pass
     my.cmdloop()
 
 if __name__ == '__main__':

@@ -187,7 +187,7 @@ WHERE
 }
 
 import sys, os, re, sqlpython, cx_Oracle, pyparsing
-from cmd2 import flagReader
+from cmd2 import flagReader, Cmd
 
 if float(sys.version[:3]) < 2.3:
     def enumerate(lst):
@@ -665,17 +665,9 @@ class sqlpyPlus(sqlpython.sqlpython):
     bufferPosPattern = re.compile('\d+')
     rangeIndicators = ('-',':')
 
-    def do_get(self, fname):
-        'Brings SQL commands from a file to the in-memory SQL buffer.'
-        numCommandsLoaded = self.load(fname)
-        if numCommandsLoaded:
-            self.do_list('%d -' % (len(self.history) - numCommandsLoaded))
     def do_getrun(self, fname):
         'Brings SQL commands from a file to the in-memory SQL buffer, and executes them.'
-        numCommandsLoaded = self.do_load(fname) * -1
-        if numCommandsLoaded:
-            for command in self.history[numCommandsLoaded:]:
-                self.onecmd_plus_hooks(command)
+        Cmd.do_load(self, fname)
     def do_psql(self, arg):
         '''Shortcut commands emulating psql's backslash commands.
         
