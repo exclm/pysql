@@ -538,13 +538,13 @@ class sqlpyPlus(sqlpython.sqlpython):
         options, arg = self.pullflags.parse(arg)
         object_type, owner, object_name = self.resolve(arg.strip(self.terminator).upper())
         self.stdout.write("%s %s.%s\n" % (object_type, owner, object_name))
-        self.stdout.write(self.curs.callfunc('DBMS_METADATA.GET_DDL', cx_Oracle.CLOB,
-                                 [object_type, object_name, owner])+'\n')
+        self.stdout.write(str(self.curs.callfunc('DBMS_METADATA.GET_DDL', cx_Oracle.CLOB,
+                                 [object_type, object_name, owner])))
         if options.has_key('full'):
             for dependent_type in ('OBJECT_GRANT', 'CONSTRAINT', 'TRIGGER'):        
                 try:
-                    self.stdout.write(self.curs.callfunc('DBMS_METADATA.GET_DEPENDENT_DDL', cx_Oracle.CLOB,
-                                          [dependent_type, object_name, owner])+'\n')
+                    self.stdout.write(str(self.curs.callfunc('DBMS_METADATA.GET_DEPENDENT_DDL', cx_Oracle.CLOB,
+                                          [dependent_type, object_name, owner])))
                 except cx_Oracle.DatabaseError:
                     pass
 
@@ -680,6 +680,12 @@ class sqlpyPlus(sqlpython.sqlpython):
         \o spool
         \p list
         \w save
+        \db _dir_tablespaces
+        \dd comments
+        \dn _dir_schemas
+        \dt _dir_tables
+        \dv _dir_views
+        \di _dir_indexes
         \? help psql'''
         commands = {}
         for c in self.do_psql.__doc__.splitlines()[2:]:
@@ -695,7 +701,36 @@ class sqlpyPlus(sqlpython.sqlpython):
             self.onecmd('%s %s' % (commands[abbrev], args))
             self.onecmd('q')
         except KeyError:
-            print 'psql command \%s not yet supported.' % abbrev        
+            print 'psql command \%s not yet supported.' % abbrev
+            
+    def do__dir_tables(self, arg):
+        self.do_select("""table_name, 'TABLE' as type, owner FROM all_tables WHERE table_name LIKE '%%%s%%'""" % arg.upper())        
+
+    def do__dir_views(self, arg):
+        self.do_select("""view_name, 'VIEW' as type, owner FROM all_views WHERE view_name LIKE '%%%s%%'""" % arg.upper()) 
+
+    def do__dir_indexes(self, arg):
+        self.do_select("""index_name, index_type, owner FROM all_indexes WHERE index_name LIKE '%%%s%%' OR table_name LIKE '%%%s%%'""" % (arg.upper(), arg.upper())) 
+
+    def do__dir_tablespaces(self, arg):
+        self.do_select("""tablespace_name, file_name from dba_data_files""") 
+
+    def do__dir_schemas(self, arg):
+        self.do_select("""owner, count(*) AS objects FROM all_objects GROUP BY owner ORDER BY owner""") 
+        
+    def do_head(self, arg):
+        nrows = 10
+        args = arg.split()
+        if len(args) > 1:
+            for a in args:
+                if a[0] == '-':
+                    try:
+                        nrows = int(a[1:])
+                        args.remove(a)
+                    except:
+                        pass
+            arg = ' '.join(args)
+        self.do_select('* from %s;%d' % (arg, nrows))
         
     def do_print(self, arg):
         'print VARNAME: Show current value of bind variable VARNAME.'
