@@ -93,6 +93,10 @@ Example:
         '''Runs query_load10g defined above, to display OS load on cluster nodes (10gRAC)'''
         self.do_select(self.query_load10g)
 
+    def do_himom(self,args):
+        '''greets your mom'''
+        print 'hi mom'
+
     def do_db(self,args,filepath='pass.txt'): 
         '''Exec do_connect to db_alias in args (credentials form the file pass.txt) '''
         f = open(filepath,'r')
