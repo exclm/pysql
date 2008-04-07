@@ -112,9 +112,9 @@ class sqlpython(cmd2.Cmd):
                 print str(e)
             
     def do_commit(self, arg):
-        self.default('commit %s' % (arg), do_everywhere=True)
+        self.default('commit %s;' % (arg), do_everywhere=True)
     def do_rollback(self, arg):
-        self.default('rollback %s' % (arg), do_everywhere=True)        
+        self.default('rollback %s;' % (arg), do_everywhere=True)        
         
     # shortcuts
     do_q = do_quit
