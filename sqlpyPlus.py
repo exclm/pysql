@@ -764,7 +764,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         if arg[0] == ':':
             self.do_setbind(arg[1:])
         else:
-            self.default('exec %s' % arg)
+            self.default('exec %s;' % arg)
 
     def do_cat(self, arg):
         targets = arg.split()
