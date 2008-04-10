@@ -537,16 +537,17 @@ class sqlpyPlus(sqlpython.sqlpython):
         
         options, arg = self.pullflags.parse(arg)
         object_type, owner, object_name = self.resolve(arg.strip(self.terminator).upper())
-        self.stdout.write("%s %s.%s\n" % (object_type, owner, object_name))
-        self.stdout.write(str(self.curs.callfunc('DBMS_METADATA.GET_DDL', cx_Oracle.CLOB,
-                                 [object_type, object_name, owner])))
-        if options.has_key('full'):
-            for dependent_type in ('OBJECT_GRANT', 'CONSTRAINT', 'TRIGGER'):        
-                try:
-                    self.stdout.write(str(self.curs.callfunc('DBMS_METADATA.GET_DEPENDENT_DDL', cx_Oracle.CLOB,
-                                          [dependent_type, object_name, owner])))
-                except cx_Oracle.DatabaseError:
-                    pass
+        if object_type and owner and object_name:
+            self.stdout.write("%s %s.%s\n" % (object_type, owner, object_name))
+            self.stdout.write(str(self.curs.callfunc('DBMS_METADATA.GET_DDL', cx_Oracle.CLOB,
+                                     [object_type, object_name, owner])))
+            if options.has_key('full'):
+                for dependent_type in ('OBJECT_GRANT', 'CONSTRAINT', 'TRIGGER'):        
+                    try:
+                        self.stdout.write(str(self.curs.callfunc('DBMS_METADATA.GET_DEPENDENT_DDL', cx_Oracle.CLOB,
+                                              [dependent_type, object_name, owner])))
+                    except cx_Oracle.DatabaseError:
+                        pass
 
     findflags = flagReader.FlagSet([flagReader.Flag('insensitive')])            
     def do_find(self, arg):
