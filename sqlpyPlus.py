@@ -732,6 +732,10 @@ class sqlpyPlus(sqlpython.sqlpython):
             arg = ' '.join(args)
         self.do_select('* from %s;%d' % (arg, nrows))
         
+    def printall(self):
+        for (var, val) in self.binds.items():
+            print ':%s = %s' % (var, val)
+        
     def do_print(self, arg):
         'print VARNAME: Show current value of bind variable VARNAME.'
         if arg:
@@ -742,17 +746,12 @@ class sqlpyPlus(sqlpython.sqlpython):
             except KeyError:
                 self.stdout.write('No bind variable %s\n' % arg)
         else:
-            self.do_setbind('')
+            self.printall()
+            
     def do_setbind(self, arg):
         args = arg.split(None, 2)
-        if len(args) == 0:
-            for (var, val) in self.binds.items():
-                print ':%s = %s' % (var, val)
-        elif len(args) == 1:
-            try:
-                print ':%s = %s' % (args[0], self.binds[args[0]])
-            except KeyError, e:
-                print noSuchBindMsg % args[0]
+        if len(args) < 2:
+            self.do_print(arg)
         elif len(args) > 2 and args[1] in ('=',':='):
             var, val = args[0], args[2]
             if val[0] == val[-1] == "'" and len(val) > 1:
