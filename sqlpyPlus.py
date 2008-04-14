@@ -745,6 +745,15 @@ class sqlpyPlus(sqlpython.sqlpython):
             for (var, val) in self.binds.items():
                 print ':%s = %s' % (var, val)
             
+    # keep bind vars in sync on both sides?
+    
+    def push_binds(self):
+        commands = [":%s := '%s'" for b in self.binds.items()]
+        curs.execute('begin\n%s\nend;' % '\n'.join(commands))
+    def pull_binds(self):
+        i DON'T THINK THIS WILL WORK!
+        
+        
     def do_setbind(self, arg):
         args = arg.split(None, 2)
         if len(args) < 2:
@@ -752,7 +761,15 @@ class sqlpyPlus(sqlpython.sqlpython):
         elif len(args) > 2 and args[1] in ('=',':='):
             var, val = args[0], args[2]
             if val[0] == val[-1] == "'" and len(val) > 1:
-                val = val[1:-1]   # stripping quotes; is that wise?
+                val = val[1:-1]
+            try:
+                val = int(val)
+            except ValueError:
+                try:
+                    val = float(val)
+                except ValueError:
+                    val = self.curs.callfunc(val, [])
+                    # submit to sql
             self.binds[var] = val # but what if val is a function call?
         else:
             print 'Could not parse ', args            
