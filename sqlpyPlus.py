@@ -327,6 +327,7 @@ class Parser(object):
 pipeSeparator = Parser(pyparsing.SkipTo((pyparsing.Literal('|') ^ pyparsing.StringEnd()), include=True), retainSeparator=False) 
 bindScanner = Parser(pyparsing.Literal(':') + pyparsing.Word( pyparsing.alphanums + "_$#" ))
 commandSeparator = Parser(pyparsing.SkipTo((pyparsing.Literal(';') ^ pyparsing.StringEnd()), include=True))
+anonBlockScanner = Parser(pyparsing.SkipTo(pyparsing.CaselessKeyword('END')))
 
 def findBinds(target, existingBinds, givenBindVars = {}):
     result = givenBindVars
@@ -766,6 +767,32 @@ class sqlpyPlus(sqlpython.sqlpython):
         else:
             self.default('exec %s' % arg)
 
+    def anonBlockDone(self, statement):
+        try:
+            p = anonBlockScanner.scanner.parseString(statement)
+            s = 1
+        except pyparsing.ParseException:
+            return False
+        return True
+    
+    def anon_plsql(self, line1):
+        lines = [line1]
+        while True:
+            line = self.pseudo_raw_input(self.continuationPrompt)
+            if line.strip() == '/':
+                try:
+                    self.curs.execute('\n'.join(lines))
+                except Exception, e:
+                    print e
+                return
+            lines.append(line)
+        
+    def do_begin(self, arg):
+        self.anon_plsql('begin ' + arg)
+
+    def do_declare(self, arg):
+        self.anon_plsql('declare ' + arg)
+            
     def do_cat(self, arg):
         targets = arg.split()
         for target in targets:
