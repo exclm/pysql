@@ -327,7 +327,6 @@ class Parser(object):
 pipeSeparator = Parser(pyparsing.SkipTo((pyparsing.Literal('|') ^ pyparsing.StringEnd()), include=True), retainSeparator=False) 
 bindScanner = Parser(pyparsing.Literal(':') + pyparsing.Word( pyparsing.alphanums + "_$#" ))
 commandSeparator = Parser(pyparsing.SkipTo((pyparsing.Literal(';') ^ pyparsing.StringEnd()), include=True))
-anonBlockScanner = Parser(pyparsing.SkipTo(pyparsing.CaselessKeyword('END')))
 
 def findBinds(target, existingBinds, givenBindVars = {}):
     result = givenBindVars
@@ -757,24 +756,24 @@ class sqlpyPlus(sqlpython.sqlpython):
         elif len(args) > 2 and args[1] in ('=',':='):
             var, val = args[0], args[2]
             if val[0] == val[-1] == "'" and len(val) > 1:
-                val = val[1:-1]
-            self.binds[var] = val
+                val = val[1:-1]   # stripping quotes; is that wise?
+            self.binds[var] = val # but what if val is a function call?
         else:
             print 'Could not parse ', args            
+            
     def do_exec(self, arg):
         if arg[0] == ':':
             self.do_setbind(arg[1:])
         else:
-            self.default('exec %s' % arg)
+            try:
+                self.curs.execute('begin\n%s;end;' % arg)
+            except Exception, e:
+                print e
+        '''
+        exec :x := 'box'
+        exec :y := sysdate
+        '''
 
-    def anonBlockDone(self, statement):
-        try:
-            p = anonBlockScanner.scanner.parseString(statement)
-            s = 1
-        except pyparsing.ParseException:
-            return False
-        return True
-    
     def anon_plsql(self, line1):
         lines = [line1]
         while True:
