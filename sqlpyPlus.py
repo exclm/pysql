@@ -744,15 +744,6 @@ class sqlpyPlus(sqlpython.sqlpython):
         else:
             for (var, val) in self.binds.items():
                 print ':%s = %s' % (var, val)
-            
-    # keep bind vars in sync on both sides?
-    
-    def push_binds(self):
-        commands = [":%s := '%s'" for b in self.binds.items()]
-        curs.execute('begin\n%s\nend;' % '\n'.join(commands))
-    def pull_binds(self):
-        i DON'T THINK THIS WILL WORK!
-        
         
     def do_setbind(self, arg):
         args = arg.split(None, 2)
@@ -770,6 +761,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                 except ValueError:
                     val = self.curs.callfunc(val, [])
                     # submit to sql
+                    
             self.binds[var] = val # but what if val is a function call?
         else:
             print 'Could not parse ', args            
