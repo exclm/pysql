@@ -564,7 +564,17 @@ class sqlpyPlus(sqlpython.sqlpython):
         
     def do_describe(self, arg):
         "emulates SQL*Plus's DESCRIBE"
+        
+        if not arg:
+            self.do_select("""object_name, object_type FROM all_objects WHERE object_type IN ('TABLE','VIEW','INDEX') ORDER BY object_name""")
+            return
         object_type, owner, object_name = self.resolve(arg.strip(self.terminator).upper())
+        if not object_type:
+            self.do_select("""object_name, object_type FROM all_objects
+                              WHERE object_type IN ('TABLE','VIEW','INDEX')
+                              AND   object_name LIKE '%%%s%%'
+                              ORDER BY object_name""" % arg.upper() )
+            return                    
         self.stdout.write("%s %s.%s\n" % (object_type, owner, object_name))
         descQ = descQueries.get(object_type)
         if descQ:
@@ -679,6 +689,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         \i getrun
         \o spool
         \p list
+        \q quit
         \w save
         \db _dir_tablespaces
         \dd comments
@@ -698,14 +709,13 @@ class sqlpyPlus(sqlpython.sqlpython):
         except IndexError:
             args = ''
         try:
-            self.onecmd('%s %s' % (commands[abbrev], args))
-            self.onecmd('q')
+            return self.onecmd('%s %s' % (commands[abbrev], args))
         except KeyError:
             print 'psql command \%s not yet supported.' % abbrev
-            
+
     def do__dir_tables(self, arg):
         self.do_select("""table_name, 'TABLE' as type, owner FROM all_tables WHERE table_name LIKE '%%%s%%'""" % arg.upper())        
-
+        
     def do__dir_views(self, arg):
         self.do_select("""view_name, 'VIEW' as type, owner FROM all_views WHERE view_name LIKE '%%%s%%'""" % arg.upper()) 
 
