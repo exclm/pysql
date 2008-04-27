@@ -807,6 +807,37 @@ class sqlpyPlus(sqlpython.sqlpython):
     def do_declare(self, arg):
         self.anon_plsql('declare ' + arg)
             
+    def do_create(self, arg):
+        self.anon_plsql('create ' + arg)
+
+    lsflags = flagReader.FlagSet([flagReader.Flag('long')])            
+    def do_ls(self, arg):
+        options, arg = self.lsflags.parse(arg)
+        where = ''
+        if arg:
+            where = """\nWHERE object_type || '/' || object_name
+                         LIKE '%%%s%%'""" % (arg.upper().replace('*','%'))
+        else:
+            where = ''
+        result = []
+        statement = '''SELECT object_type, object_name,
+                              status, last_ddl_time
+                       FROM   user_objects %s
+                       ORDER BY object_type, object_name''' % (where)
+        self.curs.execute(statement)
+        for (object_type, object_name, status, last_ddl_time) in self.curs.fetchall():
+            if options.has_key('long'):
+                result.append('%s\t%s\t%s/%s' % (status, last_ddl_time, object_type, object_name))
+            else:
+                result.append('%s/%s' % (object_type, object_name))
+        self.stdout.write('\n'.join(result) + '\n')
+            
+            
+        if options.has_key('insensitive'):
+            searchfor = "LOWER(text)"
+            arg = arg.lower()
+            
+            
     def do_cat(self, arg):
         targets = arg.split()
         for target in targets:
