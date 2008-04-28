@@ -537,6 +537,8 @@ class sqlpyPlus(sqlpython.sqlpython):
         
         options, arg = self.pullflags.parse(arg)
         object_type, owner, object_name = self.resolve(arg.strip(self.terminator).upper())
+        if not object_type:
+            return
         self.stdout.write("%s %s.%s\n" % (object_type, owner, object_name))
         self.stdout.write(str(self.curs.callfunc('DBMS_METADATA.GET_DDL', cx_Oracle.CLOB,
                                  [object_type, object_name, owner])))
