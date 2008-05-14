@@ -9,7 +9,7 @@
 # See also http://twiki.cern.ch/twiki/bin/view/PSSGroup/SqlPython
 
 import cmd2,getpass,binascii,cx_Oracle,re
-import pexpecter
+import pexpecter, sqlpyPlus
     
     # complication! separate sessions ->
     # separate transactions !!!!!
@@ -102,7 +102,8 @@ class sqlpython(cmd2.Cmd):
     def default(self, arg, do_everywhere = False):
         self.query = self.finishStatement(arg).strip().rstrip(';')
         try:
-            self.curs.execute(self.query)
+            self.varsUsed = sqlpyPlus.findBinds(self.query, self.binds, givenBindVars={})
+            self.curs.execute(self.query, self.varsUsed)            
             print '\nExecuted%s\n' % ((self.curs.rowcount > 0) and ' (%d rows)' % self.curs.rowcount or '')
             if do_everywhere:
                 self.fail(arg, do_everywhere = True )
@@ -140,7 +141,7 @@ def pmatrix(rows,desc,maxlen=30):
         mustsplit = 0             # flag 
         for j in rcols:
             if str(desc[j][1]) == "<type 'cx_Oracle.BINARY'>":  # handles RAW columns
-                 rowsi[j] = binascii.b2a_hex(rowsi[j])
+                rowsi[j] = binascii.b2a_hex(rowsi[j])
             maxen[j] = max(maxen[j], len(rowsi[j]))    # computes max field length
             if maxen[j] <= maxlen:
                 split.append('')
