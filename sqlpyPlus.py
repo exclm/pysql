@@ -12,7 +12,7 @@ Features include:
  - comments shows table and column comments
  - compare ... to ... graphically compares results of two queries
  - commands are case-insensitive
- 
+
 Use 'help' within sqlpython for details.
 
 Compatible with sqlpython v1.3
@@ -28,27 +28,27 @@ or with a python-like shorthand
 
 descQueries = {
 'TABLE': ("""
- atc.column_name,
-            CASE atc.nullable WHEN 'Y' THEN 'NULL' ELSE 'NOT NULL' END "Null?",
-            atc.data_type ||
-              CASE atc.data_type WHEN 'DATE' THEN ''
-                             ELSE '(' ||
-                               CASE atc.data_type WHEN 'NUMBER' THEN TO_CHAR(atc.data_precision) ||
-                                 CASE atc.data_scale WHEN 0 THEN ''
-                                                 ELSE ',' || TO_CHAR(atc.data_scale) END
-                                              ELSE TO_CHAR(atc.data_length) END 
-                             END ||
-              CASE atc.data_type WHEN 'DATE' THEN '' ELSE ')' END
-              data_type
+          atc.column_name,
+CASE atc.nullable WHEN 'Y' THEN 'NULL' ELSE 'NOT NULL' END "Null?",
+atc.data_type ||
+CASE atc.data_type WHEN 'DATE' THEN ''
+ELSE '(' ||
+CASE atc.data_type WHEN 'NUMBER' THEN TO_CHAR(atc.data_precision) ||
+CASE atc.data_scale WHEN 0 THEN ''
+ELSE ',' || TO_CHAR(atc.data_scale) END
+ELSE TO_CHAR(atc.data_length) END 
+END ||
+CASE atc.data_type WHEN 'DATE' THEN '' ELSE ')' END
+data_type
 FROM all_tab_columns atc
 WHERE atc.table_name = :object_name
 AND      atc.owner = :owner
 ORDER BY atc.column_id;""",),
 'PROCEDURE': ("""
-             argument_name,             
-             data_type,
-             in_out,
-             default_value
+              argument_name,             
+data_type,
+in_out,
+default_value
 FROM all_arguments
 WHERE object_name = :object_name
 AND      owner = :owner
@@ -61,11 +61,11 @@ FROM all_arguments
 WHERE package_name = :package_name
 AND      owner = :owner""",),
 'PackageObjArgs':("""
-             object_name,
-             argument_name,             
-             data_type,
-             in_out,
-             default_value
+                  object_name,
+argument_name,             
+data_type,
+in_out,
+default_value
 FROM all_arguments
 WHERE package_name = :package_name
 AND      object_name = :object_name
@@ -73,20 +73,20 @@ AND      owner = :owner
 AND      argument_name IS NOT NULL
 ORDER BY sequence""",),
 'TRIGGER':("""
-       description
+           description
 FROM   all_triggers
 WHERE  owner = :owner
 AND    trigger_name = :object_name
 """,
 """
-       table_owner,
-       base_object_type,
-       table_name,
-       column_name,
-       when_clause,
-       status,
-       action_type,
-       crossedition
+table_owner,
+base_object_type,
+table_name,
+column_name,
+when_clause,
+status,
+action_type,
+crossedition
 FROM   all_triggers
 WHERE  owner = :owner
 AND    trigger_name = :object_name
@@ -111,37 +111,37 @@ WHERE  owner = :owner
 AND    index_name = :object_name
 \\t
 """,)
-    }
+}
 descQueries['VIEW'] = descQueries['TABLE']
 descQueries['FUNCTION'] = descQueries['PROCEDURE']
 
 queries = {
 'resolve': """
 SELECT object_type, object_name, owner FROM (
-        SELECT object_type, object_name, user owner, 1 priority
-        FROM   user_objects
-        WHERE object_name = :objName
-    UNION ALL
-        SELECT ao.object_type, ao.object_name, ao.owner, 2 priority
-        FROM    all_objects ao
-        JOIN      user_synonyms us ON (us.table_owner = ao.owner AND us.table_name = ao.object_name)
-        WHERE us.synonym_name = :objName
-    AND   ao.object_type != 'SYNONYM'
-    UNION ALL
-        SELECT ao.object_type, ao.object_name, ao.owner, 3 priority
-        FROM    all_objects ao
-        JOIN      all_synonyms asyn ON (asyn.table_owner = ao.owner AND asyn.table_name = ao.object_name)
-        WHERE asyn.synonym_name = :objName
-    AND   ao.object_type != 'SYNONYM'
-        AND      asyn.owner = 'PUBLIC'
-    UNION ALL 
-        SELECT 'DIRECTORY' object_type, dir.directory_name, dir.owner, 6 priority
-        FROM   all_directories dir
-        WHERE  dir.directory_name = :objName
-    UNION ALL 
-        SELECT 'DATABASE LINK' object_type, db_link, owner, 7 priority
-        FROM   all_db_links dbl
-        WHERE  dbl.db_link = :objName
+SELECT object_type, object_name, user owner, 1 priority
+FROM   user_objects
+WHERE object_name = :objName
+UNION ALL
+SELECT ao.object_type, ao.object_name, ao.owner, 2 priority
+FROM    all_objects ao
+JOIN      user_synonyms us ON (us.table_owner = ao.owner AND us.table_name = ao.object_name)
+WHERE us.synonym_name = :objName
+AND   ao.object_type != 'SYNONYM'
+UNION ALL
+SELECT ao.object_type, ao.object_name, ao.owner, 3 priority
+FROM    all_objects ao
+JOIN      all_synonyms asyn ON (asyn.table_owner = ao.owner AND asyn.table_name = ao.object_name)
+WHERE asyn.synonym_name = :objName
+AND   ao.object_type != 'SYNONYM'
+AND      asyn.owner = 'PUBLIC'
+UNION ALL 
+SELECT 'DIRECTORY' object_type, dir.directory_name, dir.owner, 6 priority
+FROM   all_directories dir
+WHERE  dir.directory_name = :objName
+UNION ALL 
+SELECT 'DATABASE LINK' object_type, db_link, owner, 7 priority
+FROM   all_db_links dbl
+WHERE  dbl.db_link = :objName
 ) ORDER BY priority ASC""",
 'tabComments': """
 SELECT comments
@@ -150,7 +150,7 @@ WHERE owner = :owner
 AND      table_name = :table_name""",
 'colComments': """
 atc.column_name,
-             acc.comments             
+acc.comments             
 FROM all_tab_columns atc
 JOIN all_col_comments acc ON (atc.owner = acc.owner and atc.table_name = acc.table_name and atc.column_name = acc.column_name)
 WHERE atc.table_name = :object_name
@@ -158,31 +158,31 @@ AND      atc.owner = :owner
 ORDER BY atc.column_id;""",
 #thanks to Senora.pm for "refs"
 'refs': """
-       NULL               referenced_by, 
-       c2.table_name      references, 
-       c1.constraint_name constraint
+NULL               referenced_by, 
+c2.table_name      references, 
+c1.constraint_name constraint
 FROM
-       user_constraints c1,
-       user_constraints c2
+user_constraints c1,
+user_constraints c2
 WHERE
-       c1.table_name = :object_name
-       and c1.constraint_type ='R'
-       and c1.r_constraint_name = c2.constraint_name
-       and c1.r_owner = c2.owner
-       and c1.owner = :owner
+c1.table_name = :object_name
+and c1.constraint_type ='R'
+and c1.r_constraint_name = c2.constraint_name
+and c1.r_owner = c2.owner
+and c1.owner = :owner
 UNION
 SELECT c1.table_name      referenced_by, 
-       NULL               references, 
-       c1.constraint_name constraint
+NULL               references, 
+c1.constraint_name constraint
 FROM
-       user_constraints c1,
-       user_constraints c2
+user_constraints c1,
+user_constraints c2
 WHERE
-       c2.table_name = :object_name
-       and c1.constraint_type ='R'
-       and c1.r_constraint_name = c2.constraint_name
-       and c1.r_owner = c2.owner
-       and c1.owner = :owner       
+c2.table_name = :object_name
+and c1.constraint_type ='R'
+and c1.r_constraint_name = c2.constraint_name
+and c1.r_owner = c2.owner
+and c1.owner = :owner       
 """
 }
 
@@ -192,7 +192,7 @@ from cmd2 import flagReader, Cmd
 if float(sys.version[:3]) < 2.3:
     def enumerate(lst):
         return zip(range(len(lst)), lst)
-        
+
 class SoftwareSearcher(object):
     def __init__(self, softwareList, purpose):
         self.softwareList = softwareList
@@ -212,51 +212,51 @@ class SoftwareSearcher(object):
             if os.path.exists(software):
                 if n > (len(self.softwareList) * 0.7):
                     print """
-    
-    Using %s.  Note that there are better options available for %s,
-    but %s couldn't find a better one in your PATH.
-    Feel free to open up %s
-    and customize it to find your favorite %s program.
-    
-    """ % (software, self.purpose, __file__, __file__, self.purpose)
+
+                          Using %s.  Note that there are better options available for %s,
+                          but %s couldn't find a better one in your PATH.
+                          Feel free to open up %s
+                          and customize it to find your favorite %s program.
+
+                          """ % (software, self.purpose, __file__, __file__, self.purpose)
                 return (software, invokeString)
             stem = os.path.split(software)[1]
             for p in os.environ['PATH'].split(os.pathsep):
                 if os.path.exists(os.sep.join([p, stem])):
                     return (stem, invokeString)
         raise (OSError, """Could not find any %s programs.  You will need to install one,
-    or customize %s to make it aware of yours.
-    Looked for these programs:
-    %s""" % (self.purpose, __file__, "\n".join([s[0] for s in self.softwareList])))
+               or customize %s to make it aware of yours.
+Looked for these programs:
+%s""" % (self.purpose, __file__, "\n".join([s[0] for s in self.softwareList])))
     #v2.4: %s""" % (self.purpose, __file__, "\n".join(s[0] for s in self.softwareList)))
 
 softwareLists = {
     'diff/merge': [  
-                    ('/usr/bin/meld',"%s %s %s"),
-                    ('/usr/bin/kdiff3',"%s %s %s"),
-                    (r'C:\Program Files\Araxis\Araxis Merge v6.5\Merge.exe','"%s" %s %s'),                
-                    (r'C:\Program Files\TortoiseSVN\bin\TortoiseMerge.exe', '"%s" /base:"%s" /mine:"%s"'),
-                    ('FileMerge','%s %s %s'),        
-                    ('kompare','%s %s %s'),   
-                    ('WinMerge','%s %s %s'),         
-                    ('xxdiff','%s %s %s'),        
-                    ('fldiff','%s %s %s'),
-                    ('gtkdiff','%s %s %s'),        
-                    ('tkdiff','%s %s %s'),         
-                    ('gvimdiff','%s %s %s'),        
-                    ('diff',"%s %s %s"),
-                    (r'c:\windows\system32\comp.exe',"%s %s %s")],
-    'text editor': [
-        ('gedit', '%s %s'),
-        ('textpad', '%s %s'),
-        ('notepad.exe', '%s %s'),
-        ('pico', '%s %s'),
-        ('emacs', '%s %s'),
-        ('vim', '%s %s'),
-        ('vi', '%s %s'),
-        ('ed', '%s %s'),
-        ('edlin', '%s %s')
-                   ]
+        ('/usr/bin/meld',"%s %s %s"),
+        ('/usr/bin/kdiff3',"%s %s %s"),
+        (r'C:\Program Files\Araxis\Araxis Merge v6.5\Merge.exe','"%s" %s %s'),                
+        (r'C:\Program Files\TortoiseSVN\bin\TortoiseMerge.exe', '"%s" /base:"%s" /mine:"%s"'),
+        ('FileMerge','%s %s %s'),        
+        ('kompare','%s %s %s'),   
+        ('WinMerge','%s %s %s'),         
+        ('xxdiff','%s %s %s'),        
+        ('fldiff','%s %s %s'),
+        ('gtkdiff','%s %s %s'),        
+        ('tkdiff','%s %s %s'),         
+        ('gvimdiff','%s %s %s'),        
+        ('diff',"%s %s %s"),
+        (r'c:\windows\system32\comp.exe',"%s %s %s")],
+        'text editor': [
+            ('gedit', '%s %s'),
+            ('textpad', '%s %s'),
+            ('notepad.exe', '%s %s'),
+            ('pico', '%s %s'),
+            ('emacs', '%s %s'),
+            ('vim', '%s %s'),
+            ('vi', '%s %s'),
+            ('ed', '%s %s'),
+            ('edlin', '%s %s')
+        ]
 }
 
 diffMergeSearcher = SoftwareSearcher(softwareLists['diff/merge'],'diff/merge')
@@ -338,12 +338,12 @@ def findBinds(target, existingBinds, givenBindVars = {}):
             if not givenBindVars.has_key(varname):
                 print 'Bind variable %s not defined.' % (varname)                
     return result
-        
+
 class sqlpyPlus(sqlpython.sqlpython):
     defaultExtension = 'sql'
     shortcuts = {'?': 'help', '@': 'getrun', '!': 'shell', ':': 'setbind', '\\': 'psql'}    
     multilineCommands = '''select insert update delete tselect
-        create drop alter'''.split()
+                      create drop alter'''.split()
     defaultFileName = 'afiedt.buf'
     def __init__(self):
         sqlpython.sqlpython.__init__(self)
@@ -364,15 +364,15 @@ class sqlpyPlus(sqlpython.sqlpython):
         the arguments.  Returns a tuple containing (command, args, line).
         'command' and 'args' may be None if the line couldn't be parsed.        
         Overrides cmd.cmd.parseline to accept variety of shortcuts.."""
-        
+
         cmd, arg, line = sqlpython.sqlpython.parseline(self, line)
         if cmd in ('select', 'sleect', 'insert', 'update', 'delete', 'describe',
-                          'desc', 'comments', 'pull', 'refs', 'desc', 'triggers', 'find') \
-               and not hasattr(self, 'curs'):
+                   'desc', 'comments', 'pull', 'refs', 'desc', 'triggers', 'find') \
+           and not hasattr(self, 'curs'):
             print 'Not connected.'
             return '', '', ''
         return cmd, arg, line
-    
+
     def onecmd_plus_hooks(self, line):                          
         line = self.precmd(line)
         stop = self.onecmd(line)
@@ -402,7 +402,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                   (self.tblname, ','.join(self.colnames), formatRow(row))
                   for row in self.rows]
         return '\n'.join(result)
-        
+
     def output_row_as_xml(self, row):
         result = ['  <%s>\n    %s\n  </%s>' %
                   (colname.lower(), str('' if (itm is None) else itm), colname.lower()) 
@@ -421,7 +421,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             result.append('  <tr>\n    %s\n  </tr>' %
                           (''.join('<td>%s</td>' %
                                    str('' if (itm is None) else itm)
-                           for itm in row)))                
+                                   for itm in row)))                
         result = '''<table id="%s">
 %s
 </table>''' % (self.tblname, '\n'.join(result))
@@ -474,26 +474,26 @@ class sqlpyPlus(sqlpython.sqlpython):
         else:
             result = sqlpython.pmatrix(self.rows, self.curs.description, self.maxfetch)
         return result
-                        
+
     statementEndPattern = re.compile(r'(.*)(;|\\[gGhtxicCsS])\s*(\d*)$', re.DOTALL | re.MULTILINE)
     # what about quote-enclosed?
-    
+
     def findTerminator(self, statement):
         m = self.statementEndPattern.search(statement)
         if m:
             return m.groups()
         else:
             return statement, None, None
-    
+
     legalOracle = re.compile('[a-zA-Z_$#]')
-    
+
     def do_select(self, arg, bindVarsIn=None, override_terminator=None):
         """Fetch rows from a table.
-        
+
         Limit the number of rows retrieved by appending
         an integer after the terminator
         (example: SELECT * FROM mytable;10 )
-        
+
         Output may be formatted by choosing an alternative terminator
         ("help terminators" for details)
         """
@@ -532,28 +532,28 @@ class sqlpyPlus(sqlpython.sqlpython):
     pullflags = flagReader.FlagSet([flagReader.Flag('full')])            
     def do_pull(self, arg):
         """Displays source code.
-        
+
         --full, -f: get dependent objects as well"""
-        
+
         options, arg = self.pullflags.parse(arg)
         object_type, owner, object_name = self.resolve(arg.strip(self.terminator).upper())
         if not object_type:
             return
         self.stdout.write("%s %s.%s\n" % (object_type, owner, object_name))
         self.stdout.write(str(self.curs.callfunc('DBMS_METADATA.GET_DDL', cx_Oracle.CLOB,
-                                 [object_type, object_name, owner])))
+                                                 [object_type, object_name, owner])))
         if options.has_key('full'):
             for dependent_type in ('OBJECT_GRANT', 'CONSTRAINT', 'TRIGGER'):        
                 try:
                     self.stdout.write(str(self.curs.callfunc('DBMS_METADATA.GET_DEPENDENT_DDL', cx_Oracle.CLOB,
-                                          [dependent_type, object_name, owner])))
+                                                             [dependent_type, object_name, owner])))
                 except cx_Oracle.DatabaseError:
                     pass
 
     findflags = flagReader.FlagSet([flagReader.Flag('insensitive')])            
     def do_find(self, arg):
         """Finds argument in source code.
-        
+
         --insensitive, -i: case-insensitive search"""
 
         options, arg = self.findflags.parse(arg)
@@ -563,19 +563,19 @@ class sqlpyPlus(sqlpython.sqlpython):
         else:
             searchfor = "text"
         self.do_select("* from all_source where %s like '%%%s%%'" % (searchfor, arg))
-        
+
     def do_describe(self, arg):
         "emulates SQL*Plus's DESCRIBE"
-        
+
         if not arg:
-            self.do_select("""object_name, object_type FROM all_objects WHERE object_type IN ('TABLE','VIEW','INDEX') ORDER BY object_name""")
+            self.do_select("""object_name, object_type, owner FROM all_objects WHERE object_type IN ('TABLE','VIEW','INDEX') ORDER BY object_name""")
             return
         object_type, owner, object_name = self.resolve(arg.strip(self.terminator).upper())
         if not object_type:
-            self.do_select("""object_name, object_type FROM all_objects
-                              WHERE object_type IN ('TABLE','VIEW','INDEX')
-                              AND   object_name LIKE '%%%s%%'
-                              ORDER BY object_name""" % arg.upper() )
+            self.do_select("""object_name, object_type, owner FROM all_objects
+                           WHERE object_type IN ('TABLE','VIEW','INDEX')
+AND   object_name LIKE '%%%s%%'
+ORDER BY object_name""" % arg.upper() )
             return                    
         self.stdout.write("%s %s.%s\n" % (object_type, owner, object_name))
         descQ = descQueries.get(object_type)
@@ -589,7 +589,24 @@ class sqlpyPlus(sqlpython.sqlpython):
                 print packageObj_name
                 self.do_select(descQueries['PackageObjArgs'][0],bindVarsIn={'package_name':object_name, 'owner':owner, 'object_name':packageObj_name})
     do_desc = do_describe
-    
+
+    def do_deps(self, arg):
+        object_type, owner, object_name = self.resolve(arg.strip(self.terminator).upper())
+        if object_type == 'PACKAGE BODY':
+            q = "and (type != 'PACKAGE BODY' or name != :object_name)'"
+            object_type = 'PACKAGE'
+        else:
+            q = ""
+        q = """         name,
+          type
+          from user_dependencies
+          where
+          referenced_name like :object_name
+          and	referenced_type like :object_type
+          and	referenced_owner like :owner
+          %s""" % (q)
+        self.do_select(q, {'object_name':object_name, 'object_type':object_type, 'owner':owner})
+
     def do_comments(self, arg):
         'Prints comments on a table and its columns.'
         object_type, owner, object_name = self.resolve(arg.strip(self.terminator).upper())
@@ -619,14 +636,14 @@ class sqlpyPlus(sqlpython.sqlpython):
 
     def do_resolve(self, arg):
         self.stdout.write(self.resolve(arg)+'\n')
-                          
+
     def spoolstop(self):
         if self.spoolFile:
             sys.stdout = self.stdoutBeforeSpool
             print 'Finished spooling to ', self.spoolFile.name
             self.spoolFile.close()
             self.spoolFile = None
-    
+
     def do_spool(self, arg):
         """spool [filename] - begins redirecting output to FILENAME."""
         self.spoolstop()
@@ -647,7 +664,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         self.onecmd_plus_hooks(arg)
         f.close()
         sys.stdout = originalOut
-        
+
     def do_write(self, args):
         'write [filename.extension] query - writes result to a file'
         words = args.split(None, 1)
@@ -657,10 +674,10 @@ class sqlpyPlus(sqlpython.sqlpython):
             fname, command = 'output.txt', args
         self.write(command, fname)
         print 'Results written to %s' % os.path.join(os.getcwd(), fname)
-        
+
     def do_compare(self, args):
         """COMPARE query1 TO query2 - uses external tool to display differences.
-    
+
         Sorting is recommended to avoid false hits.
         Will attempt to use a graphical diff/merge tool like kdiff3, meld, or Araxis Merge, 
         if they are installed."""
@@ -682,7 +699,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         Cmd.do_load(self, fname)
     def do_psql(self, arg):
         '''Shortcut commands emulating psql's backslash commands.
-        
+
         \c connect
         \d desc
         \e edit
@@ -705,7 +722,10 @@ class sqlpyPlus(sqlpython.sqlpython):
             (abbrev, command) = c.split(None, 1)
             commands[abbrev[1:]] = command
         words = arg.split(None,1)
-        abbrev = words[0]
+        try:
+            abbrev = words[0]
+        except IndexError:
+            return
         try:
             args = words[1]
         except IndexError:
@@ -717,7 +737,7 @@ class sqlpyPlus(sqlpython.sqlpython):
 
     def do__dir_tables(self, arg):
         self.do_select("""table_name, 'TABLE' as type, owner FROM all_tables WHERE table_name LIKE '%%%s%%'""" % arg.upper())        
-        
+
     def do__dir_views(self, arg):
         self.do_select("""view_name, 'VIEW' as type, owner FROM all_views WHERE view_name LIKE '%%%s%%'""" % arg.upper()) 
 
@@ -729,7 +749,7 @@ class sqlpyPlus(sqlpython.sqlpython):
 
     def do__dir_schemas(self, arg):
         self.do_select("""owner, count(*) AS objects FROM all_objects GROUP BY owner ORDER BY owner""") 
-        
+
     def do_head(self, arg):
         nrows = 10
         args = arg.split()
@@ -743,7 +763,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                         pass
             arg = ' '.join(args)
         self.do_select('* from %s;%d' % (arg, nrows))
-        
+
     def do_print(self, arg):
         'print VARNAME: Show current value of bind variable VARNAME.'
         if arg:
@@ -756,7 +776,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         else:
             for (var, val) in self.binds.items():
                 print ':%s = %s' % (var, val)
-        
+
     def do_setbind(self, arg):
         args = arg.split(None, 2)
         if len(args) < 2:
@@ -764,20 +784,25 @@ class sqlpyPlus(sqlpython.sqlpython):
         elif len(args) > 2 and args[1] in ('=',':='):
             var, val = args[0], args[2]
             if val[0] == val[-1] == "'" and len(val) > 1:
-                val = val[1:-1]
+                self.binds[var] = val[1:-1]
+                return
             try:
-                val = int(val)
+                self.binds[var] = int(val)
+                return
             except ValueError:
                 try:
-                    val = float(val)
+                    self.binds[var] = float(val)
+                    return
                 except ValueError:
-                    val = self.curs.callfunc(val, [])
-                    # submit to sql
-                    
-            self.binds[var] = val # but what if val is a function call?
-        else:
-            print 'Could not parse ', args            
-            
+                    try:
+                        self.binds[var] = self.curs.callfunc(val, [])
+                        return
+                    except:
+                        pass
+                    # TODO: fix
+
+        print 'Could not parse ', args            
+
     def do_exec(self, arg):
         if arg[0] == ':':
             self.do_setbind(arg[1:])
@@ -802,13 +827,13 @@ class sqlpyPlus(sqlpython.sqlpython):
                     print e
                 return
             lines.append(line)
-        
+
     def do_begin(self, arg):
         self.anon_plsql('begin ' + arg)
 
     def do_declare(self, arg):
         self.anon_plsql('declare ' + arg)
-            
+
     def do_create(self, arg):
         self.anon_plsql('create ' + arg)
 
@@ -818,14 +843,14 @@ class sqlpyPlus(sqlpython.sqlpython):
         where = ''
         if arg:
             where = """\nWHERE object_type || '/' || object_name
-                         LIKE '%%%s%%'""" % (arg.upper().replace('*','%'))
+                  LIKE '%%%s%%'""" % (arg.upper().replace('*','%'))
         else:
             where = ''
         result = []
         statement = '''SELECT object_type, object_name,
-                              status, last_ddl_time
-                       FROM   user_objects %s
-                       ORDER BY object_type, object_name''' % (where)
+                  status, last_ddl_time
+                  FROM   user_objects %s
+                  ORDER BY object_type, object_name''' % (where)
         self.curs.execute(statement)
         for (object_type, object_name, status, last_ddl_time) in self.curs.fetchall():
             if options.has_key('long'):
@@ -833,18 +858,18 @@ class sqlpyPlus(sqlpython.sqlpython):
             else:
                 result.append('%s/%s' % (object_type, object_name))
         self.stdout.write('\n'.join(result) + '\n')
-            
-            
+
+
         if options.has_key('insensitive'):
             searchfor = "LOWER(text)"
             arg = arg.lower()
-            
-            
+
+
     def do_cat(self, arg):
         targets = arg.split()
         for target in targets:
             self.do_select('* from %s' % target)
-    
+
     def do_grep(self, arg):
         """grep PATTERN TABLE - search for term in any of TABLE's fields"""
         targets = arg.split()
@@ -870,7 +895,7 @@ class sqlpyPlus(sqlpython.sqlpython):
 def _test():
     import doctest
     doctest.testmod()
-    
+
 if __name__ == "__main__":
     "Silent return implies that all unit tests succeeded.  Use -v to see details."
     _test()
