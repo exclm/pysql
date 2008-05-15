@@ -529,7 +529,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             traceback.print_exc(file=sys.stdout)
         self.sqlBuffer.append(self.query)
 
-    @options([make_option('-f', '--full', action='store-true', help='get dependent objects as well')])
+    @options([make_option('-f', '--full', action='store_true', help='get dependent objects as well')])
     def do_pull(self, arg, opts):
         """Displays source code."""
 
@@ -547,7 +547,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                 except cx_Oracle.DatabaseError:
                     pass
 
-    @options([make_option('-i', '--insensitive', action='store-true', help='case-insensitive search')])                
+    @options([make_option('-i', '--insensitive', action='store_true', help='case-insensitive search')])                
     def do_find(self, arg, opts):
         """Finds argument in source code."""
 
@@ -831,7 +831,7 @@ ORDER BY object_name""" % arg.upper() )
     def do_create(self, arg):
         self.anon_plsql('create ' + arg)
 
-    @options([make_option('-l', '--long', action='store-true', help='long descriptions')])        
+    @options([make_option('-l', '--long', action='store_true', help='long descriptions')])        
     def do_ls(self, arg, opts):
         where = ''
         if arg:
