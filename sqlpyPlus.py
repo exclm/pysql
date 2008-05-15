@@ -187,7 +187,7 @@ and c1.owner = :owner
 }
 
 import sys, os, re, sqlpython, cx_Oracle, pyparsing
-from cmd2 import flagReader, Cmd
+from cmd2 import Cmd, make_option, options
 
 if float(sys.version[:3]) < 2.3:
     def enumerate(lst):
@@ -529,20 +529,17 @@ class sqlpyPlus(sqlpython.sqlpython):
             traceback.print_exc(file=sys.stdout)
         self.sqlBuffer.append(self.query)
 
-    pullflags = flagReader.FlagSet([flagReader.Flag('full')])            
-    def do_pull(self, arg):
-        """Displays source code.
+    @options([make_option('-f', '--full', action='store-true', help='get dependent objects as well')])
+    def do_pull(self, arg, opts):
+        """Displays source code."""
 
-        --full, -f: get dependent objects as well"""
-
-        options, arg = self.pullflags.parse(arg)
         object_type, owner, object_name = self.resolve(arg.strip(self.terminator).upper())
         if not object_type:
             return
         self.stdout.write("%s %s.%s\n" % (object_type, owner, object_name))
         self.stdout.write(str(self.curs.callfunc('DBMS_METADATA.GET_DDL', cx_Oracle.CLOB,
                                                  [object_type, object_name, owner])))
-        if options.has_key('full'):
+        if opts.full:
             for dependent_type in ('OBJECT_GRANT', 'CONSTRAINT', 'TRIGGER'):        
                 try:
                     self.stdout.write(str(self.curs.callfunc('DBMS_METADATA.GET_DEPENDENT_DDL', cx_Oracle.CLOB,
@@ -550,14 +547,11 @@ class sqlpyPlus(sqlpython.sqlpython):
                 except cx_Oracle.DatabaseError:
                     pass
 
-    findflags = flagReader.FlagSet([flagReader.Flag('insensitive')])            
-    def do_find(self, arg):
-        """Finds argument in source code.
+    @options([make_option('-i', '--insensitive', action='store-true', help='case-insensitive search')])                
+    def do_find(self, arg, opts):
+        """Finds argument in source code."""
 
-        --insensitive, -i: case-insensitive search"""
-
-        options, arg = self.findflags.parse(arg)
-        if options.has_key('insensitive'):
+        if opts.insensitive:
             searchfor = "LOWER(text)"
             arg = arg.lower()
         else:
@@ -837,9 +831,8 @@ ORDER BY object_name""" % arg.upper() )
     def do_create(self, arg):
         self.anon_plsql('create ' + arg)
 
-    lsflags = flagReader.FlagSet([flagReader.Flag('long')])            
-    def do_ls(self, arg):
-        options, arg = self.lsflags.parse(arg)
+    @options([make_option('-l', '--long', action='store-true', help='long descriptions')])        
+    def do_ls(self, arg, opts):
         where = ''
         if arg:
             where = """\nWHERE object_type || '/' || object_name
@@ -853,7 +846,7 @@ ORDER BY object_name""" % arg.upper() )
                   ORDER BY object_type, object_name''' % (where)
         self.curs.execute(statement)
         for (object_type, object_name, status, last_ddl_time) in self.curs.fetchall():
-            if options.has_key('long'):
+            if opts.long:
                 result.append('%s\t%s\t%s/%s' % (status, last_ddl_time, object_type, object_name))
             else:
                 result.append('%s/%s' % (object_type, object_name))
