@@ -740,7 +740,7 @@ class sqlpyPlus(sqlpython.sqlpython):
 
     @options([make_option('-a','--all',action='store_true',
                           help='Describe all objects (not just my own)')])
-    def do__dir_tables(self, arg):
+    def do__dir_tables(self, arg, opts):
         if opts.all:
             which_view = (', owner', 'all')
         else:
@@ -750,7 +750,7 @@ class sqlpyPlus(sqlpython.sqlpython):
 
     @options([make_option('-a','--all',action='store_true',
                           help='Describe all objects (not just my own)')])
-    def do__dir_views(self, arg):
+    def do__dir_views(self, arg, opts):
         if opts.all:
             which_view = (', owner', 'all')
         else:
@@ -760,7 +760,7 @@ class sqlpyPlus(sqlpython.sqlpython):
 
     @options([make_option('-a','--all',action='store_true',
                           help='Describe all objects (not just my own)')])
-    def do__dir_indexes(self, arg):
+    def do__dir_indexes(self, arg, opts):
         if opts.all:
             which_view = (', owner', 'all')
         else:
