@@ -558,18 +558,27 @@ class sqlpyPlus(sqlpython.sqlpython):
             searchfor = "text"
         self.do_select("* from all_source where %s like '%%%s%%'" % (searchfor, arg))
 
-    def do_describe(self, arg):
+    @options([make_option('-a','--all',action='store_true',
+                          help='Describe all objects (not just my own)')])
+    def do_describe(self, arg, opts):
         "emulates SQL*Plus's DESCRIBE"
+        
+        if opts.all:
+            which_view = (', owner', 'all')
+        else:
+            which_view = ('', 'user')
 
         if not arg:
-            self.do_select("""object_name, object_type, owner FROM all_objects WHERE object_type IN ('TABLE','VIEW','INDEX') ORDER BY object_name""")
+            self.do_select("""object_name, object_type%s FROM %s_objects WHERE object_type IN ('TABLE','VIEW','INDEX') ORDER BY object_name""" % which_view)
             return
         object_type, owner, object_name = self.resolve(arg.strip(self.terminator).upper())
         if not object_type:
-            self.do_select("""object_name, object_type, owner FROM all_objects
-                           WHERE object_type IN ('TABLE','VIEW','INDEX')
-AND   object_name LIKE '%%%s%%'
-ORDER BY object_name""" % arg.upper() )
+            if opts.all:
+                self.do_select("""object_name, object_type%s FROM %s_objects
+                               WHERE object_type IN ('TABLE','VIEW','INDEX')
+                               AND   object_name LIKE '%%%s%%'
+                               ORDER BY object_name""" %
+                               (which_view[0], which_view[1], arg.upper()) )
             return                    
         self.stdout.write("%s %s.%s\n" % (object_type, owner, object_name))
         descQ = descQueries.get(object_type)
@@ -729,14 +738,35 @@ ORDER BY object_name""" % arg.upper() )
         except KeyError:
             print 'psql command \%s not yet supported.' % abbrev
 
+    @options([make_option('-a','--all',action='store_true',
+                          help='Describe all objects (not just my own)')])
     def do__dir_tables(self, arg):
-        self.do_select("""table_name, 'TABLE' as type, owner FROM all_tables WHERE table_name LIKE '%%%s%%'""" % arg.upper())        
+        if opts.all:
+            which_view = (', owner', 'all')
+        else:
+            which_view = ('', 'user')        
+        self.do_select("""table_name, 'TABLE' as type%s FROM %s_tables WHERE table_name LIKE '%%%s%%'""" %
+                       (which_view[0], which_view[1], arg.upper()))        
 
+    @options([make_option('-a','--all',action='store_true',
+                          help='Describe all objects (not just my own)')])
     def do__dir_views(self, arg):
-        self.do_select("""view_name, 'VIEW' as type, owner FROM all_views WHERE view_name LIKE '%%%s%%'""" % arg.upper()) 
+        if opts.all:
+            which_view = (', owner', 'all')
+        else:
+            which_view = ('', 'user')        
+        self.do_select("""view_name, 'VIEW' as type%s FROM %s_views WHERE view_name LIKE '%%%s%%'""" %
+                       (which_view[0], which_view[1], arg.upper())) 
 
+    @options([make_option('-a','--all',action='store_true',
+                          help='Describe all objects (not just my own)')])
     def do__dir_indexes(self, arg):
-        self.do_select("""index_name, index_type, owner FROM all_indexes WHERE index_name LIKE '%%%s%%' OR table_name LIKE '%%%s%%'""" % (arg.upper(), arg.upper())) 
+        if opts.all:
+            which_view = (', owner', 'all')
+        else:
+            which_view = ('', 'user')        
+        self.do_select("""index_name, index_type%s FROM %s_indexes WHERE index_name LIKE '%%%s%%' OR table_name LIKE '%%%s%%'""" %
+                       (which_view[0], which_view[1], arg.upper(), arg.upper())) 
 
     def do__dir_tablespaces(self, arg):
         self.do_select("""tablespace_name, file_name from dba_data_files""") 
