@@ -887,16 +887,30 @@ class sqlpyPlus(sqlpython.sqlpython):
         for target in targets:
             self.do_select('* from %s' % target)
 
-    def do_grep(self, arg):
-        """grep PATTERN TABLE - search for term in any of TABLE's fields"""
-        targets = arg.split()
+    @options([make_option('-i', '--ignore-case', dest='ignorecase', action='store_true', help='Case-insensitive search')])        
+    def do_grep(self, arg, opts):
+        """grep PATTERN TABLE - search for term in any of TABLE's fields"""    
+                
+        targets = []
+        for target in arg.split():
+            if '*' in target:
+                self.curs.execute("SELECT owner, table_name FROM all_tables WHERE table_name LIKE '%s'" %
+                                  (target.upper().replace('*','%')))
+                for row in self.curs:
+                    targets.append('%s.%s' % row)
+            else:
+                targets.append(target)
         pattern = targets.pop(0)
         for target in targets:
+            print target
             target = target.rstrip(';')
             sql = []
             try:
                 self.curs.execute('select * from %s where 1=0' % target)
-                sql = ' or '.join("%s LIKE '%%%s%%'" % (d[0], pattern) for d in self.curs.description)
+                if opts.ignorecase:
+                    sql = ' or '.join("LOWER(%s) LIKE '%%%s%%'" % (d[0], pattern.lower()) for d in self.curs.description)                                        
+                else:
+                    sql = ' or '.join("%s LIKE '%%%s%%'" % (d[0], pattern) for d in self.curs.description)
                 sql = '* FROM %s WHERE %s' % (target, sql)
                 self.do_select(sql)
             except Exception, e:
