@@ -882,12 +882,6 @@ class sqlpyPlus(sqlpython.sqlpython):
                 result.append('%s/%s' % (object_type, object_name))
         self.stdout.write('\n'.join(result) + '\n')
 
-
-        if options.has_key('insensitive'):
-            searchfor = "LOWER(text)"
-            arg = arg.lower()
-
-
     def do_cat(self, arg):
         targets = arg.split()
         for target in targets:
