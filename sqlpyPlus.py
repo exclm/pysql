@@ -573,12 +573,11 @@ class sqlpyPlus(sqlpython.sqlpython):
             return
         object_type, owner, object_name = self.resolve(arg.strip(self.terminator).upper())
         if not object_type:
-            if opts.all:
-                self.do_select("""object_name, object_type%s FROM %s_objects
-                               WHERE object_type IN ('TABLE','VIEW','INDEX')
-                               AND   object_name LIKE '%%%s%%'
-                               ORDER BY object_name""" %
-                               (which_view[0], which_view[1], arg.upper()) )
+            self.do_select("""object_name, object_type%s FROM %s_objects
+                           WHERE object_type IN ('TABLE','VIEW','INDEX')
+                           AND   object_name LIKE '%%%s%%'
+                           ORDER BY object_name""" %
+                           (which_view[0], which_view[1], arg.upper()) )
             return                    
         self.stdout.write("%s %s.%s\n" % (object_type, owner, object_name))
         descQ = descQueries.get(object_type)
@@ -858,8 +857,8 @@ class sqlpyPlus(sqlpython.sqlpython):
     def do_declare(self, arg):
         self.anon_plsql('declare ' + arg)
 
-    def do_create(self, arg):
-        self.anon_plsql('create ' + arg)
+    #def do_create(self, arg):
+    #    self.anon_plsql('create ' + arg)
 
     @options([make_option('-l', '--long', action='store_true', help='long descriptions')])        
     def do_ls(self, arg, opts):
