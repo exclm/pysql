@@ -641,7 +641,7 @@ class sqlpyPlus(sqlpython.sqlpython):
 
     def spoolstop(self):
         if self.spoolFile:
-            sys.stdout = self.stdoutBeforeSpool
+            self.stdout = self.stdoutBeforeSpool
             print 'Finished spooling to ', self.spoolFile.name
             self.spoolFile.close()
             self.spoolFile = None
@@ -657,25 +657,11 @@ class sqlpyPlus(sqlpython.sqlpython):
                 arg = '%s.lst' % arg
             print 'Sending output to %s (until SPOOL OFF received)' % (arg)
             self.spoolFile = open(arg, 'w')
-            sys.stdout = self.spoolFile
-
-    def write(self, arg, fname): 
-        originalOut = sys.stdout
-        f = open(fname, 'w')
-        sys.stdout = f
-        self.onecmd_plus_hooks(arg)
-        f.close()
-        sys.stdout = originalOut
+            self.stdout = self.spoolFile
 
     def do_write(self, args):
-        'write [filename.extension] query - writes result to a file'
-        words = args.split(None, 1)
-        if len(words) > 1 and '.' in words[0]:
-            fname, command = words
-        else:
-            fname, command = 'output.txt', args
-        self.write(command, fname)
-        print 'Results written to %s' % os.path.join(os.getcwd(), fname)
+        print 'Use (query) > outfilename instead.'
+        return
 
     def do_compare(self, args):
         """COMPARE query1 TO query2 - uses external tool to display differences.
@@ -685,12 +671,15 @@ class sqlpyPlus(sqlpython.sqlpython):
         if they are installed."""
         fnames = []
         args2 = args.split(' to ')
+        if len(args2) < 2:
+            print self.do_compare.__doc__
+            return
         for n in range(len(args2)):
             query = args2[n]
             fnames.append('compare%s.txt' % n)
             if query.rstrip()[-1] != self.terminator: 
                 query = '%s%s' % (query, self.terminator)
-            self.write(query, fnames[n])           
+            self.onecmd_plus_hooks('%s > %s' % (query, fnames[n]))
         diffMergeSearcher.invoke(fnames[0], fnames[1])
 
     bufferPosPattern = re.compile('\d+')
