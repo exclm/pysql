@@ -1,5 +1,5 @@
 SQLPython is an open-source command-line environment for interacting with an
-Oracle database.  It is designed as an alternative to Oracle's SQL*Plus.
+Oracle database.  It is designed as an alternative to Oracle's SQL\*Plus.
 
 Installing
 ----------
@@ -25,7 +25,7 @@ cx_Oracle and sqlpython as per Debian.
 Using
 -----
 
-Use sqlpython more or less as you would use SQL*Plus.  
+Use sqlpython more or less as you would use SQL\*Plus.  
 
 Read the help.  Experiment with UNIX-style and postgresql-style
 commands.

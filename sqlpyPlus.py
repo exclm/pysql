@@ -811,7 +811,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                         return
                     except:
                         pass
-                    # TODO: fix
+                    # TODO: when setting 
 
         print 'Could not parse ', args            
 
