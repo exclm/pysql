@@ -33,10 +33,12 @@ commands.
 Modifying
 ---------
 
-Modify mysqlpy.py; add `do_mycommand(self, arg)` methods to the
-mysqlpy class to add your own commands.  Use `self.stdout.write(txt)`
-in place of `print txt` to make sure your output can be redirected
-into text files or the paste buffer with `>` and `>>`.
+Modify mysqlpy.py; add `do_mycommand(self, arg)` 
+methods to the mysqlpy class to add your own commands.
+
+Use `self.stdout.write(txt)` in place of `print txt` 
+to make sure your output can be redirected into text 
+files or the paste buffer with `>` and `>>`.
 
 Contributing
 ------------
