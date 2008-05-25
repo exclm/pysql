@@ -15,10 +15,13 @@ class mysqlpy(sqlpyPlus):
     '''
 MySqlPy V1.3 - 'sqlplus in python'
 Author: Luca.Canali@cern.ch
-Rev: 1.3.0, 17-Oct-07
+Rev: 1.4.4, 28-May-08
 
 Companion of SqlPython, a python module that reproduces Oracle's command line within python
 and sqlpyPlus. Major contributions by Catherine Devlin, http://catherinedevlin.blogspot.com
+
+Usage: sqlpython [connect string] [single-word command] ["multi-word command"]...
+
 Quick start command list:
 
 - top     -> executes a query to list all active sessions in (Oracle 10g and RAC)
@@ -166,9 +169,9 @@ def run():
     try:
         if sys.argv[1][0] != '@':
             my.do_connect(sys.argv.pop(1))
-        arg = ' '.join(sys.argv[1:])
-        if my.onecmd(arg):
-            return
+        for arg in sys.argv[1:]:
+            if my.onecmd(arg + ';') == my._STOP_AND_EXIT:
+                return
     except IndexError:
         pass
     my.cmdloop()
