@@ -826,6 +826,19 @@ class sqlpyPlus(sqlpython.sqlpython):
         exec :y := sysdate
         '''
 
+    '''Works:
+    exec myproc()
+    begin
+      myproc();
+    end;
+    
+    Fails:
+    select n into :n from test;
+    :d := sysdate
+    :n := myfunc()'''
+    
+    
+    
     def anon_plsql(self, line1):
         lines = [line1]
         while True:
