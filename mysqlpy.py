@@ -167,22 +167,11 @@ def run():
         if sys.argv[1][0] != '@':
             my.do_connect(sys.argv.pop(1))
         arg = ' '.join(sys.argv[1:])
-        my.onecmd(arg)
-        '''
-        if arg:
-            tmp = tempfile.TemporaryFile()
-            tmp.write(arg)
-            tmp.seek(0)
-            if my.do__load(tmp) == mysqlpy._STOP_AND_EXIT:
-                return
-                '''
+        if my.onecmd(arg):
+            return
     except IndexError:
         pass
     my.cmdloop()
 
 if __name__ == '__main__':
-    try:
-        run()
-    except cmd2.ExitException:
-        pass
-        
+    run()        
