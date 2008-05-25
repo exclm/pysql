@@ -780,7 +780,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             if arg[0] == ':':
                 arg = arg[1:]
             try:
-                self.stdout.write(self.binds[arg]+'\n')
+                self.stdout.write(str(self.binds[arg])+'\n')
             except KeyError:
                 self.stdout.write('No bind variable %s\n' % arg)
         else:
