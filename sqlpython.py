@@ -47,9 +47,6 @@ class sqlpython(cmd2.Cmd):
     def emptyline(self):
         pass
     
-    def do_quit(self, arg):
-        return 1
-    
     def fail(self, arg, do_everywhere=False):
         if self.failover:
             success, result = False, ''
@@ -118,8 +115,7 @@ class sqlpython(cmd2.Cmd):
         self.default('rollback %s;' % (arg), do_everywhere=True)        
         
     # shortcuts
-    do_q = do_quit
-    do_exit = do_quit
+    do_exit = cmd2.Cmd.do_quit
 
     stmtEndSearchString = r'(.*)(%s)\s*(\d+)?\s*$' % terminatorSearchString
     statementEndPattern = re.compile(stmtEndSearchString, re.MULTILINE | re.DOTALL)

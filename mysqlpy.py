@@ -9,7 +9,7 @@
 #           http://catherine.devlin.googlepages.com/
 
 from sqlpyPlus import *
-import binascii, sys
+import binascii, sys, tempfile
 
 class mysqlpy(sqlpyPlus):
     '''
@@ -77,6 +77,13 @@ Example:
         where time_remaining>0;
         '''
        
+    def do_new(self, args):
+        'tells you about new objects'
+        self.do_select('''owner,
+       object_name,
+       object_type
+FROM   all_objects
+WHERE  created > SYSDATE - 7''')
     def do_top9i(self,args):
         '''Runs query_top9i defined above, to display active sessions in Oracle 9i'''
         self.do_select(self.query_top9i)
@@ -157,10 +164,25 @@ def run():
     my=mysqlpy()
     print my.__doc__
     try:
-        my.do_connect(sys.argv[1])
+        if sys.argv[1][0] != '@':
+            my.do_connect(sys.argv.pop(1))
+        arg = ' '.join(sys.argv[1:])
+        my.onecmd(arg)
+        '''
+        if arg:
+            tmp = tempfile.TemporaryFile()
+            tmp.write(arg)
+            tmp.seek(0)
+            if my.do__load(tmp) == mysqlpy._STOP_AND_EXIT:
+                return
+                '''
     except IndexError:
         pass
     my.cmdloop()
 
 if __name__ == '__main__':
-    run()
+    try:
+        run()
+    except cmd2.ExitException:
+        pass
+        

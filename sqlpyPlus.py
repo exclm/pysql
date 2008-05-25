@@ -341,7 +341,7 @@ def findBinds(target, existingBinds, givenBindVars = {}):
 
 class sqlpyPlus(sqlpython.sqlpython):
     defaultExtension = 'sql'
-    shortcuts = {'?': 'help', '@': 'getrun', '!': 'shell', ':': 'setbind', '\\': 'psql'}    
+    sqlpython.sqlpython.shortcuts.update({':': 'setbind', '\\': 'psql', '@': '_load'})
     multilineCommands = '''select insert update delete tselect
                       create drop alter'''.split()
     defaultFileName = 'afiedt.buf'
@@ -372,6 +372,8 @@ class sqlpyPlus(sqlpython.sqlpython):
             print 'Not connected.'
             return '', '', ''
         return cmd, arg, line
+    
+    do__load = Cmd.do_load
 
     def onecmd_plus_hooks(self, line):                          
         line = self.precmd(line)
@@ -685,9 +687,6 @@ class sqlpyPlus(sqlpython.sqlpython):
     bufferPosPattern = re.compile('\d+')
     rangeIndicators = ('-',':')
 
-    def do_getrun(self, fname):
-        'Brings SQL commands from a file to the in-memory SQL buffer, and executes them.'
-        Cmd.do_load(self, fname)
     def do_psql(self, arg):
         '''Shortcut commands emulating psql's backslash commands.
 
@@ -696,7 +695,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         \e edit
         \g run
         \h help
-        \i getrun
+        \i load
         \o spool
         \p list
         \q quit
