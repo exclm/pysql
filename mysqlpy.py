@@ -170,7 +170,7 @@ def run():
         if sys.argv[1][0] != '@':
             my.do_connect(sys.argv.pop(1))
         for arg in sys.argv[1:]:
-            if my.onecmd(arg + ';') == my._STOP_AND_EXIT:
+            if my.onecmd(arg, assumeComplete=True) == my._STOP_AND_EXIT:  # ugh, filename gets ; appended 
                 return
     except IndexError:
         pass
