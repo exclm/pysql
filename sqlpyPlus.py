@@ -324,7 +324,6 @@ class Parser(object):
                         itms.append(sqlcommand[0])
         return itms
 
-pipeSeparator = Parser(pyparsing.SkipTo((pyparsing.Literal('|') ^ pyparsing.StringEnd()), include=True), retainSeparator=False) 
 bindScanner = Parser(pyparsing.Literal(':') + pyparsing.Word( pyparsing.alphanums + "_$#" ))
 
 def findBinds(target, existingBinds, givenBindVars = {}):
