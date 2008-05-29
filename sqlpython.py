@@ -8,7 +8,7 @@
 # Best used with the companion modules sqlpyPlus and mysqlpy 
 # See also http://twiki.cern.ch/twiki/bin/view/PSSGroup/SqlPython
 
-import cmd2,getpass,binascii,cx_Oracle,re
+import cmd2,getpass,binascii,cx_Oracle,re,os
 import pexpecter, sqlpyPlus
     
     # complication! separate sessions ->
@@ -25,24 +25,51 @@ class sqlpython(cmd2.Cmd):
         self.failoverSessions = []
         self.terminator = ';'
         self.timeout = 30
-                
+        
+    connection_modes = {re.compile(' AS SYSDBA', re.IGNORECASE): cx_Oracle.SYSDBA, 
+                        re.compile(' AS SYSOPER', re.IGNORECASE): cx_Oracle.SYSOPER}
     def do_connect(self, arg):
         '''Opens the DB connection'''
+        modeval = 0
+        for modere, modevalue in self.connection_modes.items():
+            if modere.search(arg):
+                arg = modere.sub('', arg)
+                modeval = modevalue
         try:
-            if arg.find('/') == -1:
-                orapass = getpass.getpass('Password: ')
-                orauser = arg.split('@')[0]
-                oraserv = arg.split('@')[1]
-                self.orcl = cx_Oracle.connect(orauser,orapass,oraserv)
-                arg = '%s/%s@%s' % (orauser, orapass, oraserv)
-            else:
-                self.orcl = cx_Oracle.connect(arg)
+            orauser, oraserv = arg.split('@')
+        except ValueError:
+            try:
+                oraserv = os.environ['ORACLE_SID']
+            except KeyError:
+                print 'instance not specified and environment variable ORACLE_SID not set'
+                return
+            orauser = arg
+        sid = oraserv
+        try:
+            host, sid = oraserv.split('/')
+            try:
+                host, port = host.split(':')
+                port = int(port)
+            except ValueError:
+                port = 1521
+            oraserv = cx_Oracle.makedsn(host, port, sid)
+        except ValueError:
+            pass
+        try:
+            orauser, orapass = orauser.split('/')
+        except ValueError:
+            orapass = getpass.getpass('Password: ')
+        if orauser.upper() == 'SYS' and not modeval:
+            print 'Privilege not specified for SYS, assuming SYSOPER'
+            modeval = cx_Oracle.SYSOPER
+        try:
+            self.orcl = cx_Oracle.connect(orauser,orapass,oraserv,modeval)
             self.curs = self.orcl.cursor()
-            self.prompt = 'SQL.'+self.orcl.tnsentry+'> '
+            self.prompt = '%s@%s> ' % (orauser, sid)
             self.failoverSessions = [f for f in [fbs(arg) for fbs in pexpecter.available] if f.available]
-
         except Exception, e:
             print e
+            
     
     def emptyline(self):
         pass
