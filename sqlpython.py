@@ -1,7 +1,7 @@
 #
-# SqlPython V1.3
+# SqlPython V1.4.6
 # Author: Luca.Canali@cern.ch, Apr 2006
-# Rev 18-Oct-07
+# Rev 29-May-08
 #
 # A python module to reproduce Oracle's command line 'sqlplus-like' within python
 # Intended to allow easy customizations and extentions 

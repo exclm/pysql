@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# MySqlPy V1.3
+# MySqlPy V1.4.6
 # Author: Luca.Canali@cern.ch
 # 
 #
@@ -13,9 +13,9 @@ import binascii, sys, tempfile
 
 class mysqlpy(sqlpyPlus):
     '''
-MySqlPy V1.3 - 'sqlplus in python'
+MySqlPy V1.4.6 - 'sqlplus in python'
 Author: Luca.Canali@cern.ch
-Rev: 1.4.4, 28-May-08
+Rev: 1.4.8, 29-May-08
 
 Companion of SqlPython, a python module that reproduces Oracle's command line within python
 and sqlpyPlus. Major contributions by Catherine Devlin, http://catherinedevlin.blogspot.com
@@ -168,9 +168,18 @@ def run():
     print my.__doc__
     try:
         if sys.argv[1][0] != '@':
-            my.do_connect(sys.argv.pop(1))
+            connectstring = sys.argv.pop(1)
+            try:   # attach AS SYSDBA or AS SYSOPER if present
+                for connectmode in my.connection_modes.keys():
+                    if connectmode.search(' %s %s' % tuple(sys.argv[1:3])):
+                        for i in (1,2):
+                            connectstring += ' ' + sys.argv.pop(1)
+                        break
+            except TypeError:
+                pass
+            my.do_connect(connectstring)
         for arg in sys.argv[1:]:
-            if my.onecmd(arg, assumeComplete=True) == my._STOP_AND_EXIT:  # ugh, filename gets ; appended 
+            if my.onecmd(arg, assumeComplete=True) == my._STOP_AND_EXIT:
                 return
     except IndexError:
         pass
