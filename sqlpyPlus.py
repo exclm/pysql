@@ -459,7 +459,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             if outformat in ('\\s', '\\c'):
                 result.append(','.join('"%s"' % colname for colname in self.colnames))
             for row in self.rows:
-                result.append(','.join('"%s"' % ('' if itm is None else itm) for itm in row))
+                result.append(','.join('"%s"' % self.str_or_empty(itm) for itm in row))
             result = '\n'.join(result)
         elif outformat == '\\h':
             result = self.output_as_html_table()
