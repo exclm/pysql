@@ -393,6 +393,10 @@ class sqlpyPlus(sqlpython.sqlpython):
         if needsquotes:
             return "'%s'" % str(itm)
         return str(itm)
+    def str_or_empty(self, itm):
+        if itm is None:
+            return ''
+        return str(itm)
     def output_as_insert_statements(self):
         usequotes = [d[1] != cx_Oracle.NUMBER for d in self.curs.description]
         def formatRow(row):
@@ -405,7 +409,7 @@ class sqlpyPlus(sqlpython.sqlpython):
 
     def output_row_as_xml(self, row):
         result = ['  <%s>\n    %s\n  </%s>' %
-                  (colname.lower(), str('' if (itm is None) else itm), colname.lower()) 
+                  (colname.lower(), self.str_or_empty(itm), colname.lower()) 
                   for (itm, colname) in zip(row, self.colnames)]
         return '\n'.join(result)        
     def output_as_xml(self):
@@ -420,7 +424,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         for row in self.rows:
             result.append('  <tr>\n    %s\n  </tr>' %
                           (''.join('<td>%s</td>' %
-                                   str('' if (itm is None) else itm)
+                                   self.str_or_empty(itm)
                                    for itm in row)))                
         result = '''<table id="%s">
 %s
