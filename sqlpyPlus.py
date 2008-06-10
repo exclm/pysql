@@ -15,8 +15,6 @@ Features include:
 
 Use 'help' within sqlpython for details.
 
-Compatible with sqlpython v1.3
-
 Set bind variables the hard (SQL*Plus) way
 exec :b = 3
 or with a python-like shorthand
