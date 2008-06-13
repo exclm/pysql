@@ -416,6 +416,25 @@ class sqlpyPlus(sqlpython.sqlpython):
                   for row in self.rows]
         return '\n'.join(result)
 
+    html_template = """<html>
+  <head>
+    <title py:content="tblname">Table Name</title>
+  </head>
+  <body>
+    <table py:attr={'id':tblname}>
+      <tr>
+        <th py:for="colname in colnames">
+          <span py:replace="colname">Column Name</span>
+        </th>
+      </tr>
+      <tr py:for="row in rows">
+        <td py:for="itm in row">
+          <span py:replace="str_or_empty(itm)">Value</span>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>"""
     def output_as_html_table(self):
         result = ''.join('<th>%s</th>' % c for c in self.colnames)
         result = ['  <tr>\n    %s\n  </tr>' % result]
@@ -429,6 +448,12 @@ class sqlpyPlus(sqlpython.sqlpython):
 </table>''' % (self.tblname, '\n'.join(result))
         return result
 
+    #TODO: use serious templating to make these user-tweakable
+
+    def output_as_markup(self, genshi_template):
+        return None
+        #self.tblname, self.colnames, self.rows
+            
     def output_as_list(self, align):
         result = []
         colnamelen = max(len(colname) for colname in self.colnames) + 1        
@@ -590,7 +615,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             self.curs.execute(descQueries['PackageObjects'][0], {'package_name':object_name, 'owner':owner})
             packageContents = self.curs.fetchall()
             for (packageObj_name,) in packageContents:
-                print packageObj_name
+                self.stdout.write(packageObj_name + '\n')
                 self.do_select(descQueries['PackageObjArgs'][0],bindVarsIn={'package_name':object_name, 'owner':owner, 'object_name':packageObj_name})
     do_desc = do_describe
 
