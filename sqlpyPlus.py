@@ -505,15 +505,11 @@ class sqlpyPlus(sqlpython.sqlpython):
     statementEndPattern = re.compile(r'(.*)(;|\\[gGhtxicCsS])\s*(\d*)\s*$', re.DOTALL | re.MULTILINE)
     # what about quote-enclosed?
 
-    def findTerminator(self, statement):
-        m = self.statementEndPattern.search(statement)
-        if m:
-            return m.groups()
-        else:
-            return statement, None, None
-
     legalOracle = re.compile('[a-zA-Z_$#]')
 
+    rowlimitPattern = pyparsing.Word(pyparsing.nums)('rowlimit')
+    terminators = pyparsing.oneOf('; \\s \\S \\c \\C \\t \\x \\h \n/\n')('terminator') + \
+                  pyparsing.Optional(rowlimitPattern)
     def do_select(self, arg, bindVarsIn=None, override_terminator=None):
         """Fetch rows from a table.
 
@@ -525,19 +521,19 @@ class sqlpyPlus(sqlpython.sqlpython):
         ("help terminators" for details)
         """
         bindVarsIn = bindVarsIn or {}
-        self.query = 'select ' + arg
-        (self.query, terminator, rowlimit) = self.findTerminator(self.query)
+        statement = self.parsed('select ' + arg)
+        self.query = statement.statement
         if override_terminator:
-            terminator = override_terminator
-        rowlimit = int(rowlimit or 0)
+            statement['terminator'] = override_terminator
+        statement['rowlimit'] = int(statement.rowlimit or 0)
         try:
             self.varsUsed = findBinds(self.query, self.binds, bindVarsIn)
             self.curs.execute(self.query, self.varsUsed)
-            self.rows = self.curs.fetchmany(min(self.maxfetch, (rowlimit or self.maxfetch)))
+            self.rows = self.curs.fetchmany(min(self.maxfetch, (statement.rowlimit or self.maxfetch)))
             self.desc = self.curs.description
             self.rc = self.curs.rowcount
             if self.rc > 0:
-                self.stdout.write('\n%s\n' % (self.output(terminator, rowlimit)))
+                self.stdout.write('\n%s\n' % (self.output(statement.terminator, rowlimit)))
             if self.rc == 0:
                 print '\nNo rows Selected.\n'
             elif self.rc == 1: 
