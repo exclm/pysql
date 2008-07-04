@@ -508,8 +508,8 @@ class sqlpyPlus(sqlpython.sqlpython):
     legalOracle = re.compile('[a-zA-Z_$#]')
 
     rowlimitPattern = pyparsing.Word(pyparsing.nums)('rowlimit')
-    terminators = pyparsing.oneOf('; \\s \\S \\c \\C \\t \\x \\h \n/\n')('terminator') + \
-                  pyparsing.Optional(rowlimitPattern)
+    terminatorPattern = pyparsing.oneOf('; \\s \\S \\c \\C \\t \\x \\h \n/\n')('terminator') + \
+                        pyparsing.Optional(rowlimitPattern)
     def do_select(self, arg, bindVarsIn=None, override_terminator=None):
         """Fetch rows from a table.
 
@@ -522,7 +522,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         """
         bindVarsIn = bindVarsIn or {}
         statement = self.parsed('select ' + arg)
-        self.query = statement.statement
+        self.query = statement.unterminated
         if override_terminator:
             statement['terminator'] = override_terminator
         statement['rowlimit'] = int(statement.rowlimit or 0)
@@ -533,7 +533,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             self.desc = self.curs.description
             self.rc = self.curs.rowcount
             if self.rc > 0:
-                self.stdout.write('\n%s\n' % (self.output(statement.terminator, rowlimit)))
+                self.stdout.write('\n%s\n' % (self.output(statement.terminator, statement.rowlimit)))
             if self.rc == 0:
                 print '\nNo rows Selected.\n'
             elif self.rc == 1: 

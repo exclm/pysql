@@ -124,7 +124,8 @@ class sqlpython(cmd2.Cmd):
     do_sen = do_senora       
 
     def default(self, arg, do_everywhere = False):
-        self.query = self.finishStatement(arg).strip().rstrip(';')
+        statement = self.parsed(arg)
+        self.query = statement.unterminated
         try:
             self.varsUsed = sqlpyPlus.findBinds(self.query, self.binds, givenBindVars={})
             self.curs.execute(self.query, self.varsUsed)            
