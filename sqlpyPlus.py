@@ -813,6 +813,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         args = arg.split(None, 2)
         if len(args) < 2:
             self.do_print(arg)
+            return
         elif len(args) > 2 and args[1] in ('=',':='):
             var, val = args[0], args[2]
             if val[0] == val[-1] == "'" and len(val) > 1:
