@@ -111,7 +111,20 @@ AND    index_name = :object_name
 """,)
 }
 descQueries['VIEW'] = descQueries['TABLE']
-descQueries['FUNCTION'] = descQueries['PROCEDURE']
+descQueries['FUNCTION'] = ( 
+#TODO: fix arg-finding function
+    """
+              argument_name,             
+data_type,
+in_out,
+default_value
+FROM all_arguments
+WHERE object_name = :object_name
+AND      owner = :owner
+AND      package_name IS NULL
+AND      argument_name IS NOT NULL
+ORDER BY sequence;""",
+descQueries['PROCEDURE']) 
 
 queries = {
 'resolve': """
@@ -508,7 +521,8 @@ class sqlpyPlus(sqlpython.sqlpython):
     legalOracle = re.compile('[a-zA-Z_$#]')
 
     rowlimitPattern = pyparsing.Word(pyparsing.nums)('rowlimit')
-    terminatorPattern = pyparsing.oneOf('; \\s \\S \\c \\C \\t \\x \\h \n/\n')('terminator') + \
+    terminatorPattern = (pyparsing.oneOf('; \\s \\S \\c \\C \\t \\x \\h')    
+                        ^ pyparsing.Literal('\n/\n')) ('terminator') + \
                         pyparsing.Optional(rowlimitPattern)
     def do_select(self, arg, bindVarsIn=None, override_terminator=None):
         """Fetch rows from a table.
@@ -810,6 +824,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                 print ':%s = %s' % (var, val)
 
     def do_setbind(self, arg):
+        arg = self.parsed(arg).statement  # removes terminators?
         args = arg.split(None, 2)
         if len(args) < 2:
             self.do_print(arg)
@@ -840,8 +855,10 @@ class sqlpyPlus(sqlpython.sqlpython):
         if arg[0] == ':':
             self.do_setbind(arg[1:])
         else:
+            arg = self.parsed(arg).statement
+            varsUsed = findBinds(arg, self.binds, {})
             try:
-                self.curs.execute('begin\n%s;end;' % arg)
+                self.curs.execute('begin\n%s;end;' % arg, varsUsed)
             except Exception, e:
                 print e
         '''
@@ -883,7 +900,8 @@ class sqlpyPlus(sqlpython.sqlpython):
     #def do_create(self, arg):
     #    self.anon_plsql('create ' + arg)
 
-    @options([make_option('-l', '--long', action='store_true', help='long descriptions')])        
+    @options([make_option('-l', '--long', action='store_true', help='long descriptions'),
+              make_option('-a', '--all', action='store_true', help="all schemas' objects")])        
     def do_ls(self, arg, opts):
         where = ''
         if arg:
@@ -891,17 +909,27 @@ class sqlpyPlus(sqlpython.sqlpython):
                   LIKE '%%%s%%'""" % (arg.upper().replace('*','%'))
         else:
             where = ''
+        if opts.all:
+            owner = 'owner'
+            whose = 'all'
+        else:
+            owner = "'' AS owner"
+            whose = 'user'
         result = []
         statement = '''SELECT object_type, object_name,
-                  status, last_ddl_time
-                  FROM   user_objects %s
-                  ORDER BY object_type, object_name''' % (where)
+                  status, last_ddl_time, %s
+                  FROM   %s_objects %s
+                  ORDER BY object_type, object_name''' % (owner, whose, where)
         self.curs.execute(statement)
-        for (object_type, object_name, status, last_ddl_time) in self.curs.fetchall():
-            if opts.long:
-                result.append('%s\t%s\t%s/%s' % (status, last_ddl_time, object_type, object_name))
+        for (object_type, object_name, status, last_ddl_time, owner) in self.curs.fetchall():
+            if opts.all:
+                qualified_name = '%s.%s' % (owner, object_name)
             else:
-                result.append('%s/%s' % (object_type, object_name))
+                qualified_name = object_name
+            if opts.long:
+                result.append('%s\t%s\t%s/%s' % (status, last_ddl_time, object_type, qualified_name))
+            else:
+                result.append('%s/%s' % (object_type, qualified_name))
         self.stdout.write('\n'.join(result) + '\n')
 
     def do_cat(self, arg):
