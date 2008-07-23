@@ -144,9 +144,6 @@ class sqlpython(cmd2.Cmd):
         
     # shortcuts
     do_exit = cmd2.Cmd.do_quit
-
-    stmtEndSearchString = r'(.*)(%s)\s*(\d+)?\s*$' % terminatorSearchString
-    statementEndPattern = re.compile(stmtEndSearchString, re.MULTILINE | re.DOTALL)
     
 def pmatrix(rows,desc,maxlen=30):
     '''prints a matrix, used by sqlpython to print queries' result sets'''
