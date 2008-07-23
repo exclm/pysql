@@ -124,7 +124,7 @@ AND      owner = :owner
 AND      package_name IS NULL
 AND      argument_name IS NOT NULL
 ORDER BY sequence;""",
-descQueries['PROCEDURE']) 
+descQueries['PROCEDURE'][0]) 
 
 queries = {
 'resolve': """
@@ -567,7 +567,8 @@ class sqlpyPlus(sqlpython.sqlpython):
     def do_pull(self, arg, opts):
         """Displays source code."""
 
-        object_type, owner, object_name = self.resolve(arg.strip(self.terminator).upper())
+        arg = self.parsed(arg).unterminated        
+        object_type, owner, object_name = self.resolve(arg.upper())
         if not object_type:
             return
         self.stdout.write("%s %s.%s\n" % (object_type, owner, object_name))
@@ -581,22 +582,28 @@ class sqlpyPlus(sqlpython.sqlpython):
                 except cx_Oracle.DatabaseError:
                     pass
 
-    @options([make_option('-i', '--insensitive', action='store_true', help='case-insensitive search')])                
+    @options([make_option('-i', '--insensitive', action='store_true', help='case-insensitive search'),
+              make_option('-c', '--col', action='store_true', help='find column')])                
     def do_find(self, arg, opts):
-        """Finds argument in source code."""
+        """Finds argument in source code or (with -c) in column definitions."""
 
-        if opts.insensitive:
-            searchfor = "LOWER(text)"
-            arg = arg.lower()
+        arg = self.parsed(arg).unterminated.upper()       
+        if opts.col:
+            self.do_select("table_name, column_name from all_tab_columns where column_name like '%%%s%%'" % (arg))
         else:
-            searchfor = "text"
-        self.do_select("* from all_source where %s like '%%%s%%'" % (searchfor, arg))
+            if opts.insensitive:
+                searchfor = "LOWER(text)"
+                arg = arg.lower()
+            else:
+                searchfor = "text"
+            self.do_select("* from all_source where %s like '%%%s%%'" % (searchfor, arg))
 
     @options([make_option('-a','--all',action='store_true',
                           help='Describe all objects (not just my own)')])
     def do_describe(self, arg, opts):
         "emulates SQL*Plus's DESCRIBE"
-        
+
+        arg = self.parsed(arg).unterminated.upper()
         if opts.all:
             which_view = (', owner', 'all')
         else:
@@ -605,7 +612,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         if not arg:
             self.do_select("""object_name, object_type%s FROM %s_objects WHERE object_type IN ('TABLE','VIEW','INDEX') ORDER BY object_name""" % which_view)
             return
-        object_type, owner, object_name = self.resolve(arg.strip(self.terminator).upper())
+        object_type, owner, object_name = self.resolve(arg)
         if not object_type:
             self.do_select("""object_name, object_type%s FROM %s_objects
                            WHERE object_type IN ('TABLE','VIEW','INDEX')
@@ -627,7 +634,8 @@ class sqlpyPlus(sqlpython.sqlpython):
     do_desc = do_describe
 
     def do_deps(self, arg):
-        object_type, owner, object_name = self.resolve(arg.strip(self.terminator).upper())
+        arg = self.parsed(arg).unterminated.upper()        
+        object_type, owner, object_name = self.resolve(arg)
         if object_type == 'PACKAGE BODY':
             q = "and (type != 'PACKAGE BODY' or name != :object_name)'"
             object_type = 'PACKAGE'
@@ -645,7 +653,8 @@ class sqlpyPlus(sqlpython.sqlpython):
 
     def do_comments(self, arg):
         'Prints comments on a table and its columns.'
-        object_type, owner, object_name = self.resolve(arg.strip(self.terminator).upper())
+        arg = self.parsed(arg).unterminated.upper()        
+        object_type, owner, object_name = self.resolve(arg)
         if object_type:
             self.curs.execute(queries['tabComments'],{'table_name':object_name, 'owner':owner})
             self.stdout.write("%s %s.%s: %s\n" % (object_type, owner, object_name, self.curs.fetchone()[0]))
@@ -711,6 +720,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         for n in range(len(args2)):
             query = args2[n]
             fnames.append('compare%s.txt' % n)
+            #TODO: update this terminator-stripping
             if query.rstrip()[-1] != self.terminator: 
                 query = '%s%s' % (query, self.terminator)
             self.onecmd_plus_hooks('%s > %s' % (query, fnames[n]))
@@ -821,7 +831,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                 print ':%s = %s' % (var, val)
 
     def do_setbind(self, arg):
-        arg = self.parsed(arg).statement  # removes terminators?
+        arg = self.parsed(arg).unterminated
         args = arg.split(None, 2)
         if len(args) < 2:
             self.do_print(arg)
@@ -840,11 +850,13 @@ class sqlpyPlus(sqlpython.sqlpython):
                     return
                 except ValueError:
                     try:
-                        self.binds[var] = self.curs.callfunc(val, [])
+                        varsUsed = findBinds(arg, self.binds, {})                        
+                        self.binds[var] = self.curs.callfunc(val, varsUsed) #TODO: wrong args
+                        # NotSupportedError: Variable_TypeByPythonType(): unhandled data type
+                        # need to warn that it's a date?
                         return
                     except:
                         pass
-                    # TODO: when setting 
 
         print 'Could not parse ', args            
 
@@ -966,7 +978,8 @@ class sqlpyPlus(sqlpython.sqlpython):
                 traceback.print_exc(file=sys.stdout)                
 
     def do_refs(self, arg):
-        object_type, owner, object_name = self.resolve(arg.strip(self.terminator).upper())
+        arg = self.parsed(arg).unterminated.upper()        
+        object_type, owner, object_name = self.resolve(arg)
         if object_type == 'TABLE':
             self.do_select(queries['refs'],bindVarsIn={'object_name':object_name, 'owner':owner})
 
