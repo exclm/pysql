@@ -515,9 +515,6 @@ class sqlpyPlus(sqlpython.sqlpython):
             result = sqlpython.pmatrix(self.rows, self.curs.description, self.maxfetch)
         return result
 
-    statementEndPattern = re.compile(r'(.*)(;|\\[gGhtxicCsS])\s*(\d*)\s*$', re.DOTALL | re.MULTILINE)
-    # what about quote-enclosed?
-
     legalOracle = re.compile('[a-zA-Z_$#]')
 
     rowlimitPattern = pyparsing.Word(pyparsing.nums)('rowlimit')
