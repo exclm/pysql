@@ -344,7 +344,8 @@ class sqlpyPlus(sqlpython.sqlpython):
         sqlpython.sqlpython.__init__(self)
         self.binds = CaselessDict()
         self.sqlBuffer = []
-        self.settable = ['maxtselctrows', 'maxfetch', 'autobind', 'failover', 'timeout'] # settables must be lowercase
+        self.settable = ['maxtselctrows', 'maxfetch', 'autobind', 
+                         'failover', 'timeout', 'commit_on_exit'] # settables must be lowercase
         self.stdoutBeforeSpool = sys.stdout
         self.spoolFile = None
         self.autobind = False
@@ -840,47 +841,25 @@ class sqlpyPlus(sqlpython.sqlpython):
                 self.binds[var] = float(val)
                 return
             except ValueError:
-                try:
-                    statekeeper = Statekeeper(self, ('autobind',))  
-                    self.autobind = True
-                    self.do_select('%s AS %s FROM dual;' % (val, var))
-                    statekeeper.restore()
-                    return
-                except:
-                    pass
-
-        print 'Could not parse'            
+                statekeeper = Statekeeper(self, ('autobind',))  
+                self.autobind = True
+                self.do_select('%s AS %s FROM dual;' % (val, var))
+                statekeeper.restore()
 
     def do_exec(self, arg):
         if arg[0] == ':':
             self.do_setbind(arg[1:])
         else:
-            arg = self.parsed(arg).statement
+            arg = self.parsed(arg).unterminated
             varsUsed = findBinds(arg, self.binds, {})
             try:
-                # save autobind to state
-                # select varname from ...
-                # restore state
                 self.curs.execute('begin\n%s;end;' % arg, varsUsed)
             except Exception, e:
                 print e
-        '''
-        exec :x := 'box'
-        exec :y := sysdate
-        '''
 
-    '''Works:
-    exec myproc()
-    begin
-      myproc();
-    end;
-    
+    '''
     Fails:
-    select n into :n from test;
-    :d := sysdate
-    :n := myfunc()'''
-    
-    
+    select n into :n from test;'''
     
     def anon_plsql(self, line1):
         lines = [line1]
