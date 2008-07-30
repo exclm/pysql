@@ -25,6 +25,7 @@ class sqlpython(cmd2.Cmd):
         self.failoverSessions = []
         self.terminator = ';'
         self.timeout = 30
+        self.commit_on_exit = True
         
     connection_modes = {re.compile(' AS SYSDBA', re.IGNORECASE): cx_Oracle.SYSDBA, 
                         re.compile(' AS SYSOPER', re.IGNORECASE): cx_Oracle.SYSOPER}
@@ -141,9 +142,12 @@ class sqlpython(cmd2.Cmd):
         self.default('commit %s;' % (arg), do_everywhere=True)
     def do_rollback(self, arg):
         self.default('rollback %s;' % (arg), do_everywhere=True)        
-        
-    # shortcuts
-    do_exit = cmd2.Cmd.do_quit
+    def do_quit(self, arg):
+        if self.commit_on_exit:
+            self.default('commit;')
+        cmd2.Cmd.do_quit()
+    do_exit = do_quit
+    do_q = do_quit
     
 def pmatrix(rows,desc,maxlen=30):
     '''prints a matrix, used by sqlpython to print queries' result sets'''
