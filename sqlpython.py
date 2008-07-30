@@ -143,7 +143,7 @@ class sqlpython(cmd2.Cmd):
     def do_rollback(self, arg):
         self.default('rollback %s;' % (arg), do_everywhere=True)        
     def do_quit(self, arg):
-        if self.commit_on_exit:
+        if self.commit_on_exit and hasattr(self, 'curs'):
             self.default('commit;')
         cmd2.Cmd.do_quit()
     do_exit = do_quit
