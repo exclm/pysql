@@ -43,7 +43,7 @@ WHERE atc.table_name = :object_name
 AND      atc.owner = :owner
 ORDER BY atc.column_id;""",),
 'PROCEDURE': ("""
-              argument_name,             
+              NVL(argument_name, 'Return Value') argument_name,             
 data_type,
 in_out,
 default_value
@@ -51,7 +51,6 @@ FROM all_arguments
 WHERE object_name = :object_name
 AND      owner = :owner
 AND      package_name IS NULL
-AND      argument_name IS NOT NULL
 ORDER BY sequence;""",),    
 'PackageObjects':("""
 SELECT DISTINCT object_name
@@ -111,20 +110,7 @@ AND    index_name = :object_name
 """,)
 }
 descQueries['VIEW'] = descQueries['TABLE']
-descQueries['FUNCTION'] = ( 
-#TODO: fix arg-finding function
-    """
-              argument_name,             
-data_type,
-in_out,
-default_value
-FROM all_arguments
-WHERE object_name = :object_name
-AND      owner = :owner
-AND      package_name IS NULL
-AND      argument_name IS NOT NULL
-ORDER BY sequence;""",
-descQueries['PROCEDURE'][0]) 
+descQueries['FUNCTION'] = descQueries['PROCEDURE'] 
 
 queries = {
 'resolve': """
@@ -198,7 +184,7 @@ and c1.owner = :owner
 }
 
 import sys, os, re, sqlpython, cx_Oracle, pyparsing
-from cmd2 import Cmd, make_option, options
+from cmd2 import Cmd, make_option, options, Statekeeper
 
 if float(sys.version[:3]) < 2.3:
     def enumerate(lst):
@@ -434,7 +420,7 @@ class sqlpyPlus(sqlpython.sqlpython):
     <title py:content="tblname">Table Name</title>
   </head>
   <body>
-    <table py:attr={'id':tblname}>
+    <table py:attr="{'id':tblname}">
       <tr>
         <th py:for="colname in colnames">
           <span py:replace="colname">Column Name</span>
@@ -583,13 +569,16 @@ class sqlpyPlus(sqlpython.sqlpython):
                     pass
 
     @options([make_option('-i', '--insensitive', action='store_true', help='case-insensitive search'),
-              make_option('-c', '--col', action='store_true', help='find column')])                
+              make_option('-c', '--col', action='store_true', help='find column'),
+              make_option('-t', '--table', action='store_true', help='find table')])                
     def do_find(self, arg, opts):
         """Finds argument in source code or (with -c) in column definitions."""
 
         arg = self.parsed(arg).unterminated.upper()       
         if opts.col:
-            self.do_select("table_name, column_name from all_tab_columns where column_name like '%%%s%%'" % (arg))
+            self.do_select("owner, table_name, column_name from all_tab_columns where column_name like '%%%s%%'" % (arg))
+        elif opts.table:
+            self.do_select("owner, table_name from all_tables where table_name like '%%%s%%'" % (arg))            
         else:
             if opts.insensitive:
                 searchfor = "LOWER(text)"
@@ -678,6 +667,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             print 'Could not resolve object %s.' % identifier
             object_type, owner, object_name = '', '', ''
         return object_type, owner, object_name
+        #todo: resolve not finding cwm$ table
 
     def do_resolve(self, arg):
         self.stdout.write(self.resolve(arg)+'\n')
@@ -830,35 +820,36 @@ class sqlpyPlus(sqlpython.sqlpython):
             for (var, val) in self.binds.items():
                 print ':%s = %s' % (var, val)
 
+    assignmentScanner = Parser(pyparsing.Literal(':=') ^ '=')
     def do_setbind(self, arg):
         arg = self.parsed(arg).unterminated
-        args = arg.split(None, 2)
-        if len(args) < 2:
+        try:
+            assigner, startat, endat = self.assignmentScanner.scanner.scanString(arg).next()
+        except StopIteration:
             self.do_print(arg)
             return
-        elif len(args) > 2 and args[1] in ('=',':='):
-            var, val = args[0], args[2]
-            if val[0] == val[-1] == "'" and len(val) > 1:
-                self.binds[var] = val[1:-1]
-                return
+        var, val = arg[:startat].strip(), arg[endat:].strip()
+        if val[0] == val[-1] == "'" and len(val) > 1:
+            self.binds[var] = val[1:-1]
+            return
+        try:
+            self.binds[var] = int(val)
+            return
+        except ValueError:
             try:
-                self.binds[var] = int(val)
+                self.binds[var] = float(val)
                 return
             except ValueError:
                 try:
-                    self.binds[var] = float(val)
+                    statekeeper = Statekeeper(self, ('autobind',))  
+                    self.autobind = True
+                    self.do_select('%s AS %s FROM dual;' % (val, var))
+                    statekeeper.restore()
                     return
-                except ValueError:
-                    try:
-                        varsUsed = findBinds(arg, self.binds, {})                        
-                        self.binds[var] = self.curs.callfunc(val, varsUsed) #TODO: wrong args
-                        # NotSupportedError: Variable_TypeByPythonType(): unhandled data type
-                        # need to warn that it's a date?
-                        return
-                    except:
-                        pass
+                except:
+                    pass
 
-        print 'Could not parse ', args            
+        print 'Could not parse'            
 
     def do_exec(self, arg):
         if arg[0] == ':':
@@ -867,6 +858,9 @@ class sqlpyPlus(sqlpython.sqlpython):
             arg = self.parsed(arg).statement
             varsUsed = findBinds(arg, self.binds, {})
             try:
+                # save autobind to state
+                # select varname from ...
+                # restore state
                 self.curs.execute('begin\n%s;end;' % arg, varsUsed)
             except Exception, e:
                 print e
