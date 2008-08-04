@@ -139,7 +139,9 @@ UNION ALL
 SELECT 'DATABASE LINK' object_type, db_link, owner, 7 priority
 FROM   all_db_links dbl
 WHERE  dbl.db_link = :objName
-) ORDER BY priority ASC""",
+) ORDER BY priority ASC,
+           length(object_type) ASC,
+           object_type DESC""", # preference: PACKAGE before PACKAGE BODY, TABLE before INDEX
 'tabComments': """
 SELECT comments
 FROM    all_tab_comments
@@ -669,6 +671,8 @@ class sqlpyPlus(sqlpython.sqlpython):
             object_type, owner, object_name = '', '', ''
         return object_type, owner, object_name
         #todo: resolve not finding cwm$ table
+        #todo: names can overlap: view/trigger; index/index partition; table/table partition;
+        #package/package body; table/index; type/type body; 
 
     def do_resolve(self, arg):
         self.stdout.write(self.resolve(arg)+'\n')
