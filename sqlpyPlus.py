@@ -671,8 +671,6 @@ class sqlpyPlus(sqlpython.sqlpython):
             object_type, owner, object_name = '', '', ''
         return object_type, owner, object_name
         #todo: resolve not finding cwm$ table
-        #todo: names can overlap: view/trigger; index/index partition; table/table partition;
-        #package/package body; table/index; type/type body; 
 
     def do_resolve(self, arg):
         self.stdout.write(self.resolve(arg)+'\n')
@@ -919,6 +917,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         self.stdout.write('\n'.join(result) + '\n')
 
     def do_cat(self, arg):
+        '''cat TABLENAME --> SELECT * FROM equivalent'''
         targets = arg.split()
         for target in targets:
             self.do_select('* from %s' % target)
@@ -926,29 +925,31 @@ class sqlpyPlus(sqlpython.sqlpython):
     @options([make_option('-i', '--ignore-case', dest='ignorecase', action='store_true', help='Case-insensitive search')])        
     def do_grep(self, arg, opts):
         """grep PATTERN TABLE - search for term in any of TABLE's fields"""    
-                
-        targets = []
-        for target in arg.split():
+
+        arg = self.parsed(arg)
+        targetnames = arg.unterminated.split()
+        pattern = targetnames.pop(0)
+        targets = [] 
+        for target in targetnames:
             if '*' in target:
-                self.curs.execute("SELECT owner, table_name FROM all_tables WHERE table_name LIKE '%s'" %
-                                  (target.upper().replace('*','%')))
+                self.curs.execute("SELECT owner, table_name FROM all_tables WHERE table_name LIKE '%s'%s" %
+                                  (target.upper().replace('*','%')), arg.terminator)
                 for row in self.curs:
                     targets.append('%s.%s' % row)
             else:
                 targets.append(target)
-        pattern = targets.pop(0)
         for target in targets:
             print target
             target = target.rstrip(';')
             sql = []
             try:
-                self.curs.execute('select * from %s where 1=0' % target)
+                self.curs.execute('select * from %s where 1=0' % target) # just to fill description
                 if opts.ignorecase:
                     sql = ' or '.join("LOWER(%s) LIKE '%%%s%%'" % (d[0], pattern.lower()) for d in self.curs.description)                                        
                 else:
                     sql = ' or '.join("%s LIKE '%%%s%%'" % (d[0], pattern) for d in self.curs.description)
                 sql = '* FROM %s WHERE %s' % (target, sql)
-                self.do_select(sql)
+                self.do_select('%s%s%s' % (sql, arg.terminator, arg.rowlimit))
             except Exception, e:
                 print e
                 import traceback
