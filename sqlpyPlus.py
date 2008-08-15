@@ -571,24 +571,29 @@ class sqlpyPlus(sqlpython.sqlpython):
                 except cx_Oracle.DatabaseError:
                     pass
 
-    @options([make_option('-i', '--insensitive', action='store_true', help='case-insensitive search'),
+    @options([make_option('-a','--all',action='store_true', help='Find in all schemas (not just my own)'),
+              make_option('-i', '--insensitive', action='store_true', help='case-insensitive search'),
               make_option('-c', '--col', action='store_true', help='find column'),
-              make_option('-t', '--table', action='store_true', help='find table')])                
+              make_option('-t', '--table', action='store_true', help='find table')])                    
     def do_find(self, arg, opts):
         """Finds argument in source code or (with -c) in column definitions."""
 
-        arg = self.parsed(arg).unterminated.upper()       
+        arg = self.parsed(arg).unterminated.upper()     
+        
         if opts.col:
-            self.do_select("owner, table_name, column_name from all_tab_columns where column_name like '%%%s%%'" % (arg))
+            sql = "owner, table_name, column_name from all_tab_columns where column_name like '%%%s%%'" % (arg)
         elif opts.table:
-            self.do_select("owner, table_name from all_tables where table_name like '%%%s%%'" % (arg))            
+            sql = "owner, table_name from all_tables where table_name like '%%%s%%'" % (arg)
         else:
             if opts.insensitive:
                 searchfor = "LOWER(text)"
                 arg = arg.lower()
             else:
                 searchfor = "text"
-            self.do_select("* from all_source where %s like '%%%s%%'" % (searchfor, arg))
+            sql = "* from all_source where %s like '%%%s%%'" % (searchfor, arg)
+        if not opts.all:
+            sql = '%s and owner = user' % (sql)
+        self.do_select(sql)
 
     @options([make_option('-a','--all',action='store_true',
                           help='Describe all objects (not just my own)')])
