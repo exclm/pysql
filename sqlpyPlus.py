@@ -508,7 +508,9 @@ class sqlpyPlus(sqlpython.sqlpython):
 
     rowlimitPattern = pyparsing.Word(pyparsing.nums)('rowlimit')
     terminatorPattern = (pyparsing.oneOf('; \\s \\S \\c \\C \\t \\x \\h')    
-                        ^ pyparsing.Literal('\n/\n')) ('terminator') + \
+                        ^ pyparsing.Literal('\n/') ^ \
+                        (pyparsing.Literal('\nEOF') + pyparsing.stringEnd)) \
+                        ('terminator') + \
                         pyparsing.Optional(rowlimitPattern)
     def do_select(self, arg, bindVarsIn=None, override_terminator=None):
         """Fetch rows from a table.
