@@ -323,8 +323,8 @@ class Parser(object):
                         itms.append(sqlcommand[0])
         return itms
 
-bindScanner = Parser(pyparsing.Literal(':') + pyparsing.Word( pyparsing.alphanums + "_$#" ))
-
+bindScanner = Parser(pyparsing.Literal(':') + pyparsing.Word( pyparsing.alphanums + "_$#" ))   
+    
 def findBinds(target, existingBinds, givenBindVars = {}):
     result = givenBindVars
     for finding, startat, endat in bindScanner.scanner.scanString(target):
@@ -506,6 +506,15 @@ class sqlpyPlus(sqlpython.sqlpython):
 
     legalOracle = re.compile('[a-zA-Z_$#]')
 
+    def complete_select(self, text, line, begidx, endidx):
+        completions = []
+        for statement in """SELECT column_name FROM all_tab_columns WHERE column_name LIKE '%s%%'
+        SELECT table_name FROM all_tables WHERE table_name LIKE '%s%%'
+        SELECT DISTINCT owner FROM all_tables WHERE owner LIKE '%%%s'""".splitlines():
+            self.curs.execute(statement % text.upper())
+            completions.extend([r[0] for r in self.curs.fetchall()])
+        return completions
+    
     rowlimitPattern = pyparsing.Word(pyparsing.nums)('rowlimit')
     terminatorPattern = (pyparsing.oneOf('; \\s \\S \\c \\C \\t \\x \\h')    
                         ^ pyparsing.Literal('\n/') ^ \
@@ -554,6 +563,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             traceback.print_exc(file=sys.stdout)
         self.sqlBuffer.append(self.query)
 
+        
     @options([make_option('-f', '--full', action='store_true', help='get dependent objects as well')])
     def do_pull(self, arg, opts):
         """Displays source code."""
@@ -968,6 +978,55 @@ class sqlpyPlus(sqlpython.sqlpython):
         if object_type == 'TABLE':
             self.do_select(queries['refs'],bindVarsIn={'object_name':object_name, 'owner':owner})
 
+sqlStyleComment = pyparsing.Literal("--") + pyparsing.ZeroOrMore(pyparsing.CharsNotIn("\n"))
+keywords = {'order by': pyparsing.Keyword('order', caseless=True) +
+                        pyparsing.Keyword('by', caseless=True),
+            'select': pyparsing.Keyword('select', caseless=True),
+            'from': pyparsing.Keyword('from', caseless=True),
+            'having': pyparsing.Keyword('having', caseless=True),            
+            'update': pyparsing.Keyword('update', caseless=True),
+            'set': pyparsing.Keyword('set', caseless=True),            
+            'delete': pyparsing.Keyword('delete', caseless=True),            
+            'insert into': pyparsing.Keyword('insert', caseless=True) +
+                           pyparsing.Keyword('into', caseless=True),
+            'values': pyparsing.Keyword('values', caseless=True),
+            'group by': pyparsing.Keyword('group', caseless=True) +
+                        pyparsing.Keyword('by', caseless=True),
+            'where': pyparsing.Keyword('where', caseless=True)}
+for (name, parser) in keywords.items():
+    parser.ignore(pyparsing.sglQuotedString)
+    parser.ignore(pyparsing.dblQuotedString)
+    parser.ignore(pyparsing.cStyleComment)
+    parser.ignore(sqlStyleComment)
+    parser.name = name
+    
+def orderedParseResults(parsers, statement):
+    results = []
+    for parser in parsers:
+        results.extend(parser.scanString(statement))
+    results.sort(cmp=lambda x,y:cmp(x[1],y[1]))
+    return results
+        
+def whichSqlPhrase(statement):
+    results = orderedParseResults(keywords.values(), statement)
+    if results:
+        return ' '.join(results[-1][0])
+    else:
+        return None
+    
+oracleIdentifierCharacters = pyparsing.alphanums + '_#$'
+def wordInProgress(statement):
+    result = []
+    letters = list(statement)
+    letters.reverse()
+    for letter in letters:
+        if letter not in oracleIdentifierCharacters:
+            result.reverse()
+            return ''.join(result)
+        result.append(letter)
+    result.reverse()
+    return ''.join(result)
+    
 def _test():
     import doctest
     doctest.testmod()
