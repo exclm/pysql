@@ -510,12 +510,6 @@ class sqlpyPlus(sqlpython.sqlpython):
         self.curs.execute(sql)
         return [r[0] for r in self.curs.fetchall()]
     
-    tableNameRegex = re.compile(
-        r'(from|update)\s+(([a-zA-Z0-9_#$]+)\.)?([a-zA-Z0-9_#$]+)\s+',
-        re.IGNORECASE | re.DOTALL | re.MULTILINE)
-    tableNameRegex = re.compile(
-        r'(from|update)(.*)(where|set)',
-        re.IGNORECASE | re.DOTALL | re.MULTILINE)        
     columnNameRegex = re.compile(
         r'select\s+(.*)from',
         re.IGNORECASE | re.DOTALL | re.MULTILINE)        
@@ -546,16 +540,11 @@ class sqlpyPlus(sqlpython.sqlpython):
                       SELECT DISTINCT owner FROM all_tables WHERE owner LIKE '%%%s'"""
                 completions = self.select_list(stmt % (text, text))
         if segment in ('where', 'group by', 'order by', 'having', 'set'):
-            try:
-                owner, tableName = self.tableNameRegex.search(line).groups()[2:4]
-            except AttributeError:
-                return []
-            if owner:
-                stmt = "SELECT column_name FROM all_tab_columns WHERE owner = '%s' AND table_name = '%s'" \
-                     % (owner.upper(), tableName.upper())
-            else:
-                stmt = "SELECT column_name FROM all_tab_columns WHERE table_name = '%s'" \
-                     % (tableName.upper())
+            tableNames = completion.tableNamesFromFromClause(line)
+            if tableNames:
+                stmt = """SELECT column_name FROM all_tab_columns
+                          WHERE table_name IN (%s)""" % \
+                       (','.join("'%s'" % (t) for t in tableNames))
             stmt = "%s AND column_name LIKE '%s%%'" % (stmt, text)
             completions = self.select_list(stmt)
             
