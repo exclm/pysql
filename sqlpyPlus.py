@@ -185,7 +185,7 @@ and c1.owner = :owner
 """
 }
 
-import sys, os, re, sqlpython, cx_Oracle, pyparsing
+import sys, os, re, sqlpython, cx_Oracle, pyparsing, re, completion
 from cmd2 import Cmd, make_option, options, Statekeeper
 
 if float(sys.version[:3]) < 2.3:
@@ -506,13 +506,47 @@ class sqlpyPlus(sqlpython.sqlpython):
 
     legalOracle = re.compile('[a-zA-Z_$#]')
 
-    def complete_select(self, text, line, begidx, endidx):
+    def select_list(self, sql):
+        self.curs.execute(sql)
+        return [r[0] for r in self.curs.fetchall()]
+    
+    tableNameRegex = re.compile(
+        r'(from|update)\s+(([a-zA-Z0-9_#$]+)\.)?([a-zA-Z0-9_#$]+)\s+',
+        re.IGNORECASE | re.DOTALL | re.MULTILINE)
+    columnNameRegex = re.compile(
+        r'select\s+(.*)from',
+        re.IGNORECASE | re.DOTALL | re.MULTILINE)        
+    def completedefault(self, text, line, begidx, endidx):
+        segment = completion.whichSegment(line)
+        text = text.upper()
         completions = []
-        for statement in """SELECT column_name FROM all_tab_columns WHERE column_name LIKE '%s%%'
-        SELECT table_name FROM all_tables WHERE table_name LIKE '%s%%'
-        SELECT DISTINCT owner FROM all_tables WHERE owner LIKE '%%%s'""".splitlines():
-            self.curs.execute(statement % text.upper())
-            completions.extend([r[0] for r in self.curs.fetchall()])
+        if segment == 'select':
+            stmt = "SELECT column_name FROM user_tab_columns WHERE column_name LIKE '%s%%'"
+            completions = self.select_list(stmt % (text))
+            if not completions:
+                stmt = "SELECT column_name FROM all_tab_columns WHERE column_name LIKE '%s%%'"            
+                completions = self.select_list(stmt % (text))
+        elif segment in ('from', 'update'):
+            stmt = "SELECT table_name FROM user_tables WHERE table_name LIKE '%s%%'"
+            completions = self.select_list(stmt % (text))
+            if not completions:
+                stmt = """SELECT table_name FROM user_tables WHERE table_name LIKE '%s%%'
+                      UNION
+                      SELECT DISTINCT owner FROM all_tables WHERE owner LIKE '%%%s'"""
+                completions = self.select_list(stmt % (text, text))
+        elif segment in ('where', 'group by', 'order by'):
+            try:
+                owner, tableName = self.tableNameRegex.search(line).groups()[2:4]
+            except AttributeError:
+                return []
+            if owner:
+                stmt = "SELECT column_name FROM all_tab_columns WHERE owner = '%s' AND table_name = '%s'" \
+                     % (owner.upper(), tableName.upper())
+            else:
+                stmt = "SELECT column_name FROM all_tab_columns WHERE table_name = '%s'" \
+                     % (tableName.upper())
+            completions = self.select_list(stmt)
+            
         return completions
     
     rowlimitPattern = pyparsing.Word(pyparsing.nums)('rowlimit')
@@ -977,55 +1011,6 @@ class sqlpyPlus(sqlpython.sqlpython):
         object_type, owner, object_name = self.resolve(arg)
         if object_type == 'TABLE':
             self.do_select(queries['refs'],bindVarsIn={'object_name':object_name, 'owner':owner})
-
-sqlStyleComment = pyparsing.Literal("--") + pyparsing.ZeroOrMore(pyparsing.CharsNotIn("\n"))
-keywords = {'order by': pyparsing.Keyword('order', caseless=True) +
-                        pyparsing.Keyword('by', caseless=True),
-            'select': pyparsing.Keyword('select', caseless=True),
-            'from': pyparsing.Keyword('from', caseless=True),
-            'having': pyparsing.Keyword('having', caseless=True),            
-            'update': pyparsing.Keyword('update', caseless=True),
-            'set': pyparsing.Keyword('set', caseless=True),            
-            'delete': pyparsing.Keyword('delete', caseless=True),            
-            'insert into': pyparsing.Keyword('insert', caseless=True) +
-                           pyparsing.Keyword('into', caseless=True),
-            'values': pyparsing.Keyword('values', caseless=True),
-            'group by': pyparsing.Keyword('group', caseless=True) +
-                        pyparsing.Keyword('by', caseless=True),
-            'where': pyparsing.Keyword('where', caseless=True)}
-for (name, parser) in keywords.items():
-    parser.ignore(pyparsing.sglQuotedString)
-    parser.ignore(pyparsing.dblQuotedString)
-    parser.ignore(pyparsing.cStyleComment)
-    parser.ignore(sqlStyleComment)
-    parser.name = name
-    
-def orderedParseResults(parsers, statement):
-    results = []
-    for parser in parsers:
-        results.extend(parser.scanString(statement))
-    results.sort(cmp=lambda x,y:cmp(x[1],y[1]))
-    return results
-        
-def whichSqlPhrase(statement):
-    results = orderedParseResults(keywords.values(), statement)
-    if results:
-        return ' '.join(results[-1][0])
-    else:
-        return None
-    
-oracleIdentifierCharacters = pyparsing.alphanums + '_#$'
-def wordInProgress(statement):
-    result = []
-    letters = list(statement)
-    letters.reverse()
-    for letter in letters:
-        if letter not in oracleIdentifierCharacters:
-            result.reverse()
-            return ''.join(result)
-        result.append(letter)
-    result.reverse()
-    return ''.join(result)
     
 def _test():
     import doctest
