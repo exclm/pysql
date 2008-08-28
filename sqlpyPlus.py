@@ -513,6 +513,9 @@ class sqlpyPlus(sqlpython.sqlpython):
     tableNameRegex = re.compile(
         r'(from|update)\s+(([a-zA-Z0-9_#$]+)\.)?([a-zA-Z0-9_#$]+)\s+',
         re.IGNORECASE | re.DOTALL | re.MULTILINE)
+    tableNameRegex = re.compile(
+        r'(from|update)(.*)(where|set)',
+        re.IGNORECASE | re.DOTALL | re.MULTILINE)        
     columnNameRegex = re.compile(
         r'select\s+(.*)from',
         re.IGNORECASE | re.DOTALL | re.MULTILINE)        
