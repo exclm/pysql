@@ -526,7 +526,15 @@ class sqlpyPlus(sqlpython.sqlpython):
             if not completions:
                 stmt = "SELECT column_name FROM all_tab_columns WHERE column_name LIKE '%s%%'"            
                 completions = self.select_list(stmt % (text))
-        elif segment in ('from', 'update'):
+        if segment == 'from':
+            columnNames = self.columnNameRegex.search(line)
+            if columnNames:
+                columnNames = columnNames.group(1)
+                columnNames = [c.strip().upper() for c in columnNames.split(',')]
+                stmt1 = "SELECT table_name FROM all_tab_columns WHERE column_name = '%s' AND table_name LIKE '%s%%'"
+                for columnName in columnNames:
+                    completions.extend(self.select_list(stmt1 % (columnName, text)))                    
+        if segment in ('from', 'update') and (not completions):
             stmt = "SELECT table_name FROM user_tables WHERE table_name LIKE '%s%%'"
             completions = self.select_list(stmt % (text))
             if not completions:
@@ -534,7 +542,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                       UNION
                       SELECT DISTINCT owner FROM all_tables WHERE owner LIKE '%%%s'"""
                 completions = self.select_list(stmt % (text, text))
-        elif segment in ('where', 'group by', 'order by'):
+        if segment in ('where', 'group by', 'order by'):
             try:
                 owner, tableName = self.tableNameRegex.search(line).groups()[2:4]
             except AttributeError:
@@ -545,6 +553,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             else:
                 stmt = "SELECT column_name FROM all_tab_columns WHERE table_name = '%s'" \
                      % (tableName.upper())
+            stmt = "%s AND column_name LIKE '%s%%'" % (stmt, text)
             completions = self.select_list(stmt)
             
         return completions
