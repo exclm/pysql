@@ -506,8 +506,8 @@ class sqlpyPlus(sqlpython.sqlpython):
 
     legalOracle = re.compile('[a-zA-Z_$#]')
 
-    def select_list(self, sql):
-        self.curs.execute(sql)
+    def select_scalar_list(self, sql, binds={}):
+        self.curs.execute(sql, binds)
         return [r[0] for r in self.curs.fetchall()]
     
     columnNameRegex = re.compile(
@@ -519,10 +519,10 @@ class sqlpyPlus(sqlpython.sqlpython):
         completions = []
         if segment == 'select':
             stmt = "SELECT column_name FROM user_tab_columns WHERE column_name LIKE '%s%%'"
-            completions = self.select_list(stmt % (text))
+            completions = self.select_scalar_list(stmt % (text))
             if not completions:
                 stmt = "SELECT column_name FROM all_tab_columns WHERE column_name LIKE '%s%%'"            
-                completions = self.select_list(stmt % (text))
+                completions = self.select_scalar_list(stmt % (text))
         if segment == 'from':
             columnNames = self.columnNameRegex.search(line)
             if columnNames:
@@ -530,15 +530,15 @@ class sqlpyPlus(sqlpython.sqlpython):
                 columnNames = [c.strip().upper() for c in columnNames.split(',')]
                 stmt1 = "SELECT table_name FROM all_tab_columns WHERE column_name = '%s' AND table_name LIKE '%s%%'"
                 for columnName in columnNames:
-                    completions.extend(self.select_list(stmt1 % (columnName, text)))                    
+                    completions.extend(self.select_scalar_list(stmt1 % (columnName, text)))                    
         if segment in ('from', 'update', 'insert into') and (not completions):
             stmt = "SELECT table_name FROM user_tables WHERE table_name LIKE '%s%%'"
-            completions = self.select_list(stmt % (text))
+            completions = self.select_scalar_list(stmt % (text))
             if not completions:
                 stmt = """SELECT table_name FROM user_tables WHERE table_name LIKE '%s%%'
                       UNION
                       SELECT DISTINCT owner FROM all_tables WHERE owner LIKE '%%%s'"""
-                completions = self.select_list(stmt % (text, text))
+                completions = self.select_scalar_list(stmt % (text, text))
         if segment in ('where', 'group by', 'order by', 'having', 'set'):
             tableNames = completion.tableNamesFromFromClause(line)
             if tableNames:
@@ -546,8 +546,10 @@ class sqlpyPlus(sqlpython.sqlpython):
                           WHERE table_name IN (%s)""" % \
                        (','.join("'%s'" % (t) for t in tableNames))
             stmt = "%s AND column_name LIKE '%s%%'" % (stmt, text)
-            completions = self.select_list(stmt)
-            
+            completions = self.select_scalar_list(stmt)
+        if not segment:
+            stmt = "SELECT object_name FROM all_objects WHERE object_name LIKE '%s%%'"
+            completions = self.select_scalar_list(stmt % (text))
         return completions
     
     rowlimitPattern = pyparsing.Word(pyparsing.nums)('rowlimit')
@@ -670,10 +672,9 @@ class sqlpyPlus(sqlpython.sqlpython):
             for q in descQ:
                 self.do_select(q,bindVarsIn={'object_name':object_name, 'owner':owner})
         elif object_type == 'PACKAGE':
-            self.curs.execute(descQueries['PackageObjects'][0], {'package_name':object_name, 'owner':owner})
-            packageContents = self.curs.fetchall()
-            for (packageObj_name,) in packageContents:
-                self.stdout.write(packageObj_name + '\n')
+            packageContents = self.select_scalar_list(descQueries['PackageObjects'][0], {'package_name':object_name, 'owner':owner})
+            for packageObj_name in packageContents:
+                self.stdout.write('Arguments to %s\n' % (packageObj_name))
                 self.do_select(descQueries['PackageObjArgs'][0],bindVarsIn={'package_name':object_name, 'owner':owner, 'object_name':packageObj_name})
     do_desc = do_describe
 
@@ -711,9 +712,9 @@ class sqlpyPlus(sqlpython.sqlpython):
         try:
             if len(parts) == 2:
                 owner, object_name = parts
-                self.curs.execute('SELECT object_type FROM all_objects WHERE owner = :owner AND object_name = :object_name',
-                                  {'owner': owner, 'object_name': object_name})
-                object_type = self.curs.fetchone()[0]
+                object_type = self.select_scalar_list('SELECT object_type FROM all_objects WHERE owner = :owner AND object_name = :object_name',
+                                  {'owner': owner, 'object_name': object_name}
+                                  )[0]
             elif len(parts) == 1:
                 object_name = parts[0]
                 self.curs.execute(queries['resolve'], {'objName':object_name})
