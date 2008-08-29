@@ -12,6 +12,7 @@ Features include:
  - comments shows table and column comments
  - compare ... to ... graphically compares results of two queries
  - commands are case-insensitive
+ - context-sensitive tab-completion for table names, column names, etc.
 
 Use 'help' within sqlpython for details.
 
@@ -530,6 +531,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                 columnNames = [c.strip().upper() for c in columnNames.split(',')]
                 stmt1 = "SELECT table_name FROM all_tab_columns WHERE column_name = '%s' AND table_name LIKE '%s%%'"
                 for columnName in columnNames:
+                    # and if columnName is * ?
                     completions.extend(self.select_scalar_list(stmt1 % (columnName, text)))                    
         if segment in ('from', 'update', 'insert into') and (not completions):
             stmt = "SELECT table_name FROM user_tables WHERE table_name LIKE '%s%%'"
