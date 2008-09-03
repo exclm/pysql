@@ -56,16 +56,16 @@ Example:
 	  ins.instance_name,ins.host_name,round(os.value,2) load
 	  from gv$osstat os, gv$instance ins
 	  where os.inst_id=ins.inst_id and os.stat_name='LOAD'
-	  order by 3 desc;
+	  order by 3 desc
         '''
-        self.query_top9i = '''
+        self.query_top9i = '''SELECT
           sid,username,osuser||'@'||terminal "Server User@terminal",program,taddr, status,
 	  module, sql_hash_value hash, fixed_table_sequence seq, last_call_et elaps 
           from v$session 
           where username is not null and program not like 'emagent%' and status='ACTIVE'
-                and audsid !=sys_context('USERENV','SESSIONID'); 
+                and audsid !=sys_context('USERENV','SESSIONID') ;
         '''
-        self.query_ractop = '''
+        self.query_ractop = '''SELECT 
  	inst_id||'_'||sid inst_sid,username,osuser||'@'||terminal "User@Term",program, decode(taddr,null,null,'NN') tr,  
 	sql_id, '.'||mod(fixed_table_sequence,1000) seq, state||': '||event event,
 	case state when 'WAITING' then seconds_in_wait else wait_time end w_tim, last_call_et elaps
@@ -74,7 +74,7 @@ Example:
 	      and not (event like '% waiting for messages in the queue' and state='WAITING')
               and audsid !=sys_context('USERENV','SESSIONID');
         '''
-        self.query_longops = '''
+        self.query_longops = '''SELECT
         inst_id,sid,username,time_remaining remaining, elapsed_seconds elapsed, sql_hash_value hash, opname,message
         from gv$session_longops
         where time_remaining>0;
@@ -82,25 +82,28 @@ Example:
        
     def do_new(self, args):
         'tells you about new objects'
-        self.do_select('''owner,
+        self.onecmd('''SELECT owner,
        object_name,
        object_type
 FROM   all_objects
-WHERE  created > SYSDATE - 7''')
+WHERE  created > SYSDATE - 7;''')
     def do_top9i(self,args):
         '''Runs query_top9i defined above, to display active sessions in Oracle 9i'''
-        self.do_select(self.query_top9i)
+        self.onecmd(self.query_top9i)
     
     def do_top(self,args): 
         '''Runs query_ractop defined above, to display active sessions in Oracle 10g (and RAC)'''
-        self.do_select(self.query_ractop)
+        self.onecmd(self.query_ractop)
 
     def do_longops(self,args):
         '''Runs query_longops defined above, to display long running operations (full scans, etc)'''
-        self.do_select(self.query_longops)
+        self.onecmd(self.query_longops)
 
+    do_get = Cmd.do__load
     def do_load(self,args):
-        '''Runs query_load10g defined above, to display OS load on cluster nodes (10gRAC)'''
+        '''Runs query_load10g defined above, to display OS load on cluster nodes (10gRAC)
+Do not confuse with `GET myfile.sql` and `@myfile.sql`,
+which get and run SQL scripts from disk.'''
         self.do_select(self.query_load10g)
 
     def do_himom(self,args):
