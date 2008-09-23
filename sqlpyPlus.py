@@ -555,7 +555,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         return completions
     
     rowlimitPattern = pyparsing.Word(pyparsing.nums)('rowlimit')
-    terminatorPattern = (pyparsing.oneOf('; \\s \\S \\c \\C \\t \\x \\h')    
+    terminatorPattern = (pyparsing.oneOf('; \\s \\S \\c \\C \\t \\x \\h \\g \\G \\i')    
                         ^ pyparsing.Literal('\n/') ^ \
                         (pyparsing.Literal('\nEOF') + pyparsing.stringEnd)) \
                         ('terminator') + \
@@ -726,7 +726,6 @@ class sqlpyPlus(sqlpython.sqlpython):
             print 'Could not resolve object %s.' % identifier
             object_type, owner, object_name = '', '', ''
         return object_type, owner, object_name
-        #todo: resolve not finding cwm$ table
 
     def do_resolve(self, arg):
         arg = self.parsed(arg).unterminated.upper()        
