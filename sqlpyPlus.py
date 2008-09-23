@@ -1,4 +1,4 @@
-"""sqlpyPlus - extra features (inspired by Oracle SQL*Plus) for Luca Canali's sqlpython.py
+"""sqlpyPlus - extra features (inspired	 by Oracle SQL*Plus) for Luca Canali's sqlpython.py
 
 Features include:
  - SQL*Plus-style bind variables
@@ -559,7 +559,8 @@ class sqlpyPlus(sqlpython.sqlpython):
                         ^ pyparsing.Literal('\n/') ^ \
                         (pyparsing.Literal('\nEOF') + pyparsing.stringEnd)) \
                         ('terminator') + \
-                        pyparsing.Optional(rowlimitPattern)
+                        pyparsing.Optional(rowlimitPattern) + \
+                        pyparsing.FollowedBy(pyparsing.LineEnd())
     def do_select(self, arg, bindVarsIn=None, override_terminator=None):
         """Fetch rows from a table.
 
@@ -607,8 +608,8 @@ class sqlpyPlus(sqlpython.sqlpython):
     def do_pull(self, arg, opts):
         """Displays source code."""
 
-        arg = self.parsed(arg).unterminated        
-        object_type, owner, object_name = self.resolve(arg.upper())
+        arg = self.parsed(arg).unterminated.upper()
+        object_type, owner, object_name = self.resolve(arg)
         if not object_type:
             return
         self.stdout.write("%s %s.%s\n" % (object_type, owner, object_name))
@@ -728,7 +729,8 @@ class sqlpyPlus(sqlpython.sqlpython):
         #todo: resolve not finding cwm$ table
 
     def do_resolve(self, arg):
-        self.stdout.write(self.resolve(arg)+'\n')
+        arg = self.parsed(arg).unterminated.upper()        
+        self.stdout.write(','.join(self.resolve(arg))+'\n')
 
     def spoolstop(self):
         if self.spoolFile:
