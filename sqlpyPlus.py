@@ -408,43 +408,15 @@ class sqlpyPlus(sqlpython.sqlpython):
                   for row in self.rows]
         return '\n'.join(result)
 
-    xml_template = genshi.template.MarkupTemplate('''
-      <ul xmlns:py="http://genshi.edgewall.org/">
-        <li py:for="item in items">${item}</li>
-      </ul>''')
-    def output_row_as_xml(self, row):
-        result = ['  <%s>\n    %s\n  </%s>' %
-                  (colname.lower(), self.str_or_empty(itm), colname.lower()) 
-                  for (itm, colname) in zip(row, self.colnames)]
-        return '\n'.join(result)        
-    '''
-    xml_template = genshi.template.MarkupTemplate("""
-<xml xmlns:py="http://genshi.edgewall.org/">
-  <relation py:attr="{'type':tblname}">
-    <tuple py:for="row in rows" py:attr="{'type':>
-    </tuple>
-  </relation>
-      <tr>
-        <th py:for="colname in colnames">
-          <span py:replace="colname">Column Name</span>
-        </th>
-      </tr>
-      <tr py:for="row in rows">
-        <td py:for="itm in row">
-          <span py:replace="str(itm)">Value</span>
-        </td>
-      </tr>
-    </table>
-  </body>
-</html>""")    
-'''
-    def output_as_xml(self):
-        return self.xml_template(**self.__dict__)
-        result = ['<%s>\n%s\n</%s>' %
-                  (self.tblname, self.output_row_as_xml(row), self.tblname)
-                  for row in self.rows]
-        return '\n'.join(result)
-
+    xml_template = genshi.template.NewTextTemplate("""
+<xml>
+  <${tblname}_resultset>{% for row in rows %}
+    <$tblname>{% for (colname, itm) in zip(colnames, row) %}
+      <${colname.lower()}>$itm</${colname.lower()}>{% end %}
+    </$tblname>{% end %}
+  </${tblname}_resultset>
+</xml>""")
+    
     html_template = genshi.template.MarkupTemplate("""
 <html xmlns:py="http://genshi.edgewall.org/">
   <head>
@@ -465,18 +437,19 @@ class sqlpyPlus(sqlpython.sqlpython):
     </table>
   </body>
 </html>""")
-    
-    def output_as_list(self, align):
-        result = []
-        colnamelen = max(len(colname) for colname in self.colnames) + 1        
-        for (idx, row) in enumerate(self.rows):
-            result.append('\n**** Row: %d' % (idx+1))
-            for (itm, colname) in zip(row, self.colnames):
-                if align:
-                    colname = colname.ljust(colnamelen)
-                result.append('%s: %s' % (colname, itm))
-        return '\n'.join(result)
 
+    list_template = genshi.template.NewTextTemplate("""
+{% for (rowNum, row) in enumerate(rows) %}
+**** Row: ${rowNum + 1}
+{% for (colname, itm) in zip(colnames, row) %}$colname: $itm
+{% end %}{% end %}""")
+
+    aligned_list_template = genshi.template.NewTextTemplate("""
+{% for (rowNum, row) in enumerate(rows) %}
+**** Row: ${rowNum + 1}
+{% for (colname, itm) in zip(colnames, row) %}${colname.ljust(colnamelen)}: $itm
+{% end %}{% end %}""")
+    
     tableNameFinder = re.compile(r'from\s+([\w$#_"]+)', re.IGNORECASE | re.MULTILINE | re.DOTALL)          
     def output(self, outformat, rowlimit):
         self.tblname = self.tableNameFinder.search(self.curs.statement).group(1)
@@ -484,11 +457,12 @@ class sqlpyPlus(sqlpython.sqlpython):
         if outformat == '\\i':
             result = self.output_as_insert_statements()
         elif outformat ==  '\\x':
-            result = self.output_as_xml()
+            result = self.xml_template.generate(**self.__dict__)
         elif outformat == '\\g':
-            result = self.output_as_list(align=False)
+            result = self.list_template.generate(**self.__dict__)
         elif outformat == '\\G':
-            result = self.output_as_list(align=True)            
+            self.colnamelen = max(len(colname) for colname in self.colnames)
+            result = self.aligned_list_template.generate(**self.__dict__)
         elif outformat in ('\\s', '\\S', '\\c', '\\C'): #csv
             result = []
             if outformat in ('\\s', '\\c'):
