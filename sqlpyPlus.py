@@ -423,14 +423,16 @@ class sqlpyPlus(sqlpython.sqlpython):
     <title py:content="tblname">Table Name</title>
   </head>
   <body>
-    <table py:attrs="{'id':tblname}">
+    <table py:attrs="{'id':tblname, 
+     'summary':'Result set from query on table ' + tblname}">
       <tr>
-        <th py:for="colname in colnames">
+        <th py:for="colname in colnames"
+         py:attrs="{'id':'header_' + colname.lower()}">
           <span py:replace="colname.lower()">Column Name</span>
         </th>
       </tr>
-      <tr py:for="row in rows">
-        <td py:for="itm in row">
+      <tr py:for="(colname, row) in zip(colnames, rows)">
+        <td py:for="itm in row" py:attrs="{'headers':'header_' + colname.lower()}">
           <span py:replace="str(itm)">Value</span>
         </td>
       </tr>
@@ -472,7 +474,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             result = '\n'.join(result)
         elif outformat == '\\h':
             result = self.html_template.generate(**self.__dict__)
-        elif outformat == '\\t':
+        elif outformat == '\\t': # transposed
             rows = [self.colnames]
             rows.extend(list(self.rows))
             transpr = [[rows[y][x] for y in range(len(rows))]for x in range(len(rows[0]))] # matrix transpose
