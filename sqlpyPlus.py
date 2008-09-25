@@ -186,7 +186,7 @@ and c1.owner = :owner
 """
 }
 
-import sys, os, re, sqlpython, cx_Oracle, pyparsing, re, completion
+import sys, os, re, sqlpython, cx_Oracle, pyparsing, re, completion, genshi
 from cmd2 import Cmd, make_option, options, Statekeeper
 
 if float(sys.version[:3]) < 2.3:
@@ -408,23 +408,22 @@ class sqlpyPlus(sqlpython.sqlpython):
                   for row in self.rows]
         return '\n'.join(result)
 
+    xml_template = genshi.template.MarkupTemplate('''
+      <ul xmlns:py="http://genshi.edgewall.org/">
+        <li py:for="item in items">${item}</li>
+      </ul>''')
     def output_row_as_xml(self, row):
         result = ['  <%s>\n    %s\n  </%s>' %
                   (colname.lower(), self.str_or_empty(itm), colname.lower()) 
                   for (itm, colname) in zip(row, self.colnames)]
         return '\n'.join(result)        
-    def output_as_xml(self):
-        result = ['<%s>\n%s\n</%s>' %
-                  (self.tblname, self.output_row_as_xml(row), self.tblname)
-                  for row in self.rows]
-        return '\n'.join(result)
-
-    html_template = """<html>
-  <head>
-    <title py:content="tblname">Table Name</title>
-  </head>
-  <body>
-    <table py:attr="{'id':tblname}">
+    '''
+    xml_template = genshi.template.MarkupTemplate("""
+<xml xmlns:py="http://genshi.edgewall.org/">
+  <relation py:attr="{'type':tblname}">
+    <tuple py:for="row in rows" py:attr="{'type':>
+    </tuple>
+  </relation>
       <tr>
         <th py:for="colname in colnames">
           <span py:replace="colname">Column Name</span>
@@ -432,31 +431,41 @@ class sqlpyPlus(sqlpython.sqlpython):
       </tr>
       <tr py:for="row in rows">
         <td py:for="itm in row">
-          <span py:replace="str_or_empty(itm)">Value</span>
+          <span py:replace="str(itm)">Value</span>
         </td>
       </tr>
     </table>
   </body>
-</html>"""
-    def output_as_html_table(self):
-        result = ''.join('<th>%s</th>' % c for c in self.colnames)
-        result = ['  <tr>\n    %s\n  </tr>' % result]
-        for row in self.rows:
-            result.append('  <tr>\n    %s\n  </tr>' %
-                          (''.join('<td>%s</td>' %
-                                   self.str_or_empty(itm)
-                                   for itm in row)))                
-        result = '''<table id="%s">
-%s
-</table>''' % (self.tblname, '\n'.join(result))
-        return result
+</html>""")    
+'''
+    def output_as_xml(self):
+        return self.xml_template(**self.__dict__)
+        result = ['<%s>\n%s\n</%s>' %
+                  (self.tblname, self.output_row_as_xml(row), self.tblname)
+                  for row in self.rows]
+        return '\n'.join(result)
 
-    #TODO: use serious templating to make these user-tweakable
-
-    def output_as_markup(self, genshi_template):
-        return None
-        #self.tblname, self.colnames, self.rows
-            
+    html_template = genshi.template.MarkupTemplate("""
+<html xmlns:py="http://genshi.edgewall.org/">
+  <head>
+    <title py:content="tblname">Table Name</title>
+  </head>
+  <body>
+    <table py:attrs="{'id':tblname}">
+      <tr>
+        <th py:for="colname in colnames">
+          <span py:replace="colname.lower()">Column Name</span>
+        </th>
+      </tr>
+      <tr py:for="row in rows">
+        <td py:for="itm in row">
+          <span py:replace="str(itm)">Value</span>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>""")
+    
     def output_as_list(self, align):
         result = []
         colnamelen = max(len(colname) for colname in self.colnames) + 1        
@@ -488,7 +497,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                 result.append(','.join('"%s"' % self.str_or_empty(itm) for itm in row))
             result = '\n'.join(result)
         elif outformat == '\\h':
-            result = self.output_as_html_table()
+            result = self.html_template.generate(**self.__dict__)
         elif outformat == '\\t':
             rows = [self.colnames]
             rows.extend(list(self.rows))
@@ -559,8 +568,8 @@ class sqlpyPlus(sqlpython.sqlpython):
                         ^ pyparsing.Literal('\n/') ^ \
                         (pyparsing.Literal('\nEOF') + pyparsing.stringEnd)) \
                         ('terminator') + \
-                        pyparsing.Optional(rowlimitPattern) + \
-                        pyparsing.FollowedBy(pyparsing.LineEnd())
+                        pyparsing.Optional(rowlimitPattern) #+ \
+                        #pyparsing.FollowedBy(pyparsing.LineEnd())
     def do_select(self, arg, bindVarsIn=None, override_terminator=None):
         """Fetch rows from a table.
 
