@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# MySqlPy V1.4.9
+# MySqlPy V1.5.0
 # Author: Luca.Canali@cern.ch
 # 
 #
