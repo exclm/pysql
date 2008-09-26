@@ -9,14 +9,14 @@ Topic :: Database :: Front-Ends
 Operating System :: OS Independent""".splitlines()
 
 setup(name="sqlpython",
-      version="1.4.8",
+      version="1.4.9",
       description="Command-line interface to Oracle",
       long_description="Customizable alternative to Oracle's SQL*PLUS command-line interface",
       author="Luca Canali",
       author_email="luca.canali@cern.ch",
       url="https://twiki.cern.ch/twiki/bin/view/PSSGroup/SqlPython",
       packages=find_packages(),
-      py_modules = ['mysqlpy','completion','sqlpyPlus','sqlpython','pexpecter'],    
+      py_modules = ['mysqlpy','completion','sqlpyPlus','sqlpython','pexpecter','output_templates'],    
       include_package_data=True,    
       install_requires=['pyparsing','cmd2>=0.3.6','cx_Oracle','genshi'],
       keywords = 'client oracle database',
