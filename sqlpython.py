@@ -10,7 +10,7 @@
 
 import cmd2,getpass,binascii,cx_Oracle,re,os
 import pexpecter, sqlpyPlus
-    
+__version__ = '1.4.9'    
     # complication! separate sessions ->
     # separate transactions !!!!!
     # also: timeouts, other session failures

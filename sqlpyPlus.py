@@ -838,7 +838,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             try:
                 self.binds[var] = float(val)
                 return
-            except ValueError:
+            except ValueError: 
                 statekeeper = Statekeeper(self, ('autobind',))  
                 self.autobind = True
                 self.do_select('%s AS %s FROM dual;' % (val, var))
@@ -914,9 +914,13 @@ class sqlpyPlus(sqlpython.sqlpython):
 
     def do_cat(self, arg):
         '''cat TABLENAME --> SELECT * FROM equivalent'''
-        targets = arg.strip().split()
+        if not arg:
+            print self.do_cat.__doc__
+            return
+        arg = self.parsed(arg)
+        targets = arg.unterminated.split()
         for target in targets:
-            self.do_select('* from %s' % target)
+            self.do_select('* from %s%s%s' % (target, arg.terminator, arg.rowlimit)) # permissive of space before terminator
 
     @options([make_option('-i', '--ignore-case', dest='ignorecase', action='store_true', help='Case-insensitive search')])        
     def do_grep(self, arg, opts):
