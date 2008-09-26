@@ -1,5 +1,5 @@
 #
-# SqlPython V1.4.9
+# SqlPython V1.5.0
 # Author: Luca.Canali@cern.ch, Apr 2006
 # Rev 29-May-08
 #
@@ -10,7 +10,7 @@
 
 import cmd2,getpass,binascii,cx_Oracle,re,os
 import pexpecter, sqlpyPlus
-__version__ = '1.4.9'    
+__version__ = '1.5.0'    
     # complication! separate sessions ->
     # separate transactions !!!!!
     # also: timeouts, other session failures
@@ -106,7 +106,9 @@ class sqlpython(cmd2.Cmd):
 \\s   CSV (with headings)
 \\S   CSV (no headings)
 \\t   transposed
-\\x   XML"""
+\\x   XML
+\\p   plot, with markers
+\\P   plot, continuous lines"""
         print self.do_terminators.__doc__
     
     terminatorSearchString = '|'.join('\\' + d.split()[0] for d in do_terminators.__doc__.splitlines())
