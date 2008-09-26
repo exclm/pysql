@@ -369,8 +369,8 @@ try:
                 return result       
             if self.xticks:
                 pylab.xticks(self.xvalues, self.xticks)
-            for (colName, yseries) in self.yserieslists.items():
-                pylab.plot(xvalues, yseries, '-o')
+            for yseries in self.yserieslists:
+                pylab.plot(self.xvalues, yseries, '-o')
             pylab.xlabel(self.xlabel)
             pylab.title(self.title)
             pylab.legend(self.legends)
