@@ -23,7 +23,9 @@ or with a python-like shorthand
 
 - catherinedevlin.blogspot.com  May 31, 2006
 """
-# note in cmd.cmd about supporting emacs commands?
+import sys, os, re, sqlpython, cx_Oracle, pyparsing, re, completion
+from cmd2 import Cmd, make_option, options, Statekeeper
+from output_templates import *
 
 descQueries = {
 'TABLE': ("""
@@ -185,9 +187,6 @@ and c1.r_owner = c2.owner
 and c1.owner = :owner       
 """
 }
-
-import sys, os, re, sqlpython, cx_Oracle, pyparsing, re, completion, genshi
-from cmd2 import Cmd, make_option, options, Statekeeper
 
 if float(sys.version[:3]) < 2.3:
     def enumerate(lst):
@@ -407,50 +406,6 @@ class sqlpyPlus(sqlpython.sqlpython):
                   (self.tblname, ','.join(self.colnames), formatRow(row))
                   for row in self.rows]
         return '\n'.join(result)
-
-    xml_template = genshi.template.NewTextTemplate("""
-<xml>
-  <${tblname}_resultset>{% for row in rows %}
-    <$tblname>{% for (colname, itm) in zip(colnames, row) %}
-      <${colname.lower()}>$itm</${colname.lower()}>{% end %}
-    </$tblname>{% end %}
-  </${tblname}_resultset>
-</xml>""")
-    
-    html_template = genshi.template.MarkupTemplate("""
-<html xmlns:py="http://genshi.edgewall.org/">
-  <head>
-    <title py:content="tblname">Table Name</title>
-  </head>
-  <body>
-    <table py:attrs="{'id':tblname, 
-     'summary':'Result set from query on table ' + tblname}">
-      <tr>
-        <th py:for="colname in colnames"
-         py:attrs="{'id':'header_' + colname.lower()}">
-          <span py:replace="colname.lower()">Column Name</span>
-        </th>
-      </tr>
-      <tr py:for="(colname, row) in zip(colnames, rows)">
-        <td py:for="itm in row" py:attrs="{'headers':'header_' + colname.lower()}">
-          <span py:replace="str(itm)">Value</span>
-        </td>
-      </tr>
-    </table>
-  </body>
-</html>""")
-
-    list_template = genshi.template.NewTextTemplate("""
-{% for (rowNum, row) in enumerate(rows) %}
-**** Row: ${rowNum + 1}
-{% for (colname, itm) in zip(colnames, row) %}$colname: $itm
-{% end %}{% end %}""")
-
-    aligned_list_template = genshi.template.NewTextTemplate("""
-{% for (rowNum, row) in enumerate(rows) %}
-**** Row: ${rowNum + 1}
-{% for (colname, itm) in zip(colnames, row) %}${colname.ljust(colnamelen)}: $itm
-{% end %}{% end %}""")
     
     tableNameFinder = re.compile(r'from\s+([\w$#_"]+)', re.IGNORECASE | re.MULTILINE | re.DOTALL)          
     def output(self, outformat, rowlimit):
@@ -459,12 +414,12 @@ class sqlpyPlus(sqlpython.sqlpython):
         if outformat == '\\i':
             result = self.output_as_insert_statements()
         elif outformat ==  '\\x':
-            result = self.xml_template.generate(**self.__dict__)
+            result = xml_template.generate(**self.__dict__)
         elif outformat == '\\g':
-            result = self.list_template.generate(**self.__dict__)
+            result = list_template.generate(**self.__dict__)
         elif outformat == '\\G':
             self.colnamelen = max(len(colname) for colname in self.colnames)
-            result = self.aligned_list_template.generate(**self.__dict__)
+            result = aligned_list_template.generate(**self.__dict__)
         elif outformat in ('\\s', '\\S', '\\c', '\\C'): #csv
             result = []
             if outformat in ('\\s', '\\c'):
@@ -473,7 +428,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                 result.append(','.join('"%s"' % self.str_or_empty(itm) for itm in row))
             result = '\n'.join(result)
         elif outformat == '\\h':
-            result = self.html_template.generate(**self.__dict__)
+            result = html_template.generate(**self.__dict__)
         elif outformat == '\\t': # transposed
             rows = [self.colnames]
             rows.extend(list(self.rows))
@@ -959,7 +914,7 @@ class sqlpyPlus(sqlpython.sqlpython):
 
     def do_cat(self, arg):
         '''cat TABLENAME --> SELECT * FROM equivalent'''
-        targets = arg.split()
+        targets = arg.strip().split()
         for target in targets:
             self.do_select('* from %s' % target)
 
