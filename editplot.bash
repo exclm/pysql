@@ -1,0 +1,1 @@
+ipython -pylab editplot.py
