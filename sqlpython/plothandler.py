@@ -14,17 +14,27 @@ try:
             self.title = sqlSession.tblname
             self.xlabel = sqlSession.curs.description[0][0]
             self.datatypes = [d[1] for d in sqlSession.curs.description]
-            for (colNum, datatype) in enumerate(self.datatypes):
-                if colNum > 0 and datatype in self.plottable_types:
-                    yseries = [row[colNum] for row in sqlSession.rows]
-                    if max(yseries) is not None:
+            plottableSeries = [dt in self.plottable_types for dt in self.datatypes]
+            if plottableSeries.count(True) == 0:
+                raise ValueError, 'At least one quantitative column needed to plot.'
+            elif len(plottableSeries) == 1: # only one column, but it is plottable
+                idx = plottableSeries.index(True)
+                self.yserieslists = [[row[0] for row in sqlSession.rows]]
+                self.legends = [sqlSession.curs.description[0][0]]                
+                self.xvalues = range(len(sqlSession.rows))
+                self.xticks = [row[0] for row in sqlSession.rows]
+            else:
+                for (colNum, plottable) in enumerate(plottableSeries):
+                    if colNum > 0 and plottable:
+                        yseries = [row[colNum] for row in sqlSession.rows]
                         self.yserieslists.append(yseries)
                         self.legends.append(sqlSession.curs.description[colNum][0])
-            if self.datatypes[0] in self.plottable_types:
-                self.xvalues = [r[0] for r in sqlSession.rows]
-            else:
-                self.xvalues = range(sqlSession.curs.rowcount)
-                self.xticks = [r[0] for r in sqlSession.rows]
+                if plottableSeries[0]:
+                    self.xvalues = [r[0] for r in sqlSession.rows]
+                else:
+                    self.xvalues = range(sqlSession.curs.rowcount)
+                    self.xticks = [r[0] for r in sqlSession.rows]
+            
         def shelve(self):
             s = shelve.open(shelvename,'c')
             for k in ('xvalues xticks yserieslists title legends xlabel outformat'.split()):
@@ -38,11 +48,11 @@ try:
             self.draw()
         def bar(self):
             barEdges = pylab.arange(len(self.xvalues))
-            width = 0.5 / len(self.yserieslists)
+            width = 0.6 / len(self.yserieslists)
             colorcycler = itertools.cycle('rgb')
             for (offset, yseries) in enumerate(self.yserieslists):
                 self.yplots.append(pylab.bar(barEdges + (offset*width), yseries, width=width, color=colorcycler.next()))
-            pylab.xticks(barEdges + 0.25, self.xticks or self.xvalues)            
+            pylab.xticks(barEdges + 0.3, self.xticks or self.xvalues)            
         def line(self, markers):
             for yseries in self.yserieslists:
                 self.yplots.append(pylab.plot(self.xvalues, yseries, markers))
@@ -76,4 +86,4 @@ try:
 except ImportError:
     class Plot(object):
         def __init__(self, *args, **kwargs):
-            raise ImportError, 'Must install python-matplotlib to draw plots'
+            raise ImportError, 'Must install python-matplotlib and pytyon-numpy to draw plots'
