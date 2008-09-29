@@ -75,11 +75,5 @@ try:
             
 except ImportError:
     class Plot(object):
-        def build(self, sqlSession):
-            pass
-        def save(self):
-            pass
-        def shelve(self):
-            pass
-        def draw(self):
-            return 'Must install python-matplotlib to plot query results.'
+        def __init__(self, *args, **kwargs):
+            raise ImportError, 'Must install python-matplotlib to draw plots'
