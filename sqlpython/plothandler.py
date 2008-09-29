@@ -54,5 +54,7 @@ except ImportError:
             pass
         def save(self):
             pass
+        def shelve(self):
+            pass
         def draw(self):
             return 'Must install python-matplotlib to plot query results.'
