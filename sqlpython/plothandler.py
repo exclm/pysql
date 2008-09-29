@@ -1,4 +1,4 @@
-import shelve, pickle, cx_Oracle, datetime, sys
+import shelve, pickle, cx_Oracle, datetime, sys, itertools
 shelvename = 'plot.shelve'
 
 try:
@@ -38,32 +38,39 @@ try:
             self.draw()
         def bar(self):
             barEdges = pylab.arange(len(self.xvalues))
-            width = 0.5
-            for yseries in self.yserieslists:
-                pylab.bar(barEdges, yseries, width=width)
-            if self.xticks:
-                pylab.xticks(barEdges + (0.5 * width), self.xticks)            
+            width = 0.5 / len(self.yserieslists)
+            colorcycler = itertools.cycle('rgb')
+            for (offset, yseries) in enumerate(self.yserieslists):
+                self.yplots.append(pylab.bar(barEdges + (offset*width), yseries, width=width, color=colorcycler.next()))
+            pylab.xticks(barEdges + 0.25, self.xticks or self.xvalues)            
         def line(self, markers):
             for yseries in self.yserieslists:
-                pylab.plot(self.xvalues, yseries, markers)
+                self.yplots.append(pylab.plot(self.xvalues, yseries, markers))
             if self.xticks:
                 pylab.xticks(self.xvalues, self.xticks)
-        def draw(self, chartGuts, markers=None):
+        def pie(self):
+            self.yplots.append(pylab.pie(self.yserieslists[0], labels=self.xticks or self.xvalues))
+            self.legends = [self.legends[0]]
+        def draw(self):
             if not self.yserieslists:
                 print 'At least one quantitative column needed to plot.'
                 return None
-            if self.outformat == '\\p':
+            self.yplots = []
+            if self.outformat == '\\l':
                 self.line('-o')
-            elif self.outformat == '\\P':
+            elif self.outformat == '\\L':
                 self.line('-')
+            elif self.outformat == '\\p':
+                self.pie()
             else:
                 self.bar()
             pylab.xlabel(self.xlabel)
             pylab.title(self.title)
-            pylab.legend(self.legends)
+            pylab.legend([p[0] for p in self.yplots], self.legends, shadow=True)
             pylab.show()
             print 'You can edit this plot from the command prompt (outside sqlpython) by running'
             print "ipython -pylab -c 'import sqlpython.plothandler; sqlpython.plothandler.Plot().unshelve()'"
+            print "See matplotlib documentation for editing instructions: http://matplotlib.sourceforge.net/"
             # there's got to be a way to install a shell script like that through setuptools... but how?
             
 except ImportError:
