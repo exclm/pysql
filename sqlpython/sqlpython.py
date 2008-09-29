@@ -107,9 +107,10 @@ class sqlpython(cmd2.Cmd):
 \\S   CSV (no headings)
 \\t   transposed
 \\x   XML
-\\p   plot, with markers
-\\P   plot, lines only
-\\b   bar graph"""
+\\l   line plot, with markers
+\\L   line plot, lines only
+\\b   bar graph
+\\p   pie chart"""
         print self.do_terminators.__doc__
     
     terminatorSearchString = '|'.join('\\' + d.split()[0] for d in do_terminators.__doc__.splitlines())

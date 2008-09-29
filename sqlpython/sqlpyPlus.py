@@ -439,7 +439,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                     transpr[x][0] = rname
             newdesc[0][0] = 'COLUMN NAME'
             result = '\n' + sqlpython.pmatrix(transpr,newdesc)            
-        elif outformat in ('\\p', '\\P', '\\b'):
+        elif outformat in ('\\l', '\\L', '\\p', '\\b'):
             plot = Plot()
             plot.build(self, outformat)
             plot.shelve()                
@@ -499,7 +499,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         return completions
     
     rowlimitPattern = pyparsing.Word(pyparsing.nums)('rowlimit')
-    rawTerminators = '; \\s \\S \\c \\C \\t \\i \\p \\P \\b ' + ' '.join(output_templates.keys())
+    rawTerminators = '; \\s \\S \\c \\C \\t \\i \\p \\l \\L \\b ' + ' '.join(output_templates.keys())
     terminatorPattern = (pyparsing.oneOf(rawTerminators)    
                         ^ pyparsing.Literal('\n/') ^ \
                         (pyparsing.Literal('\nEOF') + pyparsing.stringEnd)) \
