@@ -16,7 +16,6 @@ setup(name="sqlpython",
       author_email="luca.canali@cern.ch",
       url="https://twiki.cern.ch/twiki/bin/view/PSSGroup/SqlPython",
       packages=find_packages(),
-      #py_modules = ['mysqlpy','completion','sqlpyPlus','sqlpython','pexpecter','output_templates','plothandler'],    
       include_package_data=True,    
       install_requires=['pyparsing','cmd2>=0.3.7','cx_Oracle','genshi'],
       keywords = 'client oracle database',
@@ -24,6 +23,7 @@ setup(name="sqlpython",
       platforms = ['any'],
       entry_points = """
                    [console_scripts]
-                   sqlpython = mysqlpy:run"""      
+                   sqlpython = sqlpython.mysqlpy:run
+                   editplot_sqlpython = sqlpython.editplot.bash"""      
      )
 

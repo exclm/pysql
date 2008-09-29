@@ -1,1 +1,1 @@
-ipython -pylab editplot.py
+ipython -pylab -c "import sqlpython.plothandler; sqlpython.plothandler.Plot().unshelve()"

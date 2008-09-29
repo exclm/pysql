@@ -108,7 +108,8 @@ class sqlpython(cmd2.Cmd):
 \\t   transposed
 \\x   XML
 \\p   plot, with markers
-\\P   plot, continuous lines"""
+\\P   plot, lines only
+\\b   bar graph"""
         print self.do_terminators.__doc__
     
     terminatorSearchString = '|'.join('\\' + d.split()[0] for d in do_terminators.__doc__.splitlines())
