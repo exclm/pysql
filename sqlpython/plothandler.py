@@ -69,7 +69,7 @@ try:
             if self.outformat == '\\l':
                 self.line('-o')
             elif self.outformat == '\\L':
-                self.line('-')
+                self.line('o')
             elif self.outformat == '\\p':
                 self.pie()
             else:

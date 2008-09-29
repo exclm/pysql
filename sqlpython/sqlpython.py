@@ -108,7 +108,7 @@ class sqlpython(cmd2.Cmd):
 \\t   transposed
 \\x   XML
 \\l   line plot, with markers
-\\L   line plot, lines only
+\\L   scatter plot (no lines)
 \\b   bar graph
 \\p   pie chart"""
         print self.do_terminators.__doc__
