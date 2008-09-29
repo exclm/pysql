@@ -1,15 +1,20 @@
 import genshi.template
 
-xml_template = genshi.template.NewTextTemplate("""
+# To make more output formats available to sqlpython, just edit this
+# file, or place a copy in your local directory and edit that.
+
+output_templates = {
+
+'\\x': genshi.template.NewTextTemplate("""
 <xml>
   <${tblname}_resultset>{% for row in rows %}
     <$tblname>{% for (colname, itm) in zip(colnames, row) %}
       <${colname.lower()}>$itm</${colname.lower()}>{% end %}
     </$tblname>{% end %}
   </${tblname}_resultset>
-</xml>""")
-    
-html_template = genshi.template.MarkupTemplate("""
+</xml>"""),
+
+'\\h': genshi.template.MarkupTemplate("""
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns:py="http://genshi.edgewall.org/" xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
   <head>
@@ -32,16 +37,18 @@ html_template = genshi.template.MarkupTemplate("""
       </tr>
     </table>
   </body>
-</html>""")
+</html>"""),
 
-list_template = genshi.template.NewTextTemplate("""
+'\\g': genshi.template.NewTextTemplate("""
 {% for (rowNum, row) in enumerate(rows) %}
 **** Row: ${rowNum + 1}
 {% for (colname, itm) in zip(colnames, row) %}$colname: $itm
-{% end %}{% end %}""")
+{% end %}{% end %}"""),
 
-aligned_list_template = genshi.template.NewTextTemplate("""
+'\\G': genshi.template.NewTextTemplate("""
 {% for (rowNum, row) in enumerate(rows) %}
 **** Row: ${rowNum + 1}
 {% for (colname, itm) in zip(colnames, row) %}${colname.ljust(colnamelen)}: $itm
-{% end %}{% end %}""")
+{% end %}{% end %}"""),
+
+}
