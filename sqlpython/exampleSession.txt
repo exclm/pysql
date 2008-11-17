@@ -1,0 +1,270 @@
+SQL.No_Connection> connect testschema/testschema@orcl
+testschema@orcl> CREATE TABLE play (
+>   title   VARCHAR2(40) CONSTRAINT xpk_play PRIMARY KEY,
+>   author  VARCHAR2(40));
+
+Executed
+
+testschema@orcl> INSERT INTO play VALUES ('Twelfth Night', 'Shakespeare');
+
+Executed (1 rows)
+
+testschema@orcl> INSERT INTO play VALUES ('The Tempest', 'Shakespeare');
+
+Executed (1 rows)
+
+testschema@orcl> INSERT INTO play VALUES ('Agamemnon', 'Aeschylus');
+
+Executed (1 rows)
+
+testschema@orcl> commit;
+
+Executed
+
+testschema@orcl> select
+> *
+> from
+> play;
+
+TITLE         AUTHOR
+------------- -----------
+Twelfth Night Shakespeare
+The Tempest   Shakespeare
+Agamemnon     Aeschylus
+
+3 rows selected.
+
+testschema@orcl> ls
+
+NAME          
+--------------
+INDEX/XPK_PLAY
+TABLE/PLAY    
+
+2 rows selected.
+
+testschema@orcl> ls --all
+
+NAME
+--------------
+INDEX/XPK_PLAY
+TABLE/PLAY
+testschema@orcl> ls table
+
+NAME      
+----------
+TABLE/PLAY
+
+1 row selected.
+
+testschema@orcl> desc play
+TABLE TESTSCHEMA.PLAY
+
+COLUMN_NAME Null?    DATA_TYPE
+----------- -------- ------------
+TITLE       NOT NULL VARCHAR2(40)
+AUTHOR      NULL     VARCHAR2(40)
+
+2 rows selected.
+
+testschema@orcl> COMMENT ON COLUMN play.author IS 'Primary author (if multiple)';
+
+Executed
+
+testschema@orcl> COMMENT ON TABLE play IS 'I like plays.';
+
+Executed
+
+testschema@orcl> comments play
+TABLE TESTSCHEMA.PLAY: I like plays.
+
+COLUMN_NAME COMMENTS
+----------- ----------------------------
+TITLE       None
+AUTHOR      Primary author (if multiple)
+
+2 rows selected.
+
+testschema@orcl> cat play
+
+TITLE         AUTHOR
+------------- -----------
+Twelfth Night Shakespeare
+The Tempest   Shakespeare
+Agamemnon     Aeschylus
+
+3 rows selected.
+
+testschema@orcl> help terminators
+;    standard Oracle format
+\c   CSV (with headings)
+\C   CSV (no headings)
+\g   list
+\G   aligned list
+\h   HTML table
+\i   INSERT statements
+\s   CSV (with headings)
+\S   CSV (no headings)
+\t   transposed
+\x   XML
+\l   line plot, with markers
+\L   scatter plot (no lines)
+\b   bar graph
+\p   pie chart
+testschema@orcl> select * from play where author='Shakespeare'\c
+
+TITLE,AUTHOR
+"Twelfth Night","Shakespeare"
+"The Tempest","Shakespeare"
+
+2 rows selected.
+
+testschema@orcl> select * from play where author='Shakespeare'\g
+
+
+
+**** Row: 1
+TITLE: Twelfth Night
+AUTHOR: Shakespeare
+
+**** Row: 2
+TITLE: The Tempest
+AUTHOR: Shakespeare
+
+
+2 rows selected.
+
+testschema@orcl> select * from play where author='Shakespeare'\h
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+  <head>
+    <title>play</title>
+    <meta http-equiv="content-type" content="text/html;charset=utf-8"/>
+  </head>
+  <body>
+    <table id="play" summary="Result set from query on table play">
+      <tr>
+        <th id="header_title">
+          title
+        </th><th id="header_author">
+          author
+        </th>
+      </tr>
+      <tr>
+        <td headers="header_title">
+          Twelfth Night
+        </td><td headers="header_author">
+          Shakespeare
+        </td>
+      </tr><tr>
+        <td headers="header_title">
+          The Tempest
+        </td><td headers="header_author">
+          Shakespeare
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
+
+2 rows selected.
+
+testschema@orcl> select * from play\i
+
+
+INSERT INTO play (TITLE, AUTHOR) VALUES ('Twelfth Night', 'Shakespeare');
+INSERT INTO play (TITLE, AUTHOR) VALUES ('The Tempest', 'Shakespeare');
+INSERT INTO play (TITLE, AUTHOR) VALUES ('Agamemnon', 'Aeschylus');
+
+3 rows selected.
+
+testschema@orcl> select * from play where author='Shakespeare'\t
+
+
+COLUMN NAME ROW N.1       ROW N.2
+----------- ------------- -----------
+TITLE       Twelfth Night The Tempest
+AUTHOR      Shakespeare   Shakespeare
+
+2 rows selected.
+
+testschema@orcl> select * from play where author='Shakespeare'\x
+
+
+<xml>
+  <play_resultset>
+    <play>
+      <title>Twelfth Night</title>
+      <author>Shakespeare</author>
+    </play>
+    <play>
+      <title>The Tempest</title>
+      <author>Shakespeare</author>
+    </play>
+  </play_resultset>
+</xml>
+
+2 rows selected.    
+
+testschema@orcl> set
+autobind: False
+commit_on_exit: True
+echo: False
+maxfetch: 1000
+maxtselctrows: 10
+timeout: 30
+testschema@orcl> print
+testschema@orcl> set autobind on
+autobind - was: False
+now: True
+testschema@orcl> select * from play where author like 'A%';
+
+TITLE     AUTHOR   
+--------- ---------
+Agamemnon Aeschylus
+
+1 row selected.
+
+testschema@orcl> print
+:1 = Agamemnon
+:2 = Aeschylus
+:title = Agamemnon
+:author = Aeschylus
+testschema@orcl> select * from play where title = :1;
+
+TITLE     AUTHOR   
+--------- ---------
+Agamemnon Aeschylus
+
+1 row selected.
+
+testschema@orcl> select * from play where author = :author;
+
+TITLE     AUTHOR   
+--------- ---------
+Agamemnon Aeschylus
+
+1 row selected.
+
+testschema@orcl> help grep
+grep PATTERN TABLE - search for term in any of TABLE's fields
+Usage: grep [options] arg
+
+Options:
+  -h, --help         show this help message and exit
+  -i, --ignore-case  Case-insensitive search
+
+testschema@orcl> grep -i EM play
+play
+
+TITLE       AUTHOR
+----------- -----------
+The Tempest Shakespeare
+Agamemnon   Aeschylus
+
+2 rows selected.
+
+testschema@orcl> drop table play;
+
+Executed

@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# MySqlPy V1.4.6
+# MySqlPy V1.5.0
 # Author: Luca.Canali@cern.ch
 # 
 #
@@ -9,13 +9,13 @@
 #           http://catherine.devlin.googlepages.com/
 
 from sqlpyPlus import *
-import binascii, sys, tempfile
+import binascii, sys, tempfile, optparse, unittest
 
 class mysqlpy(sqlpyPlus):
     '''
-MySqlPy V1.4.6 - 'sqlplus in python'
+MySqlPy V1.4.9 - 'sqlplus in python'
 Author: Luca.Canali@cern.ch
-Rev: 1.4.8, 29-May-08
+Rev: 1.4.9, 26-Sep-08
 
 Companion of SqlPython, a python module that reproduces Oracle's command line within python
 and sqlpyPlus. Major contributions by Catherine Devlin, http://catherinedevlin.blogspot.com
@@ -56,16 +56,16 @@ Example:
 	  ins.instance_name,ins.host_name,round(os.value,2) load
 	  from gv$osstat os, gv$instance ins
 	  where os.inst_id=ins.inst_id and os.stat_name='LOAD'
-	  order by 3 desc;
+	  order by 3 desc
         '''
-        self.query_top9i = '''
+        self.query_top9i = '''SELECT
           sid,username,osuser||'@'||terminal "Server User@terminal",program,taddr, status,
 	  module, sql_hash_value hash, fixed_table_sequence seq, last_call_et elaps 
           from v$session 
           where username is not null and program not like 'emagent%' and status='ACTIVE'
-                and audsid !=sys_context('USERENV','SESSIONID'); 
+                and audsid !=sys_context('USERENV','SESSIONID') ;
         '''
-        self.query_ractop = '''
+        self.query_ractop = '''SELECT 
  	inst_id||'_'||sid inst_sid,username,osuser||'@'||terminal "User@Term",program, decode(taddr,null,null,'NN') tr,  
 	sql_id, '.'||mod(fixed_table_sequence,1000) seq, state||': '||event event,
 	case state when 'WAITING' then seconds_in_wait else wait_time end w_tim, last_call_et elaps
@@ -74,7 +74,7 @@ Example:
 	      and not (event like '% waiting for messages in the queue' and state='WAITING')
               and audsid !=sys_context('USERENV','SESSIONID');
         '''
-        self.query_longops = '''
+        self.query_longops = '''SELECT
         inst_id,sid,username,time_remaining remaining, elapsed_seconds elapsed, sql_hash_value hash, opname,message
         from gv$session_longops
         where time_remaining>0;
@@ -82,25 +82,28 @@ Example:
        
     def do_new(self, args):
         'tells you about new objects'
-        self.do_select('''owner,
+        self.onecmd('''SELECT owner,
        object_name,
        object_type
 FROM   all_objects
-WHERE  created > SYSDATE - 7''')
+WHERE  created > SYSDATE - 7;''')
     def do_top9i(self,args):
         '''Runs query_top9i defined above, to display active sessions in Oracle 9i'''
-        self.do_select(self.query_top9i)
+        self.onecmd(self.query_top9i)
     
     def do_top(self,args): 
         '''Runs query_ractop defined above, to display active sessions in Oracle 10g (and RAC)'''
-        self.do_select(self.query_ractop)
+        self.onecmd(self.query_ractop)
 
     def do_longops(self,args):
         '''Runs query_longops defined above, to display long running operations (full scans, etc)'''
-        self.do_select(self.query_longops)
+        self.onecmd(self.query_longops)
 
+    do_get = Cmd.do__load
     def do_load(self,args):
-        '''Runs query_load10g defined above, to display OS load on cluster nodes (10gRAC)'''
+        '''Runs query_load10g defined above, to display OS load on cluster nodes (10gRAC)
+Do not confuse with `GET myfile.sql` and `@myfile.sql`,
+which get and run SQL scripts from disk.'''
         self.do_select(self.query_load10g)
 
     def do_himom(self,args):
@@ -185,5 +188,16 @@ def run():
         pass
     my.cmdloop()
 
+class TestCase(Cmd2TestCase):
+    CmdApp = mysqlpy
+    transcriptFileName = 'exampleSession.txt'
+
 if __name__ == '__main__':
-    run()        
+    parser = optparse.OptionParser()
+    parser.add_option('-t', '--test', dest='unittests', action='store_true', default=False, help='Run unit test suite')
+    (callopts, callargs) = parser.parse_args()
+    if callopts.unittests:
+        sys.argv = [sys.argv[0]]  # the --test argument upsets unittest.main()
+        unittest.main()
+    else:
+        run()
