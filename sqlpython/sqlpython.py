@@ -1,5 +1,5 @@
 #
-# SqlPython V1.4.7
+# SqlPython V1.5.0
 # Author: Luca.Canali@cern.ch, Apr 2006
 # Rev 29-May-08
 #
@@ -9,8 +9,8 @@
 # See also http://twiki.cern.ch/twiki/bin/view/PSSGroup/SqlPython
 
 import cmd2,getpass,binascii,cx_Oracle,re,os
-import pexpecter, sqlpyPlus
-    
+import sqlpyPlus
+__version__ = '1.5.0'    
     # complication! separate sessions ->
     # separate transactions !!!!!
     # also: timeouts, other session failures
@@ -22,7 +22,6 @@ class sqlpython(cmd2.Cmd):
         cmd2.Cmd.__init__(self)
         self.prompt = 'SQL.No_Connection> '
         self.maxfetch = 1000
-        self.failoverSessions = []
         self.terminator = ';'
         self.timeout = 30
         self.commit_on_exit = True
@@ -67,34 +66,13 @@ class sqlpython(cmd2.Cmd):
             self.orcl = cx_Oracle.connect(orauser,orapass,oraserv,modeval)
             self.curs = self.orcl.cursor()
             self.prompt = '%s@%s> ' % (orauser, sid)
-            self.failoverSessions = [f for f in [fbs(arg) for fbs in pexpecter.available] if f.available]
         except Exception, e:
             print e
             
     
     def emptyline(self):
         pass
-    
-    def fail(self, arg, do_everywhere=False):
-        if self.failover:
-            success, result = False, ''
-            for fbs in self.failoverSessions:
-                success, result = fbs.attempt(arg)
-                if success:
-                    print result
-                    if not do_everywhere:
-                        return True
-            print result 
-        return False
-                
-    def designated_session(self, arg, sesstype):
-        for fbs in self.failoverSessions:
-            if fbs.valid and fbs.__class__ == sesstype:
-                success, result = fbs.attempt(arg)
-                print result
-                return
-        print 'Valid %s not found' % (sesstype.__name__)
-        
+                           
     def do_terminators(self, arg):
         """;    standard Oracle format
 \\c   CSV (with headings)
@@ -106,46 +84,30 @@ class sqlpython(cmd2.Cmd):
 \\s   CSV (with headings)
 \\S   CSV (no headings)
 \\t   transposed
-\\x   XML"""
+\\x   XML
+\\l   line plot, with markers
+\\L   scatter plot (no lines)
+\\b   bar graph
+\\p   pie chart"""
         print self.do_terminators.__doc__
     
     terminatorSearchString = '|'.join('\\' + d.split()[0] for d in do_terminators.__doc__.splitlines())
         
-    def do_yasql(self, arg):
-        '''Sends a command to a YASQL session (http://sourceforge.net/projects/yasql/)'''
-        self.designated_session(arg, pexpecter.YASQLSession)
-    do_y = do_yasql
-    def do_sqlplus(self, arg):
-        '''Sends a command to a SQL*Plus session'''
-        self.designated_session(arg, pexpecter.SqlPlusSession)
-    do_sqlp = do_sqlplus
-    def do_senora(self, arg):
-        '''Sends a command to a Senora session (http://senora.sourceforge.net/)'''
-        self.designated_session(arg, pexpecter.SenoraSession)
-    do_sen = do_senora       
-
-    def default(self, arg, do_everywhere = False):
+    def default(self, arg):
         statement = self.parsed(arg)
         self.query = statement.unterminated
-        try:
-            self.varsUsed = sqlpyPlus.findBinds(self.query, self.binds, givenBindVars={})
-            self.curs.execute(self.query, self.varsUsed)            
-            print '\nExecuted%s\n' % ((self.curs.rowcount > 0) and ' (%d rows)' % self.curs.rowcount or '')
-            if do_everywhere:
-                self.fail(arg, do_everywhere = True )
-        except Exception, e:
-            result = self.fail(arg)
-            if not result:
-                print str(e)
+        self.varsUsed = sqlpyPlus.findBinds(self.query, self.binds, givenBindVars={})
+        self.curs.execute(self.query, self.varsUsed)            
+        print '\nExecuted%s\n' % ((self.curs.rowcount > 0) and ' (%d rows)' % self.curs.rowcount or '')
             
     def do_commit(self, arg):
-        self.default('commit %s;' % (arg), do_everywhere=True)
+        self.default('commit %s;' % (arg))
     def do_rollback(self, arg):
-        self.default('rollback %s;' % (arg), do_everywhere=True)        
+        self.default('rollback %s;' % (arg))        
     def do_quit(self, arg):
         if self.commit_on_exit and hasattr(self, 'curs'):
             self.default('commit;')
-        cmd2.Cmd.do_quit()
+        return cmd2.Cmd.do_quit(self, None)
     do_exit = do_quit
     do_q = do_quit
     
