@@ -49,7 +49,7 @@ data_type
 FROM all_tab_columns atc
 WHERE atc.table_name = :object_name
 AND      atc.owner = :owner
-ORDER BY atc.column_id;""",),
+ORDER BY atc.column_id""",),
 'PROCEDURE': ("""
               NVL(argument_name, 'Return Value') argument_name,             
 data_type,
@@ -59,7 +59,7 @@ FROM all_arguments
 WHERE object_name = :object_name
 AND      owner = :owner
 AND      package_name IS NULL
-ORDER BY sequence;""",),    
+ORDER BY sequence""",),    
 'PackageObjects':("""
 SELECT DISTINCT object_name
 FROM all_arguments
@@ -162,7 +162,7 @@ FROM all_tab_columns atc
 JOIN all_col_comments acc ON (atc.owner = acc.owner and atc.table_name = acc.table_name and atc.column_name = acc.column_name)
 WHERE atc.table_name = :object_name
 AND      atc.owner = :owner
-ORDER BY atc.column_id;""",
+ORDER BY atc.column_id""",
 'oneColComments': """
 atc.column_name,
 acc.comments             
@@ -171,7 +171,7 @@ JOIN all_col_comments acc ON (atc.owner = acc.owner and atc.table_name = acc.tab
 WHERE atc.table_name = :object_name
 AND      atc.owner = :owner
 AND      acc.column_name = :column_name
-ORDER BY atc.column_id;""",
+ORDER BY atc.column_id""",
 #thanks to Senora.pm for "refs"
 'refs': """
 NULL               referenced_by, 
@@ -568,7 +568,8 @@ class sqlpyPlus(sqlpython.sqlpython):
     def do_find(self, arg, opts):
         """Finds argument in source code or (with -c) in column definitions."""
 
-        arg = self.parsed(arg).unterminated.upper()     
+        parsed = self.parsed(arg)
+        arg = parsed.unterminated.upper()     
         
         if opts.col:
             sql = "owner, table_name, column_name from all_tab_columns where column_name like '%%%s%%'" % (arg)
@@ -583,44 +584,45 @@ class sqlpyPlus(sqlpython.sqlpython):
             sql = "* from all_source where %s like '%%%s%%'" % (searchfor, arg)
         if not opts.all:
             sql = '%s and owner = user' % (sql)
-        self.do_select(sql)
+        self.do_select(sql + (parsed.terminator or ';')) 
 
     @options([make_option('-a','--all',action='store_true',
                           help='Describe all objects (not just my own)')])
     def do_describe(self, arg, opts):
         "emulates SQL*Plus's DESCRIBE"
-
-        arg = self.parsed(arg).unterminated.upper()
+        parsed = self.parsed(arg)
+        arg = parsed.unterminated.upper()
         if opts.all:
             which_view = (', owner', 'all')
         else:
             which_view = ('', 'user')
 
         if not arg:
-            self.do_select("""object_name, object_type%s FROM %s_objects WHERE object_type IN ('TABLE','VIEW','INDEX') ORDER BY object_name""" % which_view)
+            self.do_select("""object_name, object_type%s FROM %s_objects WHERE object_type IN ('TABLE','VIEW','INDEX') ORDER BY object_name%s""" % (which_view, (parsed.terminator or ';')))
             return
         object_type, owner, object_name = self.resolve(arg)
         if not object_type:
             self.do_select("""object_name, object_type%s FROM %s_objects
                            WHERE object_type IN ('TABLE','VIEW','INDEX')
                            AND   object_name LIKE '%%%s%%'
-                           ORDER BY object_name""" %
-                           (which_view[0], which_view[1], arg.upper()) )
+                           ORDER BY object_name%s""" %
+                           (which_view[0], which_view[1], arg.upper(), (parsed.terminator or ';')) )
             return                    
         self.stdout.write("%s %s.%s\n" % (object_type, owner, object_name))
         descQ = descQueries.get(object_type)
         if descQ:
             for q in descQ:
-                self.do_select(q,bindVarsIn={'object_name':object_name, 'owner':owner})
+                self.do_select(q + (parsed.terminator or ';'),bindVarsIn={'object_name':object_name, 'owner':owner})
         elif object_type == 'PACKAGE':
             packageContents = self.select_scalar_list(descQueries['PackageObjects'][0], {'package_name':object_name, 'owner':owner})
             for packageObj_name in packageContents:
                 self.stdout.write('Arguments to %s\n' % (packageObj_name))
-                self.do_select(descQueries['PackageObjArgs'][0],bindVarsIn={'package_name':object_name, 'owner':owner, 'object_name':packageObj_name})
+                self.do_select(descQueries['PackageObjArgs'][0] + (parsed.terminator or ';'),bindVarsIn={'package_name':object_name, 'owner':owner, 'object_name':packageObj_name})
     do_desc = do_describe
 
     def do_deps(self, arg):
-        arg = self.parsed(arg).unterminated.upper()        
+        parsed = self.parsed(arg)
+        arg = parsed.unterminated.upper()        
         object_type, owner, object_name = self.resolve(arg)
         if object_type == 'PACKAGE BODY':
             q = "and (type != 'PACKAGE BODY' or name != :object_name)'"
@@ -635,19 +637,20 @@ class sqlpyPlus(sqlpython.sqlpython):
           and	referenced_type like :object_type
           and	referenced_owner like :owner
           %s""" % (q)
-        self.do_select(q, {'object_name':object_name, 'object_type':object_type, 'owner':owner})
+        self.do_select(q  + (parsed.terminator or ';'), {'object_name':object_name, 'object_type':object_type, 'owner':owner})
 
     def do_comments(self, arg):
         'Prints comments on a table and its columns.'
-        arg = self.parsed(arg).unterminated.upper()        
+        parsed = self.parsed(arg)
+        arg = parsed.unterminated.upper()        
         object_type, owner, object_name, colName = self.resolve_with_column(arg)
         if object_type:
-            self.curs.execute(queries['tabComments'],{'table_name':object_name, 'owner':owner})
+            self.curs.execute(queries['tabComments'] + (parsed.terminator or ';'),{'table_name':object_name, 'owner':owner})
             self.stdout.write("%s %s.%s: %s\n" % (object_type, owner, object_name, self.curs.fetchone()[0]))
             if colName:
-                self.do_select(queries['oneColComments'],bindVarsIn={'owner':owner, 'object_name': object_name, 'column_name': colName})
+                self.do_select(queries['oneColComments'] + (parsed.terminator or ';'),bindVarsIn={'owner':owner, 'object_name': object_name, 'column_name': colName})
             else:
-                self.do_select(queries['colComments'],bindVarsIn={'owner':owner, 'object_name': object_name})
+                self.do_select(queries['colComments'] + (parsed.terminator or ';'),bindVarsIn={'owner':owner, 'object_name': object_name})
 
     def resolve(self, identifier):
         """Checks (my objects).name, (my synonyms).name, (public synonyms).name
@@ -962,11 +965,30 @@ class sqlpyPlus(sqlpython.sqlpython):
                 traceback.print_exc(file=sys.stdout)                
 
     def do_refs(self, arg):
-        arg = self.parsed(arg).unterminated.upper()        
+        '''Lists foreign key constraints associated with the table.'''
+        parsed = self.parsed(arg)
+        arg = parsed.unterminated.upper()        
         object_type, owner, object_name = self.resolve(arg)
         if object_type == 'TABLE':
-            self.do_select(queries['refs'],bindVarsIn={'object_name':object_name, 'owner':owner})
-   
+            self.do_select(queries['refs'] + (parsed.terminator or ';'),
+                           bindVarsIn={'object_name':object_name, 'owner':owner})
+
+    def do_refs(self, arg):
+        result = []
+        parsed = self.parsed(arg)
+        arg = parsed.unterminated.upper()
+        self.curs.execute("SELECT owner, constraint_name, r_owner, r_constraint_name FROM USER_CONSTRAINTS WHERE CONSTRAINT_TYPE = 'R' AND TABLE_NAME = :table_name",
+                          {"table_name": arg})
+        for cons in self.curs.fetchall():
+            self.curs.execute("SELECT table_name, column_name FROM user_cons_columns WHERE owner = :owner AND constraint_name = :constraint_name ORDER BY position",
+                              {'constraint_name': cons[1], 'owner': cons[0]})
+            localcols = ",".join("%s.%s" % col for col in self.curs.fetchall())
+            self.curs.execute("SELECT table_name, column_name FROM user_cons_columns WHERE owner = :owner AND constraint_name = :constraint_name ORDER BY position",
+                              {'constraint_name': cons[3], 'owner': cons[2]})
+            remotecols = ",".join("%s.%s" % col for col in self.curs.fetchall())
+            result.append('%s: %s in %s' % (cons[1], localcols, remotecols))
+        self.stdout.write('\n'.join(result))
+    
 def _test():
     import doctest
     doctest.testmod()
