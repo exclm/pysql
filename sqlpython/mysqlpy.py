@@ -127,7 +127,7 @@ which get and run SQL scripts from disk.'''
     def do_tselect(self, arg):  
         '''executes a query and prints the result in trasposed form. Useful when querying tables with many columns''' 
         
-        self.do_select(arg, override_terminator='\\t')            
+        self.do_select(arg, terminator='\\t')            
 
     def do_sql(self,args):
         '''prints sql statement give the sql_id (Oracle 10gR2)'''

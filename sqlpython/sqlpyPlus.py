@@ -350,6 +350,9 @@ def findBinds(target, existingBinds, givenBindVars = {}):
                 print 'Bind variable %s not defined.' % (varname)                
     return result
        
+def copyStatementEnding(newString, parsedOldStatement):
+    return newString + (parsedOldStatement.terminator or ';') + str(parsedOldStatement.rowlimit or '')
+
 class sqlpyPlus(sqlpython.sqlpython):
     defaultExtension = 'sql'
     sqlpython.sqlpython.shortcuts.update({':': 'setbind', 
@@ -503,7 +506,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                         ('terminator') + \
                         pyparsing.Optional(rowlimitPattern) #+ \
                         #pyparsing.FollowedBy(pyparsing.LineEnd())
-    def do_select(self, arg, bindVarsIn=None, override_terminator=None):
+    def do_select(self, arg, bindVarsIn=None, terminator=None):
         """Fetch rows from a table.
 
         Limit the number of rows retrieved by appending
@@ -514,10 +517,13 @@ class sqlpyPlus(sqlpython.sqlpython):
         ("help terminators" for details)
         """
         bindVarsIn = bindVarsIn or {}
-        statement = self.parsed('select ' + arg)
+        statement = self.parsed('select ' + arg, assumeComplete=True)
         self.query = statement.unterminated
-        if override_terminator:
-            statement['terminator'] = override_terminator
+        if isinstance(terminator, pyparsing.ParseResults):
+            statement['terminator'] = terminator.terminator
+            statement['rowlimit'] = terminator.rowlimit
+        elif terminator:
+            statement['terminator'] = terminator
         statement['rowlimit'] = int(statement.rowlimit or 0)
         self.varsUsed = findBinds(self.query, self.binds, bindVarsIn)
         self.curs.execute(self.query, self.varsUsed)
@@ -584,7 +590,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             sql = "* from all_source where %s like '%%%s%%'" % (searchfor, arg)
         if not opts.all:
             sql = '%s and owner = user' % (sql)
-        self.do_select(sql + (parsed.terminator or ';')) 
+        self.do_select(sql, terminator=parsed) 
 
     @options([make_option('-a','--all',action='store_true',
                           help='Describe all objects (not just my own)')])
@@ -598,26 +604,28 @@ class sqlpyPlus(sqlpython.sqlpython):
             which_view = ('', 'user')
 
         if not arg:
-            self.do_select("""object_name, object_type%s FROM %s_objects WHERE object_type IN ('TABLE','VIEW','INDEX') ORDER BY object_name%s""" % (which_view, (parsed.terminator or ';')))
+            self.do_select("""object_name, object_type%s FROM %s_objects WHERE object_type IN ('TABLE','VIEW','INDEX') ORDER BY object_name""" % which_view, terminator=parsed)
             return
         object_type, owner, object_name = self.resolve(arg)
         if not object_type:
             self.do_select("""object_name, object_type%s FROM %s_objects
                            WHERE object_type IN ('TABLE','VIEW','INDEX')
                            AND   object_name LIKE '%%%s%%'
-                           ORDER BY object_name%s""" %
-                           (which_view[0], which_view[1], arg.upper(), (parsed.terminator or ';')) )
+                           ORDER BY object_name""" %
+                           (which_view[0], which_view[1], arg.upper()), terminator=parsed )
             return                    
         self.stdout.write("%s %s.%s\n" % (object_type, owner, object_name))
         descQ = descQueries.get(object_type)
         if descQ:
             for q in descQ:
-                self.do_select(q + (parsed.terminator or ';'),bindVarsIn={'object_name':object_name, 'owner':owner})
+                self.do_select(q, bindVarsIn={'object_name':object_name, 'owner':owner}, terminator=parsed)
         elif object_type == 'PACKAGE':
             packageContents = self.select_scalar_list(descQueries['PackageObjects'][0], {'package_name':object_name, 'owner':owner})
             for packageObj_name in packageContents:
                 self.stdout.write('Arguments to %s\n' % (packageObj_name))
-                self.do_select(descQueries['PackageObjArgs'][0] + (parsed.terminator or ';'),bindVarsIn={'package_name':object_name, 'owner':owner, 'object_name':packageObj_name})
+                self.do_select(descQueries['PackageObjArgs'][0], 
+                               bindVarsIn={'package_name':object_name, 'owner':owner, 'object_name':packageObj_name},
+                               terminator=parsed)
     do_desc = do_describe
 
     def do_deps(self, arg):
@@ -637,7 +645,7 @@ class sqlpyPlus(sqlpython.sqlpython):
           and	referenced_type like :object_type
           and	referenced_owner like :owner
           %s""" % (q)
-        self.do_select(q  + (parsed.terminator or ';'), {'object_name':object_name, 'object_type':object_type, 'owner':owner})
+        self.do_select(q, {'object_name':object_name, 'object_type':object_type, 'owner':owner}, terminator=parsed)
 
     def do_comments(self, arg):
         'Prints comments on a table and its columns.'
@@ -645,12 +653,12 @@ class sqlpyPlus(sqlpython.sqlpython):
         arg = parsed.unterminated.upper()        
         object_type, owner, object_name, colName = self.resolve_with_column(arg)
         if object_type:
-            self.curs.execute(queries['tabComments'] + (parsed.terminator or ';'),{'table_name':object_name, 'owner':owner})
+            self.curs.execute(queries['tabComments'],{'table_name':object_name, 'owner':owner})
             self.stdout.write("%s %s.%s: %s\n" % (object_type, owner, object_name, self.curs.fetchone()[0]))
             if colName:
-                self.do_select(queries['oneColComments'] + (parsed.terminator or ';'),bindVarsIn={'owner':owner, 'object_name': object_name, 'column_name': colName})
+                self.do_select(queries['oneColComments'], bindVarsIn={'owner':owner, 'object_name': object_name, 'column_name': colName}, terminator=parsed)
             else:
-                self.do_select(queries['colComments'] + (parsed.terminator or ';'),bindVarsIn={'owner':owner, 'object_name': object_name})
+                self.do_select(queries['colComments'], bindVarsIn={'owner':owner, 'object_name': object_name}, terminator=parsed)
 
     def resolve(self, identifier):
         """Checks (my objects).name, (my synonyms).name, (public synonyms).name
@@ -929,7 +937,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         arg = self.parsed(arg)
         targets = arg.unterminated.split()
         for target in targets:
-            self.do_select('* from %s%s%s' % (target, arg.terminator or ';', arg.rowlimit)) # permissive of space before terminator
+            self.do_select('* from %s' % target, terminator=arg)
 
     @options([make_option('-i', '--ignore-case', dest='ignorecase', action='store_true', help='Case-insensitive search')])        
     def do_grep(self, arg, opts):
@@ -958,20 +966,11 @@ class sqlpyPlus(sqlpython.sqlpython):
                 else:
                     sql = ' or '.join("%s LIKE '%%%s%%'" % (d[0], pattern) for d in self.curs.description)
                 sql = '* FROM %s WHERE %s' % (target, sql)
-                self.do_select('%s%s%s' % (sql, arg.terminator, arg.rowlimit))
+                self.do_select(sql, terminator=arg)
             except Exception, e:
                 print e
                 import traceback
                 traceback.print_exc(file=sys.stdout)                
-
-    def do_refs(self, arg):
-        '''Lists foreign key constraints associated with the table.'''
-        parsed = self.parsed(arg)
-        arg = parsed.unterminated.upper()        
-        object_type, owner, object_name = self.resolve(arg)
-        if object_type == 'TABLE':
-            self.do_select(queries['refs'] + (parsed.terminator or ';'),
-                           bindVarsIn={'object_name':object_name, 'owner':owner})
 
     def do_refs(self, arg):
         result = []
@@ -1003,7 +1002,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                              WHERE   (r_owner, r_constraint_name) IN
                                ( SELECT owner, constraint_name
                                  FROM   all_constraints
-                                 WHERE  where table_name = :remote_table_name
+                                 WHERE  table_name = :remote_table_name
                                  AND    owner = :remote_owner )""",
                           {'remote_table_name': remote_table_name, 'remote_owner': remote_owner})
         for (owner, constraint_name, table_name, remote_constraint_name) in self.curs.fetchall():
