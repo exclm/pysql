@@ -350,9 +350,6 @@ def findBinds(target, existingBinds, givenBindVars = {}):
             if not givenBindVars.has_key(varname):
                 print 'Bind variable %s not defined.' % (varname)                
     return result
-       
-def copyStatementEnding(newString, parsedOldStatement):
-    return newString + (parsedOldStatement.terminator or ';') + str(parsedOldStatement.rowlimit or '')
 
 class sqlpyPlus(sqlpython.sqlpython):
     defaultExtension = 'sql'
@@ -372,8 +369,8 @@ class sqlpyPlus(sqlpython.sqlpython):
         self.stdoutBeforeSpool = sys.stdout
         self.spoolFile = None
         self.autobind = False
-    def default(self, arg):
-        sqlpython.sqlpython.default(self, arg)
+    #def default(self, arg):
+    #    sqlpython.sqlpython.default(self, arg)
 
     # overrides cmd's parseline
     def parseline(self, line):
@@ -545,8 +542,8 @@ class sqlpyPlus(sqlpython.sqlpython):
     def do_pull(self, arg, opts):
         """Displays source code."""
 
-        arg = self.parsed(arg).unterminated.upper()
-        object_type, owner, object_name = self.resolve(arg)
+        target = arg.upper()
+        object_type, owner, object_name = self.resolve(target)
         if not object_type:
             return
         self.stdout.write("%s %s.%s\n" % (object_type, owner, object_name))
@@ -677,8 +674,8 @@ class sqlpyPlus(sqlpython.sqlpython):
         return object_type, owner, object_name, colName
         
     def do_resolve(self, arg):
-        arg = self.parsed(arg).unterminated.upper()        
-        self.stdout.write(','.join(self.resolve(arg))+'\n')
+        target = arg.upper()
+        self.stdout.write(','.join(self.resolve(target))+'\n')
 
     def spoolstop(self):
         if self.spoolFile:
@@ -793,8 +790,8 @@ class sqlpyPlus(sqlpython.sqlpython):
         self.do_select(self.parsed(sql, useTerminatorFrom=arg))
 
     def do_head(self, arg):
-        sql = self.parsed('SELECT * FROM %s' % arg, useTerminatorFrom=arg)
-        sql.parsed.suffix = sql.parsed.suffix or '10'
+        sql = self.parsed('SELECT * FROM %s;' % arg, useTerminatorFrom=arg)
+        sql.parsed['suffix'] = sql.parsed.suffix or '10'
         self.do_select(sql)
 
     def do_print(self, arg):
@@ -814,7 +811,6 @@ class sqlpyPlus(sqlpython.sqlpython):
     def do_setbind(self, arg):
         if not arg:
             return self.do_print(arg)
-        arg = self.parsed(arg).unterminated
         try:
             assigner, startat, endat = self.assignmentScanner.scanner.scanString(arg).next()
         except StopIteration:
@@ -841,7 +837,6 @@ class sqlpyPlus(sqlpython.sqlpython):
         if arg[0] == ':':
             self.do_setbind(arg[1:])
         else:
-            arg = self.parsed(arg).unterminated
             varsUsed = findBinds(arg, self.binds, {})
             try:
                 self.curs.execute('begin\n%s;end;' % arg, varsUsed)
@@ -901,8 +896,7 @@ class sqlpyPlus(sqlpython.sqlpython):
     def do_grep(self, arg, opts):
         """grep PATTERN TABLE - search for term in any of TABLE's fields"""    
 
-        arg = self.parsed(arg)
-        targetnames = arg.unterminated.split()
+        targetnames = arg.split()
         pattern = targetnames.pop(0)
         targets = [] 
         for target in targetnames:
@@ -932,8 +926,6 @@ class sqlpyPlus(sqlpython.sqlpython):
 
     def do_refs(self, arg):
         result = []
-        parsed = self.parsed(arg)
-        arg = parsed.unterminated.upper()
         (type, owner, table_name) = self.resolve(arg)        
         self.curs.execute("""SELECT constraint_name, r_owner, r_constraint_name 
                              FROM   all_constraints 
