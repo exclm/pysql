@@ -94,10 +94,8 @@ class sqlpython(cmd2.Cmd):
     terminatorSearchString = '|'.join('\\' + d.split()[0] for d in do_terminators.__doc__.splitlines())
         
     def default(self, arg):
-        statement = self.parsed(arg)
-        self.query = statement.unterminated
-        self.varsUsed = sqlpyPlus.findBinds(self.query, self.binds, givenBindVars={})
-        self.curs.execute(self.query, self.varsUsed)            
+        self.varsUsed = sqlpyPlus.findBinds(arg, self.binds, givenBindVars={})
+        self.curs.execute('%s %s' % (arg.parsed.command, arg.parsed.args), self.varsUsed)            
         print '\nExecuted%s\n' % ((self.curs.rowcount > 0) and ' (%d rows)' % self.curs.rowcount or '')
             
     def do_commit(self, arg):
@@ -106,7 +104,7 @@ class sqlpython(cmd2.Cmd):
         self.default('rollback %s;' % (arg))        
     def do_quit(self, arg):
         if self.commit_on_exit and hasattr(self, 'curs'):
-            self.default('commit;')
+            self.default('commit')
         return cmd2.Cmd.do_quit(self, None)
     do_exit = do_quit
     do_q = do_quit
