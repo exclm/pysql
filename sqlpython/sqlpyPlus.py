@@ -34,7 +34,7 @@ except:
 
 descQueries = {
 'TABLE': ("""
-          atc.column_name,
+SELECT atc.column_name,
 CASE atc.nullable WHEN 'Y' THEN 'NULL' ELSE 'NOT NULL' END "Null?",
 atc.data_type ||
 CASE atc.data_type WHEN 'DATE' THEN ''
@@ -49,9 +49,9 @@ data_type
 FROM all_tab_columns atc
 WHERE atc.table_name = :object_name
 AND      atc.owner = :owner
-ORDER BY atc.column_id""",),
+ORDER BY atc.column_id;""",),
 'PROCEDURE': ("""
-              NVL(argument_name, 'Return Value') argument_name,             
+SELECT NVL(argument_name, 'Return Value') argument_name,             
 data_type,
 in_out,
 default_value
@@ -59,14 +59,14 @@ FROM all_arguments
 WHERE object_name = :object_name
 AND      owner = :owner
 AND      package_name IS NULL
-ORDER BY sequence""",),    
+ORDER BY sequence;""",),    
 'PackageObjects':("""
 SELECT DISTINCT object_name
 FROM all_arguments
 WHERE package_name = :package_name
 AND      owner = :owner""",),
 'PackageObjArgs':("""
-                  object_name,
+SELECT object_name,
 argument_name,             
 data_type,
 in_out,
@@ -76,15 +76,15 @@ WHERE package_name = :package_name
 AND      object_name = :object_name
 AND      owner = :owner
 AND      argument_name IS NOT NULL
-ORDER BY sequence""",),
+ORDER BY sequence;""",),
 'TRIGGER':("""
-           description
+SELECT description
 FROM   all_triggers
 WHERE  owner = :owner
-AND    trigger_name = :object_name
+AND    trigger_name = :object_name;
 """,
 """
-table_owner,
+SELECT table_owner,
 base_object_type,
 table_name,
 column_name,
@@ -99,7 +99,7 @@ AND    trigger_name = :object_name
 """,
 ),
 'INDEX':("""
-index_type,
+SELECT index_type,
 table_owner,
 table_name,
 table_type,
@@ -156,22 +156,23 @@ FROM    all_tab_comments
 WHERE owner = :owner
 AND      table_name = :table_name""",
 'colComments': """
+SELECT
 atc.column_name,
 acc.comments             
 FROM all_tab_columns atc
 JOIN all_col_comments acc ON (atc.owner = acc.owner and atc.table_name = acc.table_name and atc.column_name = acc.column_name)
 WHERE atc.table_name = :object_name
 AND      atc.owner = :owner
-ORDER BY atc.column_id""",
+ORDER BY atc.column_id;""",
 'oneColComments': """
-atc.column_name,
+SELECTatc.column_name,
 acc.comments             
 FROM all_tab_columns atc
 JOIN all_col_comments acc ON (atc.owner = acc.owner and atc.table_name = acc.table_name and atc.column_name = acc.column_name)
 WHERE atc.table_name = :object_name
 AND      atc.owner = :owner
 AND      acc.column_name = :column_name
-ORDER BY atc.column_id""",
+ORDER BY atc.column_id;""",
 #thanks to Senora.pm for "refs"
 'refs': """
 NULL               referenced_by, 
@@ -366,7 +367,6 @@ class sqlpyPlus(sqlpython.sqlpython):
     def __init__(self):
         sqlpython.sqlpython.__init__(self)
         self.binds = CaselessDict()
-        self.sqlBuffer = []
         self.settable = 'autobind commit_on_exit echo maxfetch maxtselctrows timeout'.split()
         # settables must be lowercase
         self.stdoutBeforeSpool = sys.stdout
@@ -374,7 +374,6 @@ class sqlpyPlus(sqlpython.sqlpython):
         self.autobind = False
     def default(self, arg):
         sqlpython.sqlpython.default(self, arg)
-        self.sqlBuffer.append(self.query)            
 
     # overrides cmd's parseline
     def parseline(self, line):
@@ -517,16 +516,10 @@ class sqlpyPlus(sqlpython.sqlpython):
         ("help terminators" for details)
         """
         bindVarsIn = bindVarsIn or {}
-        statement = self.parsed('select ' + arg, assumeComplete=True)
-        self.query = statement.unterminated
-        if isinstance(terminator, pyparsing.ParseResults):
-            statement['terminator'] = terminator.terminator
-            statement['rowlimit'] = terminator.rowlimit
-        elif terminator:
-            statement['terminator'] = terminator
-        statement['rowlimit'] = int(statement.rowlimit or 0)
+        arg.terminator = terminator #unneeded?
+        rowlimit = int(statement.suffix or 0)
         self.varsUsed = findBinds(self.query, self.binds, bindVarsIn)
-        self.curs.execute(self.query, self.varsUsed)
+        self.curs.execute('select ' + arg, self.varsUsed)
         self.rows = self.curs.fetchmany(min(self.maxfetch, (statement.rowlimit or self.maxfetch)))
         self.rc = self.curs.rowcount
         if self.rc > 0:
@@ -545,8 +538,9 @@ class sqlpyPlus(sqlpython.sqlpython):
             print '\n%d rows selected.\n' % self.rc
         else:
             print '\nSelected Max Num rows (%d)' % self.rc
-        self.sqlBuffer.append(self.query)
-
+        
+    def do_cat(self, arg):
+        return self.do_select(arg.replaceArgs('SELECT * FROM %s;' % arg))
         
     @options([make_option('-f', '--full', action='store_true', help='get dependent objects as well')])
     def do_pull(self, arg, opts):
@@ -567,98 +561,86 @@ class sqlpyPlus(sqlpython.sqlpython):
                 except cx_Oracle.DatabaseError:
                     pass
 
-    @options([make_option('-a','--all',action='store_true', help='Find in all schemas (not just my own)'),
-              make_option('-i', '--insensitive', action='store_true', help='case-insensitive search'),
+    all_users_option = optparse.make_option('-a', action='store_const', dest="which_schemas",
+                                                  default=('','user'), const=(', owner','all'),
+                                                  help='Describe all objects (not just my own)')                
+    @options([sqlpyPlus.all_users_option,
               make_option('-c', '--col', action='store_true', help='find column'),
               make_option('-t', '--table', action='store_true', help='find table')])                    
     def do_find(self, arg, opts):
         """Finds argument in source code or (with -c) in column definitions."""
-
-        parsed = self.parsed(arg)
-        arg = parsed.unterminated.upper()     
+       
+        capArg = arg.upper()
         
         if opts.col:
-            sql = "owner, table_name, column_name from all_tab_columns where column_name like '%%%s%%'" % (arg)
+            sql = "SELECT owner, table_name, column_name from all_tab_columns where column_name like '%%%s%%';" % (capArg)
         elif opts.table:
-            sql = "owner, table_name from all_tables where table_name like '%%%s%%'" % (arg)
+            sql = "SELECT owner, table_name from all_tables where table_name like '%%%s%%';" % (capArg)
         else:
-            if opts.insensitive:
-                searchfor = "LOWER(text)"
-                arg = arg.lower()
-            else:
-                searchfor = "text"
-            sql = "* from all_source where %s like '%%%s%%'" % (searchfor, arg)
+            sql = "SELECT * from all_source where UPPER(text) like '%%%s%%';" % (capArg)
         if not opts.all:
             sql = '%s and owner = user' % (sql)
-        self.do_select(sql, terminator=parsed) 
-
-    @options([make_option('-a','--all',action='store_true',
-                          help='Describe all objects (not just my own)')])
+        self.do_select(arg.replaceArgs(sql))
+        
+    @options([sqlpyPlus.all_users_option])
     def do_describe(self, arg, opts):
         "emulates SQL*Plus's DESCRIBE"
-        parsed = self.parsed(arg)
-        arg = parsed.unterminated.upper()
-        if opts.all:
-            which_view = (', owner', 'all')
-        else:
-            which_view = ('', 'user')
-
-        if not arg:
-            self.do_select("""object_name, object_type%s FROM %s_objects WHERE object_type IN ('TABLE','VIEW','INDEX') ORDER BY object_name""" % which_view, terminator=parsed)
-            return
-        object_type, owner, object_name = self.resolve(arg)
+        which_view = self._which_view(opts)
+        target = arg.upper()
+        if not target:
+            return self.do_select(arg.replaceArgs("""SELECT object_name, object_type%s 
+                                                     FROM   %s_objects 
+                                                     WHERE  object_type IN ('TABLE','VIEW','INDEX') 
+                                                     ORDER BY object_name;""" % opts.which_schemas))
+        object_type, owner, object_name = self.resolve(target)
         if not object_type:
-            self.do_select("""object_name, object_type%s FROM %s_objects
-                           WHERE object_type IN ('TABLE','VIEW','INDEX')
-                           AND   object_name LIKE '%%%s%%'
-                           ORDER BY object_name""" %
-                           (which_view[0], which_view[1], arg.upper()), terminator=parsed )
-            return                    
+            return self.do_select(arg.replaceArgs("""SELECT object_name, object_type%s FROM %s_objects
+                                                     WHERE  object_type IN ('TABLE','VIEW','INDEX')
+                                                     AND    object_name LIKE '%%%s%%'
+                                                     ORDER BY object_name;""" %
+                                                  (opts.which_schemas[0], opts.which_schemas[1], target)))
         self.stdout.write("%s %s.%s\n" % (object_type, owner, object_name))
         descQ = descQueries.get(object_type)
         if descQ:
             for q in descQ:
-                self.do_select(q, bindVarsIn={'object_name':object_name, 'owner':owner}, terminator=parsed)
+                self.do_select(arg.newCommand(q), bindVarsIn={'object_name':object_name, 'owner':owner})
         elif object_type == 'PACKAGE':
             packageContents = self.select_scalar_list(descQueries['PackageObjects'][0], {'package_name':object_name, 'owner':owner})
             for packageObj_name in packageContents:
                 self.stdout.write('Arguments to %s\n' % (packageObj_name))
-                self.do_select(descQueries['PackageObjArgs'][0], 
-                               bindVarsIn={'package_name':object_name, 'owner':owner, 'object_name':packageObj_name},
-                               terminator=parsed)
+                self.do_select(arg.replaceArgs(descQueries['PackageObjArgs'][0]), 
+                               bindVarsIn={'package_name':object_name, 'owner':owner, 'object_name':packageObj_name})
     do_desc = do_describe
 
     def do_deps(self, arg):
-        parsed = self.parsed(arg)
-        arg = parsed.unterminated.upper()        
-        object_type, owner, object_name = self.resolve(arg)
+        target = arg.upper()
+        object_type, owner, object_name = self.resolve(target)
         if object_type == 'PACKAGE BODY':
             q = "and (type != 'PACKAGE BODY' or name != :object_name)'"
             object_type = 'PACKAGE'
         else:
             q = ""
-        q = """         name,
+        q = """SELECT name,
           type
           from user_dependencies
           where
           referenced_name like :object_name
           and	referenced_type like :object_type
           and	referenced_owner like :owner
-          %s""" % (q)
-        self.do_select(q, {'object_name':object_name, 'object_type':object_type, 'owner':owner}, terminator=parsed)
+          %s;""" % (q)
+        self.do_select(arg.replaceArgs(q), bindVarsIn={'object_name':object_name, 'object_type':object_type, 'owner':owner})
 
     def do_comments(self, arg):
         'Prints comments on a table and its columns.'
-        parsed = self.parsed(arg)
-        arg = parsed.unterminated.upper()        
-        object_type, owner, object_name, colName = self.resolve_with_column(arg)
+        target = arg.upper()        
+        object_type, owner, object_name, colName = self.resolve_with_column(target)
         if object_type:
-            self.curs.execute(queries['tabComments'],{'table_name':object_name, 'owner':owner})
+            self.curs.execute(queries['tabComments'], {'table_name':object_name, 'owner':owner})
             self.stdout.write("%s %s.%s: %s\n" % (object_type, owner, object_name, self.curs.fetchone()[0]))
             if colName:
-                self.do_select(queries['oneColComments'], bindVarsIn={'owner':owner, 'object_name': object_name, 'column_name': colName}, terminator=parsed)
+                self.do_select(arg.replaceArgs(queries['oneColComments']), bindVarsIn={'owner':owner, 'object_name': object_name, 'column_name': colName})
             else:
-                self.do_select(queries['colComments'], bindVarsIn={'owner':owner, 'object_name': object_name}, terminator=parsed)
+                self.do_select(arg.replaceArgs(queries['colComments']), bindVarsIn={'owner':owner, 'object_name': object_name})
 
     def resolve(self, identifier):
         """Checks (my objects).name, (my synonyms).name, (public synonyms).name
@@ -724,6 +706,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         Sorting is recommended to avoid false hits.
         Will attempt to use a graphical diff/merge tool like kdiff3, meld, or Araxis Merge, 
         if they are installed."""
+        #TODO: Update this to use pyparsing
         fnames = []
         args2 = args.split(' to ')
         if len(args2) < 2:
@@ -779,55 +762,32 @@ class sqlpyPlus(sqlpython.sqlpython):
         except KeyError:
             print 'psql command \%s not yet supported.' % abbrev
 
-    @options([make_option('-a','--all',action='store_true',
-                          help='Describe all objects (not just my own)')])
+    @options([sqlpyPlus.all_users_option])
     def do__dir_tables(self, arg, opts):
-        if opts.all:
-            which_view = (', owner', 'all')
-        else:
-            which_view = ('', 'user')        
-        self.do_select("""table_name, 'TABLE' as type%s FROM %s_tables WHERE table_name LIKE '%%%s%%'""" %
-                       (which_view[0], which_view[1], arg.upper()))        
+        which_view = self._which_view(opts)
+        self.do_select(arg.replaceArgs("""SELECT table_name, 'TABLE' as type%s FROM %s_tables WHERE table_name LIKE '%%%s%%';""" %
+                       (opts.which_schemas[0], opts.which_schemas[1], arg.upper())))        
 
-    @options([make_option('-a','--all',action='store_true',
-                          help='Describe all objects (not just my own)')])
+    @options([sqlpyPlus.all_users_option])
     def do__dir_views(self, arg, opts):
-        if opts.all:
-            which_view = (', owner', 'all')
-        else:
-            which_view = ('', 'user')        
-        self.do_select("""view_name, 'VIEW' as type%s FROM %s_views WHERE view_name LIKE '%%%s%%'""" %
-                       (which_view[0], which_view[1], arg.upper())) 
+        self.do_select(arg.replaceArgs("""SELECT view_name, 'VIEW' as type%s FROM %s_views WHERE view_name LIKE '%%%s%%';""" %
+                       (opts.which_schemas[0], opts.which_schemas[1], arg.upper())))
 
-    @options([make_option('-a','--all',action='store_true',
-                          help='Describe all objects (not just my own)')])
+    @options([sqlpyPlus.all_users_option])
     def do__dir_indexes(self, arg, opts):
-        if opts.all:
-            which_view = (', owner', 'all')
-        else:
-            which_view = ('', 'user')        
-        self.do_select("""index_name, index_type%s FROM %s_indexes WHERE index_name LIKE '%%%s%%' OR table_name LIKE '%%%s%%'""" %
-                       (which_view[0], which_view[1], arg.upper(), arg.upper())) 
+        self.do_select(arg.replaceArgs("""SELECT index_name, index_type%s FROM %s_indexes WHERE index_name LIKE '%%%s%%' OR table_name LIKE '%%%s%%';""" %
+                       (opts.which_schemas[0], opts.which_schemas[1], arg.upper(), arg.upper()))) 
 
     def do__dir_tablespaces(self, arg):
-        self.do_select("""tablespace_name, file_name from dba_data_files""") 
+        self.do_select(arg.replaceArgs("""SELECT tablespace_name, file_name from dba_data_files;""")) 
 
     def do__dir_schemas(self, arg):
-        self.do_select("""owner, count(*) AS objects FROM all_objects GROUP BY owner ORDER BY owner""") 
+        self.do_select(arg.replaceArgs"""SELECT owner, count(*) AS objects FROM all_objects GROUP BY owner ORDER BY owner;""")) 
 
     def do_head(self, arg):
-        nrows = 10
-        args = arg.split()
-        if len(args) > 1:
-            for a in args:
-                if a[0] == '-':
-                    try:
-                        nrows = int(a[1:])
-                        args.remove(a)
-                    except:
-                        pass
-            arg = ' '.join(args)
-        self.do_select('* from %s;%d' % (arg, nrows))
+        newStatement = arg.replaceArgs('SELECT * FROM %s;' % arg)
+        newStatement.suffix = newStatement.suffix or 10
+        self.do_select(newStatement)
 
     def do_print(self, arg):
         'print VARNAME: Show current value of bind variable VARNAME.'
@@ -866,7 +826,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             except ValueError: 
                 statekeeper = Statekeeper(self, ('autobind',))  
                 self.autobind = True
-                self.do_select('%s AS %s FROM dual;' % (val, var))
+                self.onecmd('SELECT %s AS %s FROM dual;' % (val, var))
                 statekeeper.restore()
 
     def do_exec(self, arg):
@@ -927,18 +887,8 @@ class sqlpyPlus(sqlpython.sqlpython):
         statement = '''SELECT object_type || '/' || %s AS name %s 
                   FROM   %s_objects %s
                   ORDER BY object_type, object_name;''' % (objname, extraInfo, whose, where)
-        self.onecmd(statement)
+        self.do_select(arg.replaceArgs(statement))
         
-    def do_cat(self, arg):
-        '''cat TABLENAME --> SELECT * FROM equivalent'''
-        if not arg:
-            print self.do_cat.__doc__
-            return
-        arg = self.parsed(arg)
-        targets = arg.unterminated.split()
-        for target in targets:
-            self.do_select('* from %s' % target, terminator=arg)
-
     @options([make_option('-i', '--ignore-case', dest='ignorecase', action='store_true', help='Case-insensitive search')])        
     def do_grep(self, arg, opts):
         """grep PATTERN TABLE - search for term in any of TABLE's fields"""    
@@ -966,7 +916,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                 else:
                     sql = ' or '.join("%s LIKE '%%%s%%'" % (d[0], pattern) for d in self.curs.description)
                 sql = '* FROM %s WHERE %s' % (target, sql)
-                self.do_select(sql, terminator=arg)
+                self.do_select(arg.replaceArgs(sql))
             except Exception, e:
                 print e
                 import traceback
