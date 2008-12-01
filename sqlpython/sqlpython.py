@@ -95,7 +95,7 @@ class sqlpython(cmd2.Cmd):
         
     def default(self, arg):
         self.varsUsed = sqlpyPlus.findBinds(arg, self.binds, givenBindVars={})
-        self.curs.execute('%s %s' % (arg.parsed.command, arg.parsed.args), self.varsUsed)            
+        self.curs.execute(arg, self.varsUsed)            
         print '\nExecuted%s\n' % ((self.curs.rowcount > 0) and ' (%d rows)' % self.curs.rowcount or '')
             
     def do_commit(self, arg):
