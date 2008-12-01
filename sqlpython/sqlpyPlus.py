@@ -513,7 +513,11 @@ class sqlpyPlus(sqlpython.sqlpython):
         ("help terminators" for details)
         """
         bindVarsIn = bindVarsIn or {}
-        rowlimit = int(arg.parsed.suffix or 0)
+        try:
+            rowlimit = int(arg.parsed.suffix or 0)
+        except ValueError:
+            rowlimit = 0
+            print "Couldn't understand command suffix '%s'" % arg.parsed.suffix
         self.varsUsed = findBinds(arg, self.binds, bindVarsIn)
         self.curs.execute('select ' + arg, self.varsUsed)
         self.rows = self.curs.fetchmany(min(self.maxfetch, (rowlimit or self.maxfetch)))
@@ -557,8 +561,9 @@ class sqlpyPlus(sqlpython.sqlpython):
                 except cx_Oracle.DatabaseError:
                     pass
 
-    all_users_option = make_option('-a', action='store_const', dest="which_schemas",
-                                         default=('','user'), const=(', owner','all'),
+    all_users_option = make_option('-a', action='store_const', dest="scope",
+                                         default={'col':'', 'view':'user', 'schemas':'user'}, 
+                                         const={'col':', owner', 'view':'all', 'schemas':'all'},
                                          help='Describe all objects (not just my own)')                
     @options([all_users_option,
               make_option('-c', '--col', action='store_true', help='find column'),
@@ -569,25 +574,24 @@ class sqlpyPlus(sqlpython.sqlpython):
         capArg = arg.upper()
         
         if opts.col:
-            sql = "SELECT owner, table_name, column_name from all_tab_columns where column_name like '%%%s%%';" % (capArg)
+            sql = "SELECT table_name, column_name %s FROM %s_tab_columns where column_name like '%%%s%%';" \
+                % (opts.scope['col'], opts.scope['view'], capArg)
         elif opts.table:
-            sql = "SELECT owner, table_name from all_tables where table_name like '%%%s%%';" % (capArg)
+            sql = "SELECT table_name %s from %s_tables where table_name like '%%%s%%';" \
+                % (opts.scope['col'], opts.scope['view'], capArg)
         else:
-            sql = "SELECT * from all_source where UPPER(text) like '%%%s%%';" % (capArg)
-        if not opts.all:
-            sql = '%s and owner = user' % (sql)
+            sql = "SELECT * from %s_source where UPPER(text) like '%%%s%%';" % (opts.scope['view'], capArg)
         self.do_select(self.parsed(sql, useTerminatorFrom=arg))
         
     @options([all_users_option])
     def do_describe(self, arg, opts):
         "emulates SQL*Plus's DESCRIBE"
-        which_view = self._which_view(opts)
         target = arg.upper()
         if not target:
             return self.do_select(self.parsed("""SELECT object_name, object_type%s 
                                                  FROM   %s_objects 
                                                  WHERE  object_type IN ('TABLE','VIEW','INDEX') 
-                                                 ORDER BY object_name;""" % opts.which_schemas,
+                                                 ORDER BY object_name;""" % (opts.scope['col'], opts.scope['view']),
                                               useTerminatorFrom=arg))
         object_type, owner, object_name = self.resolve(target)
         if not object_type:
@@ -595,13 +599,13 @@ class sqlpyPlus(sqlpython.sqlpython):
                                                  WHERE  object_type IN ('TABLE','VIEW','INDEX')
                                                  AND    object_name LIKE '%%%s%%'
                                                  ORDER BY object_name;""" %
-                                              (opts.which_schemas[0], opts.which_schemas[1], target)
+                                              (opts.scope['col'], opts.scope['view'], target)
                                               , useTerminatorFrom=arg))
         self.stdout.write("%s %s.%s\n" % (object_type, owner, object_name))
         descQ = descQueries.get(object_type)
         if descQ:
             for q in descQ:
-                self.do_select(arg.newCommand(q), bindVarsIn={'object_name':object_name, 'owner':owner})
+                self.do_select(self.parsed(q), bindVarsIn={'object_name':object_name, 'owner':owner})
         elif object_type == 'PACKAGE':
             packageContents = self.select_scalar_list(descQueries['PackageObjects'][0], {'package_name':object_name, 'owner':owner})
             for packageObj_name in packageContents:
@@ -766,19 +770,19 @@ class sqlpyPlus(sqlpython.sqlpython):
     @options([all_users_option])
     def do__dir_tables(self, arg, opts):
         sql = """SELECT table_name, 'TABLE' as type%s FROM %s_tables WHERE table_name LIKE '%%%s%%';""" % \
-                       (opts.which_schemas[0], opts.which_schemas[1], arg.upper())
+                       (opts.scope['col'], opts.scope['view'], arg.upper())
         self.do_select(self.parsed(sql, useTerminatorFrom=arg))
         
     @options([all_users_option])
     def do__dir_views(self, arg, opts):
         sql = """SELECT view_name, 'VIEW' as type%s FROM %s_views WHERE view_name LIKE '%%%s%%';""" % \
-                       (opts.which_schemas[0], opts.which_schemas[1], arg.upper())
+                       (opts.scope['col'], opts.scope['view'], arg.upper())
         self.do_select(self.parsed(sql, useTerminatorFrom=arg))
         
     @options([all_users_option])
     def do__dir_indexes(self, arg, opts):
         sql = """SELECT index_name, index_type%s FROM %s_indexes WHERE index_name LIKE '%%%s%%' OR table_name LIKE '%%%s%%';""" % \
-                       (opts.which_schemas[0], opts.which_schemas[1], arg.upper(), arg.upper())
+                       (opts.scope['col'], opts.scope['view'], arg.upper(), arg.upper())
         self.do_select(self.parsed(sql, useTerminatorFrom=arg))
 
     def do__dir_tablespaces(self, arg):
@@ -792,7 +796,7 @@ class sqlpyPlus(sqlpython.sqlpython):
     def do_head(self, arg):
         sql = self.parsed('SELECT * FROM %s;' % arg, useTerminatorFrom=arg)
         sql.parsed['suffix'] = sql.parsed.suffix or '10'
-        self.do_select(sql)
+        self.do_select(self.parsed(sql))
 
     def do_print(self, arg):
         'print VARNAME: Show current value of bind variable VARNAME.'
