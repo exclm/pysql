@@ -29,7 +29,7 @@ from output_templates import output_templates
 from plothandler import Plot
 try:
     import pylab
-except:
+except (RuntimeError, ImportError):
     pass
 
 descQueries = {
@@ -977,6 +977,9 @@ def _test():
     import doctest
     doctest.testmod()
     
+if __name__ == "__main__":
+    "Silent return implies that all unit tests succeeded.  Use -v to see details."
+    _test()
 if __name__ == "__main__":
     "Silent return implies that all unit tests succeeded.  Use -v to see details."
     _test()

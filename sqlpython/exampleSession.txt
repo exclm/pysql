@@ -43,12 +43,6 @@ TABLE/PLAY
 
 2 rows selected.
 
-testschema@orcl> ls --all
-
-NAME
---------------
-INDEX/XPK_PLAY
-TABLE/PLAY
 testschema@orcl> ls table
 
 NAME      
