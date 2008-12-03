@@ -359,6 +359,7 @@ class sqlpyPlus(sqlpython.sqlpython):
     multilineCommands = '''select insert update delete tselect
                       create drop alter _multiline_comment'''.split()
     sqlpython.sqlpython.noSpecialParse.append('spool')
+    legalChars = '!#$%.:?@_*'    
     commentGrammars = pyparsing.Or([pyparsing.Literal('--') + pyparsing.restOfLine, pyparsing.cStyleComment])
     defaultFileName = 'afiedt.buf'
     def __init__(self):
@@ -495,13 +496,8 @@ class sqlpyPlus(sqlpython.sqlpython):
         return completions
     
     rowlimitPattern = pyparsing.Word(pyparsing.nums)('rowlimit')
-    rawTerminators = '; \\s \\S \\c \\C \\t \\i \\p \\l \\L \\b ' + ' '.join(output_templates.keys())
-    terminatorPattern = (pyparsing.oneOf(rawTerminators)    
-                        ^ pyparsing.Literal('\n/') ^ \
-                        (pyparsing.Literal('\nEOF') + pyparsing.stringEnd)) \
-                        ('terminator') + \
-                        pyparsing.Optional(rowlimitPattern) #+ \
-                        #pyparsing.FollowedBy(pyparsing.LineEnd())
+    terminators = '; \\C \\t \\i \\p \\l \\L \\b ' + ' '.join(output_templates.keys())
+
     def do_select(self, arg, bindVarsIn=None, terminator=None):
         """Fetch rows from a table.
 
@@ -914,15 +910,14 @@ class sqlpyPlus(sqlpython.sqlpython):
         for target in targets:
             print target
             target = target.rstrip(';')
-            sql = []
             try:
                 self.curs.execute('select * from %s where 1=0' % target) # just to fill description
                 if opts.ignorecase:
                     sql = ' or '.join("LOWER(%s) LIKE '%%%s%%'" % (d[0], pattern.lower()) for d in self.curs.description)                                        
                 else:
                     sql = ' or '.join("%s LIKE '%%%s%%'" % (d[0], pattern) for d in self.curs.description)
-                sql = '* FROM %s WHERE %s' % (target, sql)
-                self.do_select(self.parsed(sql, useTerminatorFrom=arg))
+                sql = self.parsed('SELECT * FROM %s WHERE %s;' % (target, sql), useTerminatorFrom=arg)
+                self.do_select(sql)
             except Exception, e:
                 print e
                 import traceback
