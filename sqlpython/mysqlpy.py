@@ -106,10 +106,6 @@ Do not confuse with `GET myfile.sql` and `@myfile.sql`,
 which get and run SQL scripts from disk.'''
         self.do_select(self.query_load10g)
 
-    def do_himom(self,args):
-        '''greets your mom'''
-        print 'hi mom'
-
     def do_db(self,args,filepath='pass.txt'): 
         '''Exec do_connect to db_alias in args (credentials form the file pass.txt) '''
         f = open(filepath,'r')

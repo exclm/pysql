@@ -259,6 +259,52 @@ Agamemnon   Aeschylus
 
 2 rows selected.
 
+testschema@orcl> -- \d command inspired by postgresql's psql
+testschema@orcl> \dt
+
+TABLE_NAME TYPE
+---------- -----
+PLAY       TABLE
+
+1 row selected.
+
+testschema@orcl> \di
+
+INDEX_NAME INDEX_TYPE
+---------- ----------
+XPK_PLAY   NORMAL
+
+1 row selected.
+
+testschema@orcl> CREATE OR REPLACE VIEW review
+> AS
+>   SELECT title, author, 'A masterpiece!' review
+>   FROM   play;
+
+Executed
+
+testschema@orcl> \dv
+
+VIEW_NAME TYPE
+--------- ----
+REVIEW    VIEW
+
+1 row selected.
+
+testschema@orcl> cat review
+
+TITLE         AUTHOR      REVIEW
+------------- ----------- --------------
+Twelfth Night Shakespeare A masterpiece!
+The Tempest   Shakespeare A masterpiece!
+Agamemnon     Aeschylus   A masterpiece!
+
+3 rows selected.
+
+testschema@orcl> drop view review;
+
+Executed
+
 testschema@orcl> drop table play;
 
 Executed
