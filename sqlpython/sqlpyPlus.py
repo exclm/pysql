@@ -536,7 +536,9 @@ class sqlpyPlus(sqlpython.sqlpython):
             print '\nSelected Max Num rows (%d)' % self.rc
         
     def do_cat(self, arg):
-        return self.do_select(self.parsed('SELECT * FROM %s;' % arg, useTerminatorFrom=arg))
+        return self.do_select(self.parsed('SELECT * FROM %s;' % arg, 
+                                          terminator = arg.parsed.terminator or ';', 
+                                          suffix = arg.parsed.suffix))
         
     @options([make_option('-f', '--full', action='store_true', help='get dependent objects as well')])
     def do_pull(self, arg, opts):
@@ -577,7 +579,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                 % (opts.scope['col'], opts.scope['view'], capArg)
         else:
             sql = "SELECT * from %s_source where UPPER(text) like '%%%s%%';" % (opts.scope['view'], capArg)
-        self.do_select(self.parsed(sql, useTerminatorFrom=arg))
+        self.do_select(self.parsed(sql, terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix))
         
     @options([all_users_option])
     def do_describe(self, arg, opts):
@@ -588,25 +590,26 @@ class sqlpyPlus(sqlpython.sqlpython):
                                                  FROM   %s_objects 
                                                  WHERE  object_type IN ('TABLE','VIEW','INDEX') 
                                                  ORDER BY object_name;""" % (opts.scope['col'], opts.scope['view']),
-                                              useTerminatorFrom=arg))
+                                              terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix))
         object_type, owner, object_name = self.resolve(target)
         if not object_type:
             return self.do_select(self.parsed("""SELECT object_name, object_type%s FROM %s_objects
                                                  WHERE  object_type IN ('TABLE','VIEW','INDEX')
                                                  AND    object_name LIKE '%%%s%%'
                                                  ORDER BY object_name;""" %
-                                              (opts.scope['col'], opts.scope['view'], target)
-                                              , useTerminatorFrom=arg))
+                                              (opts.scope['col'], opts.scope['view'], target),
+                                              terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix))
         self.stdout.write("%s %s.%s\n" % (object_type, owner, object_name))
         descQ = descQueries.get(object_type)
         if descQ:
             for q in descQ:
-                self.do_select(self.parsed(q), bindVarsIn={'object_name':object_name, 'owner':owner})
+                self.do_select(self.parsed(q, terminator=arg.parsed.terminator, suffix=arg.parsed.suffix), 
+                               bindVarsIn={'object_name':object_name, 'owner':owner})
         elif object_type == 'PACKAGE':
             packageContents = self.select_scalar_list(descQueries['PackageObjects'][0], {'package_name':object_name, 'owner':owner})
             for packageObj_name in packageContents:
                 self.stdout.write('Arguments to %s\n' % (packageObj_name))
-                sql = self.parsed(descQueries['PackageObjArgs'][0], useTerminatorFrom=arg)
+                sql = self.parsed(descQueries['PackageObjArgs'][0], terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix)
                 self.do_select(sql, bindVarsIn={'package_name':object_name, 'owner':owner, 'object_name':packageObj_name})
     do_desc = do_describe
 
@@ -626,7 +629,8 @@ class sqlpyPlus(sqlpython.sqlpython):
           and	referenced_type like :object_type
           and	referenced_owner like :owner
           %s;""" % (q)
-        self.do_select(self.parsed(q, useTerminatorFrom=arg), bindVarsIn={'object_name':object_name, 'object_type':object_type, 'owner':owner})
+        self.do_select(self.parsed(q, terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix), 
+                       bindVarsIn={'object_name':object_name, 'object_type':object_type, 'owner':owner})
 
     def do_comments(self, arg):
         'Prints comments on a table and its columns.'
@@ -641,7 +645,8 @@ class sqlpyPlus(sqlpython.sqlpython):
             else:
                 sql = queries['colComments'] 
                 bindVarsIn={'owner':owner, 'object_name': object_name}
-            self.do_select(self.parsed(sql, useTerminatorFrom=arg), bindVarsIn=bindVarsIn)
+            self.do_select(self.parsed(sql, terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix), 
+                           bindVarsIn=bindVarsIn)
 
     def resolve(self, identifier):
         """Checks (my objects).name, (my synonyms).name, (public synonyms).name
@@ -759,7 +764,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         except IndexError:
             args = ''
         try:
-            return self.onecmd('%s %s' % (commands[abbrev], args))
+            return self.onecmd('%s %s%s%s' % (commands[abbrev], args, arg.parsed.terminator, arg.parsed.suffix))
         except KeyError:
             print 'psql command \%s not yet supported.' % abbrev
 
@@ -767,30 +772,30 @@ class sqlpyPlus(sqlpython.sqlpython):
     def do__dir_tables(self, arg, opts):
         sql = """SELECT table_name, 'TABLE' as type%s FROM %s_tables WHERE table_name LIKE '%%%s%%';""" % \
                        (opts.scope['col'], opts.scope['view'], arg.upper())
-        self.do_select(self.parsed(sql, useTerminatorFrom=arg))
+        self.do_select(self.parsed(sql, terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix))
         
     @options([all_users_option])
     def do__dir_views(self, arg, opts):
         sql = """SELECT view_name, 'VIEW' as type%s FROM %s_views WHERE view_name LIKE '%%%s%%';""" % \
                        (opts.scope['col'], opts.scope['view'], arg.upper())
-        self.do_select(self.parsed(sql, useTerminatorFrom=arg))
+        self.do_select(self.parsed(sql, terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix))
         
     @options([all_users_option])
     def do__dir_indexes(self, arg, opts):
         sql = """SELECT index_name, index_type%s FROM %s_indexes WHERE index_name LIKE '%%%s%%' OR table_name LIKE '%%%s%%';""" % \
                        (opts.scope['col'], opts.scope['view'], arg.upper(), arg.upper())
-        self.do_select(self.parsed(sql, useTerminatorFrom=arg))
+        self.do_select(self.parsed(sql, terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix))
 
     def do__dir_tablespaces(self, arg):
         sql = """SELECT tablespace_name, file_name from dba_data_files;"""
-        self.do_select(self.parsed(sql, useTerminatorFrom=arg))
+        self.do_select(self.parsed(sql, terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix))
 
     def do__dir_schemas(self, arg):
         sql = """SELECT owner, count(*) AS objects FROM all_objects GROUP BY owner ORDER BY owner;"""
-        self.do_select(self.parsed(sql, useTerminatorFrom=arg))
+        self.do_select(self.parsed(sql, terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix))
 
     def do_head(self, arg):
-        sql = self.parsed('SELECT * FROM %s;' % arg, useTerminatorFrom=arg)
+        sql = self.parsed('SELECT * FROM %s;' % arg, terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix)
         sql.parsed['suffix'] = sql.parsed.suffix or '10'
         self.do_select(self.parsed(sql))
 
@@ -890,7 +895,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         statement = '''SELECT object_type || '/' || %s AS name %s 
                   FROM   %s_objects %s
                   ORDER BY object_type, object_name;''' % (objname, extraInfo, whose, where)
-        self.do_select(self.parsed(statement, useTerminatorFrom=arg))
+        self.do_select(self.parsed(statement, terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix))
         
     @options([make_option('-i', '--ignore-case', dest='ignorecase', action='store_true', help='Case-insensitive search')])        
     def do_grep(self, arg, opts):
@@ -916,7 +921,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                     sql = ' or '.join("LOWER(%s) LIKE '%%%s%%'" % (d[0], pattern.lower()) for d in self.curs.description)                                        
                 else:
                     sql = ' or '.join("%s LIKE '%%%s%%'" % (d[0], pattern) for d in self.curs.description)
-                sql = self.parsed('SELECT * FROM %s WHERE %s;' % (target, sql), useTerminatorFrom=arg)
+                sql = self.parsed('SELECT * FROM %s WHERE %s;' % (target, sql), terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix)
                 self.do_select(sql)
             except Exception, e:
                 print e
