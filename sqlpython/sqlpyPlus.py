@@ -359,7 +359,6 @@ class sqlpyPlus(sqlpython.sqlpython):
     multilineCommands = '''select insert update delete tselect
                       create drop alter _multiline_comment'''.split()
     sqlpython.sqlpython.noSpecialParse.append('spool')
-    legalChars = '!#$%.:?@_*'    
     commentGrammars = pyparsing.Or([pyparsing.Literal('--') + pyparsing.restOfLine, pyparsing.cStyleComment])
     defaultFileName = 'afiedt.buf'
     def __init__(self):
