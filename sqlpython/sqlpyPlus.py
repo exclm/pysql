@@ -495,7 +495,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         return completions
     
     rowlimitPattern = pyparsing.Word(pyparsing.nums)('rowlimit')
-    terminators = '; \\C \\t \\i \\p \\l \\L \\b ' + ' '.join(output_templates.keys())
+    terminators = '; \\C \\t \\i \\p \\l \\L \\b '.split() + output_templates.keys()
 
     def do_select(self, arg, bindVarsIn=None, terminator=None):
         """Fetch rows from a table.
@@ -602,7 +602,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         descQ = descQueries.get(object_type)
         if descQ:
             for q in descQ:
-                self.do_select(self.parsed(q, terminator=arg.parsed.terminator, suffix=arg.parsed.suffix), 
+                self.do_select(self.parsed(q, terminator=arg.parsed.terminator or ';' , suffix=arg.parsed.suffix), 
                                bindVarsIn={'object_name':object_name, 'owner':owner})
         elif object_type == 'PACKAGE':
             packageContents = self.select_scalar_list(descQueries['PackageObjects'][0], {'package_name':object_name, 'owner':owner})
