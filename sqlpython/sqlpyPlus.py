@@ -660,11 +660,11 @@ class sqlpyPlus(sqlpython.sqlpython):
             if len(parts) == 2:
                 owner, object_name = parts
                 object_type = self.select_scalar_list('SELECT object_type FROM all_objects WHERE owner = :owner AND object_name = :object_name',
-                                  {'owner': owner, 'object_name': object_name}
+                                  {'owner': owner, 'object_name': object_name.upper()}
                                   )[0]
             elif len(parts) == 1:
                 object_name = parts[0]
-                self.curs.execute(queries['resolve'], {'objName':object_name})
+                self.curs.execute(queries['resolve'], {'objName':object_name.upper()})
                 object_type, object_name, owner = self.curs.fetchone()
         except (TypeError, IndexError):
             print 'Could not resolve object %s.' % identifier
@@ -931,7 +931,7 @@ class sqlpyPlus(sqlpython.sqlpython):
 
     def do_refs(self, arg):
         result = []
-        (type, owner, table_name) = self.resolve(arg)        
+        (type, owner, table_name) = self.resolve(arg.upper())        
         self.curs.execute("""SELECT constraint_name, r_owner, r_constraint_name 
                              FROM   all_constraints 
                              WHERE  constraint_type = 'R'
