@@ -23,7 +23,7 @@ or with a python-like shorthand
 
 - catherinedevlin.blogspot.com  May 31, 2006
 """
-import sys, os, re, sqlpython, cx_Oracle, pyparsing, re, completion, datetime, pickle
+import sys, os, re, sqlpython, cx_Oracle, pyparsing, re, completion, datetime, pickle, binascii
 from cmd2 import Cmd, make_option, options, Statekeeper, Cmd2TestCase
 from output_templates import output_templates
 from plothandler import Plot
@@ -497,6 +497,10 @@ class sqlpyPlus(sqlpython.sqlpython):
     rowlimitPattern = pyparsing.Word(pyparsing.nums)('rowlimit')
     terminators = '; \\C \\t \\i \\p \\l \\L \\b '.split() + output_templates.keys()
 
+    def expandSelect(self, arg):
+        #w + Optional(CaselessKeyword('AS')) + Optional(w ^ dblQuotedString) + (CaselessKeyword('FROM') ^ ',')
+        return arg
+    
     def do_select(self, arg, bindVarsIn=None, terminator=None):
         """Fetch rows from a table.
 
@@ -512,8 +516,9 @@ class sqlpyPlus(sqlpython.sqlpython):
             rowlimit = int(arg.parsed.suffix or 0)
         except ValueError:
             rowlimit = 0
-            print "Couldn't understand command suffix '%s'" % arg.parsed.suffix
+            print "Specify desired number of rows after terminator (not '%s')" % arg.parsed.suffix
         self.varsUsed = findBinds(arg, self.binds, bindVarsIn)
+        arg = self.expandSelect(arg)
         self.curs.execute('select ' + arg, self.varsUsed)
         self.rows = self.curs.fetchmany(min(self.maxfetch, (rowlimit or self.maxfetch)))
         self.rc = self.curs.rowcount
@@ -868,9 +873,6 @@ class sqlpyPlus(sqlpython.sqlpython):
 
     def do_declare(self, arg):
         self.anon_plsql('declare ' + arg)
-
-    #def do_create(self, arg):
-    #    self.anon_plsql('create ' + arg)
 
     @options([make_option('-l', '--long', action='store_true', help='long descriptions'),
               make_option('-a', '--all', action='store_true', help="all schemas' objects")])        

@@ -9,7 +9,7 @@
 #           http://catherine.devlin.googlepages.com/
 
 from sqlpyPlus import *
-import binascii, sys, tempfile, optparse, unittest
+import sys, tempfile, optparse, unittest
 
 class mysqlpy(sqlpyPlus):
     '''
@@ -121,9 +121,8 @@ which get and run SQL scripts from disk.'''
             print e
 
     def do_tselect(self, arg):  
-        '''executes a query and prints the result in trasposed form. Useful when querying tables with many columns''' 
-        
-        self.do_select(arg, terminator='\\t')            
+        '''executes a query and prints the result in trasposed form. Useful when querying tables with many columns'''  
+        self.do_select(self.parsed(arg, terminator='\\t'))
 
     def do_sql(self,args):
         '''prints sql statement give the sql_id (Oracle 10gR2)'''
@@ -153,8 +152,17 @@ which get and run SQL scripts from disk.'''
             print e
 
     def do_sessinfo(self,args):
-        '''Reports session info for the give sid, extended to RAC with gv$'''
-        self.do_tselect('* from gv$session where sid='+args+';')
+        '''Reports session info for the given sid, extended to RAC with gv$'''
+        try:
+            if not args:
+                self.curs.execute('SELECT sid FROM v$mystat')
+                args = self.curs.fetchone()[0]
+            self.onecmd('SELECT * from gv$session where sid=%s\\t' % args)
+        except cx_Oracle.DatabaseError, e:
+            if 'table or view does not exist' in str(e):
+                print 'This account has not been granted SELECT privileges to v$mystat or gv$session.'
+            else:
+                raise 
 
     def do_sleect(self,args):    
         '''implements sleect = select, a common typo'''
