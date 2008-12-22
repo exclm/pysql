@@ -104,7 +104,7 @@ WHERE  created > SYSDATE - 7;''')
         '''Runs query_load10g defined above, to display OS load on cluster nodes (10gRAC)
 Do not confuse with `GET myfile.sql` and `@myfile.sql`,
 which get and run SQL scripts from disk.'''
-        self.do_select(self.query_load10g)
+        self.onecmd(self.query_load10g)
 
     def do_db(self,args,filepath='pass.txt'): 
         '''Exec do_connect to db_alias in args (credentials form the file pass.txt) '''
