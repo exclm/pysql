@@ -308,3 +308,7 @@ Executed
 testschema@orcl> drop table play;
 
 Executed
+
+testschema@orcl> foo
+
+bar
