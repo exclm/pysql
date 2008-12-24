@@ -497,10 +497,6 @@ class sqlpyPlus(sqlpython.sqlpython):
     rowlimitPattern = pyparsing.Word(pyparsing.nums)('rowlimit')
     terminators = '; \\C \\t \\i \\p \\l \\L \\b '.split() + output_templates.keys()
 
-    def expandSelect(self, arg):
-        #w + Optional(CaselessKeyword('AS')) + Optional(w ^ dblQuotedString) + (CaselessKeyword('FROM') ^ ',')
-        return arg
-    
     def do_select(self, arg, bindVarsIn=None, terminator=None):
         """Fetch rows from a table.
 
@@ -518,7 +514,6 @@ class sqlpyPlus(sqlpython.sqlpython):
             rowlimit = 0
             print "Specify desired number of rows after terminator (not '%s')" % arg.parsed.suffix
         self.varsUsed = findBinds(arg, self.binds, bindVarsIn)
-        arg = self.expandSelect(arg)
         self.curs.execute('select ' + arg, self.varsUsed)
         self.rows = self.curs.fetchmany(min(self.maxfetch, (rowlimit or self.maxfetch)))
         self.rc = self.curs.rowcount
