@@ -925,6 +925,10 @@ class sqlpyPlus(sqlpython.sqlpython):
                 traceback.print_exc(file=sys.stdout)                
 
     def do_refs(self, arg):
+        '''Lists referential integrity (foreign key constraints) on an object.'''
+        
+        if not arg.strip():
+            print 'Usage: refs (table name)'
         result = []
         (type, owner, table_name) = self.resolve(arg.upper())        
         self.curs.execute("""SELECT constraint_name, r_owner, r_constraint_name 
