@@ -11,9 +11,6 @@
 import cmd2,getpass,binascii,cx_Oracle,re,os
 import sqlpyPlus
 __version__ = '1.5.2'    
-    # complication! separate sessions ->
-    # separate transactions !!!!!
-    # also: timeouts, other session failures
 
 class sqlpython(cmd2.Cmd):
     '''A python module to reproduce Oracle's command line with focus on customization and extention'''
