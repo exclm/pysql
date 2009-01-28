@@ -1,5 +1,5 @@
 #
-# SqlPython V1.5.1
+# SqlPython V1.5.2
 # Author: Luca.Canali@cern.ch, Apr 2006
 # Rev 29-May-08
 #
@@ -10,7 +10,7 @@
 
 import cmd2,getpass,binascii,cx_Oracle,re,os
 import sqlpyPlus
-__version__ = '1.5.1'    
+__version__ = '1.5.2'    
     # complication! separate sessions ->
     # separate transactions !!!!!
     # also: timeouts, other session failures

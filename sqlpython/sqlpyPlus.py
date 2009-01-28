@@ -838,7 +838,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                 statekeeper.restore()
 
     def do_exec(self, arg):
-        if arg[0] == ':':
+        if arg.startswith(':'):
             self.do_setbind(arg[1:])
         else:
             varsUsed = findBinds(arg, self.binds, {})
