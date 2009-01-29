@@ -547,7 +547,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         object_type, owner, object_name = self.resolve(target)
         if not object_type:
             return
-        self.stdout.write("%s %s.%s\n" % (object_type, owner, object_name))
+        #self.stdout.write("%s %s.%s\n" % (object_type, owner, object_name))
         self.stdout.write(str(self.curs.callfunc('DBMS_METADATA.GET_DDL', cx_Oracle.CLOB,
                                                  [object_type, object_name, owner])))
         if opts.full:
@@ -868,11 +868,8 @@ class sqlpyPlus(sqlpython.sqlpython):
 
     def do_declare(self, arg):
         self.anon_plsql('declare ' + arg)
-
-    @options([make_option('-l', '--long', action='store_true', help='long descriptions'),
-              make_option('-a', '--all', action='store_true', help="all schemas' objects")])        
-    def do_ls(self, arg, opts):
-        where = ''
+        
+    def _ls_statement(self, arg, opts):
         if arg:
             where = """\nWHERE object_type || '/' || object_name
                   LIKE '%%%s%%'""" % (arg.upper().replace('*','%'))
@@ -885,12 +882,31 @@ class sqlpyPlus(sqlpython.sqlpython):
             whose = 'user'
             objname = 'object_name'            
         if opts.long:
-            extraInfo = ', status, last_ddl_time AS modified'
+            moreColumns = ', status, last_ddl_time AS modified'
         else:
-            extraInfo = ''
-        statement = '''SELECT object_type || '/' || %s AS name %s 
-                  FROM   %s_objects %s
-                  ORDER BY object_type, object_name;''' % (objname, extraInfo, whose, where)
+            moreColumns = ''
+        return {'objname': objname, 'moreColumns': moreColumns,
+                'whose': whose, 'where': where}        
+        
+    @options([make_option('-a', '--all', action='store_true', help="all schemas' objects")])
+    def resolve_many(self, arg, opts):
+        clauses = self._ls_statement(arg, opts)
+        if opts.all:
+            clauses['owner'] = 'owner'
+        else:
+            clauses['owner'] = 'user'
+        statement = '''SELECT %(owner)s, object_type, object_name 
+                  FROM   %(whose)s_objects %(where)s
+                  ORDER BY object_type, object_name;''' % clauses
+        self.curs.execute(statement)
+        return self.curs.fetchall()
+    
+    @options([make_option('-l', '--long', action='store_true', help='long descriptions'),
+              make_option('-a', '--all', action='store_true', help="all schemas' objects")])        
+    def do_ls(self, arg, opts):
+        statement = '''SELECT object_type || '/' || %(objname)s AS name %(moreColumns)s 
+                  FROM   %(whose)s_objects %(where)s
+                  ORDER BY object_type, object_name;''' % self._ls_statement(arg, opts)
         self.do_select(self.parsed(statement, terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix))
         
     @options([make_option('-i', '--ignore-case', dest='ignorecase', action='store_true', help='Case-insensitive search')])        
