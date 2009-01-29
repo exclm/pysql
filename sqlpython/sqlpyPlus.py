@@ -539,13 +539,23 @@ class sqlpyPlus(sqlpython.sqlpython):
                                           terminator = arg.parsed.terminator or ';', 
                                           suffix = arg.parsed.suffix))
         
-    @options([make_option('-f', '--full', action='store_true', help='get dependent objects as well'),
+    @options([make_option('-d', '--dump', action='store_true', help='dump results to files'),
+              make_option('-f', '--full', action='store_true', help='get dependent objects as well'),
               make_option('-a', '--all', action='store_true', help="all schemas' objects"),
-              make_option('-x', '--exact', action='store_true', default=False, help="match object name exactly")])
+              make_option('-x', '--exact', action='store_true', help="match object name exactly")])
     def do_pull(self, arg, opts):
         """Displays source code."""
 
+        if opts.dump:
+            statekeeper = Statekeeper(self, ('stdout',))                        
         for (owner, object_type, object_name) in self.resolve_many(arg, opts):        
+            if opts.dump:
+                try:
+                    os.makedirs(os.path.join(owner.lower(), object_type.lower().replace(' ','_')))
+                except OSError:
+                    pass
+                self.stdout = open(os.path.join(owner.lower(), object_type.lower().replace(' ','_'), '%s.sql' % object_name.lower()), 'w')
+                
             self.stdout.write(str(self.curs.callfunc('DBMS_METADATA.GET_DDL', cx_Oracle.CLOB,
                                                      [object_type, object_name, owner])))
             if opts.full:
@@ -555,6 +565,10 @@ class sqlpyPlus(sqlpython.sqlpython):
                                                                  [dependent_type, object_name, owner])))
                     except cx_Oracle.DatabaseError:
                         pass
+            if opts.dump:
+                self.stdout.close()
+        if opts.dump:
+            statekeeper.restore()    
 
     all_users_option = make_option('-a', action='store_const', dest="scope",
                                          default={'col':'', 'view':'user', 'schemas':'user'}, 
