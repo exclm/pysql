@@ -549,6 +549,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         if opts.dump:
             statekeeper = Statekeeper(self, ('stdout',))                        
         for (owner, object_type, object_name) in self.resolve_many(arg, opts):        
+            object_type = {'DATABASE LINK': 'DB_LINK'}.get(object_type) or object_type
             if opts.dump:
                 try:
                     os.makedirs(os.path.join(owner.lower(), object_type.lower().replace(' ','_')))
