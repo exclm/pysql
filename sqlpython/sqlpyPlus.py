@@ -539,24 +539,22 @@ class sqlpyPlus(sqlpython.sqlpython):
                                           terminator = arg.parsed.terminator or ';', 
                                           suffix = arg.parsed.suffix))
         
-    @options([make_option('-f', '--full', action='store_true', help='get dependent objects as well')])
+    @options([make_option('-f', '--full', action='store_true', help='get dependent objects as well'),
+              make_option('-a', '--all', action='store_true', help="all schemas' objects"),
+              make_option('-x', '--exact', action='store_true', default=False, help="match object name exactly")])
     def do_pull(self, arg, opts):
         """Displays source code."""
 
-        target = arg.upper()
-        object_type, owner, object_name = self.resolve(target)
-        if not object_type:
-            return
-        #self.stdout.write("%s %s.%s\n" % (object_type, owner, object_name))
-        self.stdout.write(str(self.curs.callfunc('DBMS_METADATA.GET_DDL', cx_Oracle.CLOB,
-                                                 [object_type, object_name, owner])))
-        if opts.full:
-            for dependent_type in ('OBJECT_GRANT', 'CONSTRAINT', 'TRIGGER'):        
-                try:
-                    self.stdout.write(str(self.curs.callfunc('DBMS_METADATA.GET_DEPENDENT_DDL', cx_Oracle.CLOB,
-                                                             [dependent_type, object_name, owner])))
-                except cx_Oracle.DatabaseError:
-                    pass
+        for (owner, object_type, object_name) in self.resolve_many(arg, opts):        
+            self.stdout.write(str(self.curs.callfunc('DBMS_METADATA.GET_DDL', cx_Oracle.CLOB,
+                                                     [object_type, object_name, owner])))
+            if opts.full:
+                for dependent_type in ('OBJECT_GRANT', 'CONSTRAINT', 'TRIGGER'):        
+                    try:
+                        self.stdout.write(str(self.curs.callfunc('DBMS_METADATA.GET_DEPENDENT_DDL', cx_Oracle.CLOB,
+                                                                 [dependent_type, object_name, owner])))
+                    except cx_Oracle.DatabaseError:
+                        pass
 
     all_users_option = make_option('-a', action='store_const', dest="scope",
                                          default={'col':'', 'view':'user', 'schemas':'user'}, 
@@ -871,8 +869,13 @@ class sqlpyPlus(sqlpython.sqlpython):
         
     def _ls_statement(self, arg, opts):
         if arg:
-            where = """\nWHERE object_type || '/' || object_name
-                  LIKE '%%%s%%'""" % (arg.upper().replace('*','%'))
+            target = arg.upper()
+            if opts.exact:
+                where = """\nWHERE object_name = '%s'
+                             OR object_type || '/' || object_name = '%s'""" % \
+                            (target, target)
+            else:
+                where = "\nWHERE object_type || '/' || object_name LIKE '%%%s%%'" % (arg.upper().replace('*','%'))
         else:
             where = ''
         if opts.all:
@@ -888,8 +891,8 @@ class sqlpyPlus(sqlpython.sqlpython):
         return {'objname': objname, 'moreColumns': moreColumns,
                 'whose': whose, 'where': where}        
         
-    @options([make_option('-a', '--all', action='store_true', help="all schemas' objects")])
     def resolve_many(self, arg, opts):
+        opts.long = False
         clauses = self._ls_statement(arg, opts)
         if opts.all:
             clauses['owner'] = 'owner'
@@ -897,12 +900,13 @@ class sqlpyPlus(sqlpython.sqlpython):
             clauses['owner'] = 'user'
         statement = '''SELECT %(owner)s, object_type, object_name 
                   FROM   %(whose)s_objects %(where)s
-                  ORDER BY object_type, object_name;''' % clauses
+                  ORDER BY object_type, object_name''' % clauses
         self.curs.execute(statement)
         return self.curs.fetchall()
     
     @options([make_option('-l', '--long', action='store_true', help='long descriptions'),
-              make_option('-a', '--all', action='store_true', help="all schemas' objects")])        
+              make_option('-a', '--all', action='store_true', help="all schemas' objects"),
+              make_option('-x', '--exact', action='store_true', default=False, help="match name exactly")])        
     def do_ls(self, arg, opts):
         statement = '''SELECT object_type || '/' || %(objname)s AS name %(moreColumns)s 
                   FROM   %(whose)s_objects %(where)s
