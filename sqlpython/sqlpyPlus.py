@@ -23,7 +23,7 @@ or with a python-like shorthand
 
 - catherinedevlin.blogspot.com  May 31, 2006
 """
-import sys, os, re, sqlpython, cx_Oracle, pyparsing, re, completion, datetime, pickle, binascii
+import sys, os, re, sqlpython, cx_Oracle, pyparsing, re, completion, datetime, pickle, binascii, subprocess
 from cmd2 import Cmd, make_option, options, Statekeeper, Cmd2TestCase
 from output_templates import output_templates
 from plothandler import Plot
@@ -538,39 +538,104 @@ class sqlpyPlus(sqlpython.sqlpython):
         return self.do_select(self.parsed('SELECT * FROM %s;' % arg, 
                                           terminator = arg.parsed.terminator or ';', 
                                           suffix = arg.parsed.suffix))
-        
+
+    def _pull(self, arg, opts, vc=None):
+        """Displays source code."""
+        if opts.dump:
+            statekeeper = Statekeeper(self, ('stdout',))                        
+        try:
+            for (owner, object_type, object_name) in self.resolve_many(arg, opts):  
+                if object_type in self.supported_ddl_types:
+                    object_type = {'DATABASE LINK': 'DB_LINK', 'JAVA CLASS': 'JAVA_SOURCE'
+                                   }.get(object_type) or object_type
+                    object_type = object_type.replace(' ', '_')
+                    if opts.dump:
+                        try:
+                            os.makedirs(os.path.join(owner.lower(), object_type.lower()))
+                        except OSError:
+                            pass
+                        filename = os.path.join(owner.lower(), object_type.lower(), '%s.sql' % object_name.lower())
+                        self.stdout = open(filename, 'w')
+                        if vc:
+                            subprocess.call(vc + [filename])
+                    try:
+                        if object_type in ['CONTEXT', 'DIRECTORY', 'JOB']:
+                            ddlargs = [object_type, object_name]
+                        else:
+                            ddlargs = [object_type, object_name, owner]
+                        self.stdout.write(str(self.curs.callfunc('DBMS_METADATA.GET_DDL', cx_Oracle.CLOB, ddlargs)))
+                    except cx_Oracle.DatabaseError:
+                        if object_type == 'JOB':
+                            print '%s: DBMS_METADATA.GET_DDL does not support JOBs (MetaLink DocID 567504.1)' % object_name
+                            continue
+                        raise
+                    if opts.full:
+                        for dependent_type in ('OBJECT_GRANT', 'CONSTRAINT', 'TRIGGER'):        
+                            try:
+                                self.stdout.write(str(self.curs.callfunc('DBMS_METADATA.GET_DEPENDENT_DDL', cx_Oracle.CLOB,
+                                                                         [dependent_type, object_name, owner])))
+                            except cx_Oracle.DatabaseError:
+                                pass
+                    if opts.dump:
+                        self.stdout.close()
+        except:
+            if opts.dump:
+                statekeeper.restore()
+            raise
+        if opts.dump:
+            statekeeper.restore()    
+
     @options([make_option('-d', '--dump', action='store_true', help='dump results to files'),
               make_option('-f', '--full', action='store_true', help='get dependent objects as well'),
               make_option('-a', '--all', action='store_true', help="all schemas' objects"),
               make_option('-x', '--exact', action='store_true', help="match object name exactly")])
     def do_pull(self, arg, opts):
         """Displays source code."""
+        self._pull(arg, opts)
+            
+    supported_ddl_types = 'CLUSTER, CONTEXT, DATABASE LINK, DIRECTORY, FUNCTION, INDEX, JOB, LIBRARY, MATERIALIZED VIEW, PACKAGE, PACKAGE BODY, OPERATOR, PACKAGE, PROCEDURE, SEQUENCE, SYNONYM, TABLE, TRIGGER, VIEW, TYPE, TYPE BODY, XML SCHEMA'
+    do_pull.__doc__ += '\n\nSupported DDL types: ' + supported_ddl_types
+    supported_ddl_types = supported_ddl_types.split(', ')    
 
-        if opts.dump:
-            statekeeper = Statekeeper(self, ('stdout',))                        
-        for (owner, object_type, object_name) in self.resolve_many(arg, opts):        
-            object_type = {'DATABASE LINK': 'DB_LINK'}.get(object_type) or object_type
-            if opts.dump:
-                try:
-                    os.makedirs(os.path.join(owner.lower(), object_type.lower().replace(' ','_')))
-                except OSError:
-                    pass
-                self.stdout = open(os.path.join(owner.lower(), object_type.lower().replace(' ','_'), '%s.sql' % object_name.lower()), 'w')
-                
-            self.stdout.write(str(self.curs.callfunc('DBMS_METADATA.GET_DDL', cx_Oracle.CLOB,
-                                                     [object_type, object_name, owner])))
-            if opts.full:
-                for dependent_type in ('OBJECT_GRANT', 'CONSTRAINT', 'TRIGGER'):        
-                    try:
-                        self.stdout.write(str(self.curs.callfunc('DBMS_METADATA.GET_DEPENDENT_DDL', cx_Oracle.CLOB,
-                                                                 [dependent_type, object_name, owner])))
-                    except cx_Oracle.DatabaseError:
-                        pass
-            if opts.dump:
-                self.stdout.close()
-        if opts.dump:
-            statekeeper.restore()    
+    def _vc(self, arg, opts, program):
+        subprocess.call([program, 'init'])
+        opts.dump = True
+        self._pull(arg, opts, vc=[program, 'add'])
+        subprocess.call([program, 'commit', '-m', '"%s"' % opts.message or 'committed from sqlpython'])        
+    
+    @options([
+              make_option('-f', '--full', action='store_true', help='get dependent objects as well'),
+              make_option('-a', '--all', action='store_true', help="all schemas' objects"),
+              make_option('-x', '--exact', action='store_true', help="match object name exactly"),
+              make_option('-m', '--message', action='store', type='string', dest='message', help="message to save to hg log during commit")])
+    def do_hg(self, arg, opts):
+        '''hg (opts) (objects):
+        Stores DDL on disk and puts files under Mercurial version control.'''
+        self._vc(arg, opts, 'hg')        
 
+    @options([
+              make_option('-f', '--full', action='store_true', help='get dependent objects as well'),
+              make_option('-a', '--all', action='store_true', help="all schemas' objects"),
+              make_option('-x', '--exact', action='store_true', help="match object name exactly"),
+              make_option('-m', '--message', action='store', type='string', dest='message', help="message to save to hg log during commit")])
+    def do_bzr(self, arg, opts):
+        '''bzr (opts) (objects):
+        Stores DDL on disk and puts files under Bazaar version control.'''
+        self._vc(arg, opts, 'bzr')        
+
+    @options([
+              make_option('-f', '--full', action='store_true', help='get dependent objects as well'),
+              make_option('-a', '--all', action='store_true', help="all schemas' objects"),
+              make_option('-x', '--exact', action='store_true', help="match object name exactly"),
+              make_option('-m', '--message', action='store', type='string', dest='message', help="message to save to hg log during commit")])
+    def do_svn(self, arg, opts):
+        '''svn (opts) (objects):
+        Stores DDL to disk and commits a change to SVN.'''
+        #subprocess.call([program, 'init'])
+        opts.dump = True
+        self._pull(arg, opts, vc=['svn', 'add'])
+        subprocess.call(['svn', 'commit', '-m', '"%s"' % opts.message or 'committed from sqlpython'])        
+        
     all_users_option = make_option('-a', action='store_const', dest="scope",
                                          default={'col':'', 'view':'user', 'schemas':'user'}, 
                                          const={'col':', owner', 'view':'all', 'schemas':'all'},
