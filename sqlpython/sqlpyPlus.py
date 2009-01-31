@@ -585,6 +585,28 @@ class sqlpyPlus(sqlpython.sqlpython):
         if opts.dump:
             statekeeper.restore()    
 
+    def do_show(self, arg):
+        '''
+        show                  - display value of all sqlpython parameters
+        show (parameter name) - display value of a sqlpython parameter
+        show parameter (parameter name) - display value of an ORACLE parameter
+        '''
+        if arg.startswith('param'):
+            try:
+                paramname = arg.split()[1].lower()
+            except IndexError:
+                paramname = ''
+            self.onecmd("""SELECT name, 
+                           CASE type WHEN 1 THEN 'BOOLEAN'
+                                     WHEN 2 THEN 'STRING'
+                                     WHEN 3 THEN 'INTEGER'
+                                     WHEN 4 THEN 'PARAMETER FILE'
+                                     WHEN 5 THEN 'RESERVED'
+                                     WHEN 6 THEN 'BIG INTEGER' END type, 
+                           value FROM v$parameter WHERE name LIKE '%%%s%%';""" % paramname)
+        else:
+            return Cmd.do_show(self, arg)
+            
     @options([make_option('-d', '--dump', action='store_true', help='dump results to files'),
               make_option('-f', '--full', action='store_true', help='get dependent objects as well'),
               make_option('-a', '--all', action='store_true', help="all schemas' objects"),
