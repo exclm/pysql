@@ -619,11 +619,13 @@ class sqlpyPlus(sqlpython.sqlpython):
     do_pull.__doc__ += '\n\nSupported DDL types: ' + supported_ddl_types
     supported_ddl_types = supported_ddl_types.split(', ')    
 
-    def _vc(self, arg, opts, program):
-        subprocess.call([program, 'init'])
+    def _vc(self, arg, opts, program, initializer):
+        subprocess.call(initializer)
+        os.chdir(initializer[2])
         opts.dump = True
         self._pull(arg, opts, vc=[program, 'add'])
         subprocess.call([program, 'commit', '-m', '"%s"' % opts.message or 'committed from sqlpython'])        
+        os.chdir('..')
     
     @options([
               make_option('-f', '--full', action='store_true', help='get dependent objects as well'),
@@ -633,7 +635,7 @@ class sqlpyPlus(sqlpython.sqlpython):
     def do_hg(self, arg, opts):
         '''hg (opts) (objects):
         Stores DDL on disk and puts files under Mercurial version control.'''
-        self._vc(arg, opts, 'hg')        
+        self._vc(arg, opts, 'hg', ['hg', 'init', self.sid])        
 
     @options([
               make_option('-f', '--full', action='store_true', help='get dependent objects as well'),
@@ -643,7 +645,7 @@ class sqlpyPlus(sqlpython.sqlpython):
     def do_bzr(self, arg, opts):
         '''bzr (opts) (objects):
         Stores DDL on disk and puts files under Bazaar version control.'''
-        self._vc(arg, opts, 'bzr')        
+        self._vc(arg, opts, 'bzr', ['bzr', 'init', self.sid])        
 
     @options([
               make_option('-f', '--full', action='store_true', help='get dependent objects as well'),
@@ -653,9 +655,8 @@ class sqlpyPlus(sqlpython.sqlpython):
     def do_svn(self, arg, opts):
         '''svn (opts) (objects):
         Stores DDL to disk and commits a change to SVN.'''
-        #subprocess.call([program, 'init'])
-        opts.dump = True
-        self._pull(arg, opts, vc=['svn', 'add'])
+        self._vc(arg, opts, 'svn', ['svnadmin', 'init', self.sid])        
+        
         subprocess.call(['svn', 'commit', '-m', '"%s"' % opts.message or 'committed from sqlpython'])        
         
     all_users_option = make_option('-a', action='store_const', dest="scope",
