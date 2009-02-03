@@ -41,15 +41,15 @@ class sqlpython(cmd2.Cmd):
                 print 'instance not specified and environment variable ORACLE_SID not set'
                 return
             orauser = arg
-        sid = oraserv
+        self.sid = oraserv
         try:
-            host, sid = oraserv.split('/')
+            host, self.sid = oraserv.split('/')
             try:
                 host, port = host.split(':')
                 port = int(port)
             except ValueError:
                 port = 1521
-            oraserv = cx_Oracle.makedsn(host, port, sid)
+            oraserv = cx_Oracle.makedsn(host, port, self.sid)
         except ValueError:
             pass
         try:
@@ -62,7 +62,7 @@ class sqlpython(cmd2.Cmd):
         try:
             self.orcl = cx_Oracle.connect(orauser,orapass,oraserv,modeval)
             self.curs = self.orcl.cursor()
-            self.prompt = '%s@%s> ' % (orauser, sid)
+            self.prompt = '%s@%s> ' % (orauser, self.sid)
         except Exception, e:
             print e
             
