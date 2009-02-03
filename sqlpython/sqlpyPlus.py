@@ -659,8 +659,8 @@ class sqlpyPlus(sqlpython.sqlpython):
         subprocess.call(['svn', 'commit', '-m', '"%s"' % opts.message or 'committed from sqlpython'])        
         
     all_users_option = make_option('-a', action='store_const', dest="scope",
-                                         default={'col':'', 'view':'user', 'schemas':'user'}, 
-                                         const={'col':', owner', 'view':'all', 'schemas':'all'},
+                                         default={'col':'', 'view':'user', 'schemas':'user', 'firstcol': ''}, 
+                                         const={'col':', owner', 'view':'all', 'schemas':'all', 'firstcol': 'owner, '},
                                          help='Describe all objects (not just my own)')                
     @options([all_users_option,
               make_option('-c', '--col', action='store_true', help='find column'),
@@ -671,11 +671,11 @@ class sqlpyPlus(sqlpython.sqlpython):
         capArg = arg.upper()
         
         if opts.col:
-            sql = "SELECT table_name, column_name %s FROM %s_tab_columns where column_name like '%%%s%%';" \
-                % (opts.scope['col'], opts.scope['view'], capArg)
+            sql = "SELECT table_name, column_name %s FROM %s_tab_columns where column_name like '%%%s%%' ORDER BY %s table_name, column_name;" \
+                % (opts.scope['col'], opts.scope['view'], capArg, opts.scope['firstcol'])
         elif opts.table:
-            sql = "SELECT table_name %s from %s_tables where table_name like '%%%s%%';" \
-                % (opts.scope['col'], opts.scope['view'], capArg)
+            sql = "SELECT table_name %s from %s_tables where table_name like '%%%s%%' ORDER BY %s table_name;" \
+                % (opts.scope['col'], opts.scope['view'], capArg, opts.scope['firstcol'])
         else:
             sql = "SELECT * from %s_source where UPPER(text) like '%%%s%%';" % (opts.scope['view'], capArg)
         self.do_select(self.parsed(sql, terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix))
