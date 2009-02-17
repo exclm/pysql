@@ -535,6 +535,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             print '\nSelected Max Num rows (%d)' % self.rc
         
     def do_cat(self, arg):
+        '''Shortcut for SELECT * FROM'''
         return self.do_select(self.parsed('SELECT * FROM %s;' % arg, 
                                           terminator = arg.parsed.terminator or ';', 
                                           suffix = arg.parsed.suffix))
@@ -632,7 +633,8 @@ class sqlpyPlus(sqlpython.sqlpython):
               make_option('-m', '--message', action='store', type='string', dest='message', help="message to save to hg log during commit")])
     def do_hg(self, arg, opts):
         '''hg (opts) (objects):
-        Stores DDL on disk and puts files under Mercurial version control.'''
+        Stores DDL on disk and puts files under Mercurial version control.
+        Args specify which objects to store, same format as `ls`.'''
         self._vc(arg, opts, 'hg')        
 
     @options([
@@ -642,7 +644,8 @@ class sqlpyPlus(sqlpython.sqlpython):
               make_option('-m', '--message', action='store', type='string', dest='message', help="message to save to hg log during commit")])
     def do_bzr(self, arg, opts):
         '''bzr (opts) (objects):
-        Stores DDL on disk and puts files under Bazaar version control.'''
+        Stores DDL on disk and puts files under Bazaar version control.
+        Args specify which objects to store, same format as `ls`.'''
         self._vc(arg, opts, 'bzr')        
 
     @options([
@@ -652,7 +655,8 @@ class sqlpyPlus(sqlpython.sqlpython):
               make_option('-m', '--message', action='store', type='string', dest='message', help="message to save to hg log during commit")])
     def do_git(self, arg, opts):
         '''git (opts) (objects):
-        Stores DDL on disk and puts files under git version control.'''
+        Stores DDL on disk and puts files under git version control.
+        Args specify which objects to store, same format as `ls`.'''
         self._vc(arg, opts, 'git')        
         
     all_users_option = make_option('-a', action='store_const', dest="scope",
@@ -891,6 +895,9 @@ class sqlpyPlus(sqlpython.sqlpython):
         self.do_select(self.parsed(sql, terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix))
 
     def do_head(self, arg):
+        '''Shortcut for SELECT * FROM <arg>;10
+        The terminator (\\t, \\g, \\x, etc.) and number of rows can
+        be changed as for any other SELECT statement.'''
         sql = self.parsed('SELECT * FROM %s;' % arg, terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix)
         sql.parsed['suffix'] = sql.parsed.suffix or '10'
         self.do_select(self.parsed(sql))
