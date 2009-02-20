@@ -994,8 +994,14 @@ class sqlpyPlus(sqlpython.sqlpython):
             moreColumns = ', status, last_ddl_time AS modified'
         else:
             moreColumns = ''
+            
+        # 'Normal' sort order is DATE DESC (maybe), object type ASC, object name ASC
+        sortdirection = ('DESC' if opts.reverse else 'ASC')
+        orderby = 'object_type %s, object_name %s' % (sortdirection, sortdirection)
+        if opts.timesort:
+            orderby = 'last_ddl_time %s, %s' % (('ASC' if opts.reverse else 'DESC'), orderby)
         return {'objname': objname, 'moreColumns': moreColumns,
-                'whose': whose, 'where': where}        
+                'whose': whose, 'where': where, 'orderby': orderby}        
         
     def resolve_many(self, arg, opts):
         opts.long = False
@@ -1012,11 +1018,13 @@ class sqlpyPlus(sqlpython.sqlpython):
     
     @options([make_option('-l', '--long', action='store_true', help='long descriptions'),
               make_option('-a', '--all', action='store_true', help="all schemas' objects"),
+              make_option('-t', '--timesort', action='store_true', help="Sort by last_ddl_time"),              
+              make_option('-r', '--reverse', action='store_true', help="Reverse order while sorting"),              
               make_option('-x', '--exact', action='store_true', default=False, help="match name exactly")])        
     def do_ls(self, arg, opts):
         statement = '''SELECT object_type || '/' || %(objname)s AS name %(moreColumns)s 
                   FROM   %(whose)s_objects %(where)s
-                  ORDER BY object_type, object_name;''' % self._ls_statement(arg, opts)
+                  ORDER BY %(orderby)s;''' % self._ls_statement(arg, opts)
         self.do_select(self.parsed(statement, terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix))
         
     @options([make_option('-i', '--ignore-case', dest='ignorecase', action='store_true', help='Case-insensitive search')])        
