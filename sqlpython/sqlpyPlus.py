@@ -991,7 +991,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             whose = 'user'
             objname = 'object_name'            
         if opts.long:
-            moreColumns = ', status, last_ddl_time AS modified'
+            moreColumns = ', status, last_ddl_time'
         else:
             moreColumns = ''
             
