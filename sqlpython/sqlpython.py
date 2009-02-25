@@ -1,7 +1,7 @@
 #
-# SqlPython V1.5.2
+# SqlPython V1.5.3
 # Author: Luca.Canali@cern.ch, Apr 2006
-# Rev 29-May-08
+# Rev 25-Feb-09
 #
 # A python module to reproduce Oracle's command line 'sqlplus-like' within python
 # Intended to allow easy customizations and extentions 
@@ -10,7 +10,7 @@
 
 import cmd2,getpass,binascii,cx_Oracle,re,os
 import sqlpyPlus
-__version__ = '1.5.2'    
+__version__ = '1.5.3'    
 
 class sqlpython(cmd2.Cmd):
     '''A python module to reproduce Oracle's command line with focus on customization and extention'''
@@ -106,7 +106,7 @@ class sqlpython(cmd2.Cmd):
     do_exit = do_quit
     do_q = do_quit
     
-def pmatrix(rows,desc,maxlen=30):
+def pmatrix(rows,desc,maxlen=30,heading=True):
     '''prints a matrix, used by sqlpython to print queries' result sets'''
     names = []
     maxen = []
@@ -152,7 +152,8 @@ def pmatrix(rows,desc,maxlen=30):
         toprint[j] = ' '.join(toprint[j])
     names = ' '.join(names)
     sepcols = ' '.join(sepcols)
-    toprint.insert(0, sepcols)
-    toprint.insert(0, names)
+    if heading:
+        toprint.insert(0, sepcols)
+        toprint.insert(0, names)
     return '\n'.join(toprint)
 
