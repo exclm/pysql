@@ -205,13 +205,13 @@ testschema@orcl> set
 autobind: False
 commit_on_exit: True
 echo: False
+editor: gedit
+heading: True
 maxfetch: 1000
 maxtselctrows: 10
+prompt: testschema@orcl>
 timeout: 30
-testschema@orcl> print
-testschema@orcl> set autobind on
-autobind - was: False
-now: True
+timing: False
 testschema@orcl> select * from play where author like 'A%';
 
 TITLE     AUTHOR   
