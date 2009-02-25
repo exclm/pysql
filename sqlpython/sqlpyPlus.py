@@ -364,7 +364,8 @@ class sqlpyPlus(sqlpython.sqlpython):
     def __init__(self):
         sqlpython.sqlpython.__init__(self)
         self.binds = CaselessDict()
-        self.settable = 'autobind commit_on_exit echo maxfetch maxtselctrows timeout heading'.split()
+        self.settable += 'autobind commit_on_exit maxfetch maxtselctrows timeout heading'.split()
+        self.settable.sort()
         # settables must be lowercase
         self.stdoutBeforeSpool = sys.stdout
         self.spoolFile = None
