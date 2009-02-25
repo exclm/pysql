@@ -978,7 +978,7 @@ class sqlpyPlus(sqlpython.sqlpython):
     def _ls_statement(self, arg, opts):
         if arg:
             target = arg.upper()
-            if opts.exact:
+            if hasattr(opts, 'exact') and opts.exact:
                 where = """\nWHERE object_name = '%s'
                              OR object_type || '/' || object_name = '%s'""" % \
                             (target, target)
@@ -992,16 +992,16 @@ class sqlpyPlus(sqlpython.sqlpython):
         else:
             whose = 'user'
             objname = 'object_name'            
-        if opts.long:
+        if hasattr(opts, 'long') and opts.long:
             moreColumns = ', status, last_ddl_time'
         else:
             moreColumns = ''
             
         # 'Normal' sort order is DATE DESC (maybe), object type ASC, object name ASC
-        sortdirection = ('DESC' if opts.reverse else 'ASC')
+        sortdirection = ('DESC' if hasattr(opts, 'reverse') and opts.reverse else 'ASC')
         orderby = 'object_type %s, object_name %s' % (sortdirection, sortdirection)
-        if opts.timesort:
-            orderby = 'last_ddl_time %s, %s' % (('ASC' if opts.reverse else 'DESC'), orderby)
+        if hasattr(opts, 'timesort') and opts.timesort:
+            orderby = 'last_ddl_time %s, %s' % (('ASC' if hasattr(opts, 'reverse') and opts.reverse else 'DESC'), orderby)
         return {'objname': objname, 'moreColumns': moreColumns,
                 'whose': whose, 'where': where, 'orderby': orderby}        
         
