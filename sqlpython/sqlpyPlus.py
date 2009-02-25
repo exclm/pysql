@@ -364,11 +364,12 @@ class sqlpyPlus(sqlpython.sqlpython):
     def __init__(self):
         sqlpython.sqlpython.__init__(self)
         self.binds = CaselessDict()
-        self.settable = 'autobind commit_on_exit echo maxfetch maxtselctrows timeout'.split()
+        self.settable = 'autobind commit_on_exit echo maxfetch maxtselctrows timeout heading'.split()
         # settables must be lowercase
         self.stdoutBeforeSpool = sys.stdout
         self.spoolFile = None
         self.autobind = False
+        self.heading = True
     #def default(self, arg):
     #    sqlpython.sqlpython.default(self, arg)
 
@@ -442,7 +443,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             plot.draw()
             return ''
         else:
-            result = sqlpython.pmatrix(self.rows, self.curs.description, self.maxfetch)
+            result = sqlpython.pmatrix(self.rows, self.curs.description, self.maxfetch, heading=self.heading)
         return result
         
     legalOracle = re.compile('[a-zA-Z_$#]')
