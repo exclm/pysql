@@ -364,15 +364,14 @@ class sqlpyPlus(sqlpython.sqlpython):
     def __init__(self):
         sqlpython.sqlpython.__init__(self)
         self.binds = CaselessDict()
-        self.settable += 'autobind commit_on_exit maxfetch maxtselctrows timeout heading'.split()
+        self.settable += 'autobind commit_on_exit maxfetch maxtselctrows timeout heading wildsql'.split()
         self.settable.sort()
         # settables must be lowercase
         self.stdoutBeforeSpool = sys.stdout
         self.spoolFile = None
         self.autobind = False
         self.heading = True
-    #def default(self, arg):
-    #    sqlpython.sqlpython.default(self, arg)
+        self.wildsql = True
 
     # overrides cmd's parseline
     def parseline(self, line):
@@ -495,7 +494,24 @@ class sqlpyPlus(sqlpython.sqlpython):
             stmt = "SELECT object_name FROM all_objects WHERE object_name LIKE '%s%%'"
             completions = self.select_scalar_list(stmt % (text))
         return completions
-    
+
+    columnlistPattern = pyparsing.SkipTo(pyparsing.CaselessKeyword('from'))('columns')
+
+    wildSqlColnum = pyparsing.Literal(':') + pyparsing.Keyword(pyparsing.nums)('colnum')
+    wildSqlNot = pyparsing.Literal('!') + pyparsing.Keyword(legalOracle)('col')
+    wildSqlNotColnum = pyparsing.Literal('!:') + pyparsing.Keyword(legalOracle)('colnum')    
+    for patt in (columnlistPattern, wildSqlColnum, wildSqlNot, wildSqlNotColnum):
+        patt.ignore(pyparsing.cStyleComment).ignore(Parser.comment_def). \
+             ignore(pyparsing.sglQuotedString).ignore(pyparsing.dblQuotedString)         
+    def expandWildSql(self, arg):
+        try:
+            columnlist = self.columnlistPattern.parseString(arg).columns
+        except pyparsing.ParseException:
+            return arg
+        while colnum in self.wildSqlNotColnum.scanString(columnlist):
+            pass
+        return arg
+        
     rowlimitPattern = pyparsing.Word(pyparsing.nums)('rowlimit')
     terminators = '; \\C \\t \\i \\p \\l \\L \\b '.split() + output_templates.keys()
 
@@ -516,6 +532,8 @@ class sqlpyPlus(sqlpython.sqlpython):
             rowlimit = 0
             print "Specify desired number of rows after terminator (not '%s')" % arg.parsed.suffix
         self.varsUsed = findBinds(arg, self.binds, bindVarsIn)
+        if self.wildsql:
+            arg = self.expandWildSql(arg)        
         self.curs.execute('select ' + arg, self.varsUsed)
         self.rows = self.curs.fetchmany(min(self.maxfetch, (rowlimit or self.maxfetch)))
         self.rc = self.curs.rowcount
