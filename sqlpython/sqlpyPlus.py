@@ -495,22 +495,50 @@ class sqlpyPlus(sqlpython.sqlpython):
             completions = self.select_scalar_list(stmt % (text))
         return completions
 
-    columnlistPattern = pyparsing.SkipTo(pyparsing.CaselessKeyword('from'))('columns')
+    columnlistPattern = pyparsing.SkipTo(pyparsing.CaselessKeyword('from'))('columns') + \
+                        pyparsing.SkipTo(pyparsing.stringEnd)('remainder')
 
-    wildSqlColnum = pyparsing.Literal(':') + pyparsing.Keyword(pyparsing.nums)('colnum')
-    wildSqlNot = pyparsing.Literal('!') + pyparsing.Keyword(legalOracle)('col')
-    wildSqlNotColnum = pyparsing.Literal('!:') + pyparsing.Keyword(legalOracle)('colnum')    
+    legalOracleColName = pyparsing.Word('_$#' + pyparsing.alphas, '_$#' + pyparsing.alphanums)('column_name')
+    wildColNamePattern = pyparsing.Word('_$#*' + pyparsing.alphas, '_$#*' + pyparsing.alphanums)
+    wildSqlColnum = (pyparsing.Literal('*') + pyparsing.Word(pyparsing.nums)('column_number'))('expr')
+    wildSqlColName = pyparsing.Literal('*') + legalOracleColName 
+    wildSqlNot = pyparsing.Literal('!') + legalOracleColName
+    wildSqlNotColnum = pyparsing.Literal('!') + wildSqlColnum    
     for patt in (columnlistPattern, wildSqlColnum, wildSqlNot, wildSqlNotColnum):
         patt.ignore(pyparsing.cStyleComment).ignore(Parser.comment_def). \
              ignore(pyparsing.sglQuotedString).ignore(pyparsing.dblQuotedString)         
     def expandWildSql(self, arg):
         try:
-            columnlist = self.columnlistPattern.parseString(arg).columns
+            columnlist = self.columnlistPattern.parseString(arg)
         except pyparsing.ParseException:
             return arg
-        while colnum in self.wildSqlNotColnum.scanString(columnlist):
-            pass
-        return arg
+        colnums = list(self.wildSqlColnum.scanString(arg))
+        colnames = [cn for cn in self.wildColNamePattern.scanString(arg) if '*' in cn[0][0]]
+        excluded_columns = list(self.wildSqlNot.scanString(arg))
+        if not (colnums or colnames or excluded_columns):
+            return arg
+        self.curs.execute('select * ' + columnlist.remainder, self.varsUsed)
+        columns_available = [d[0] for d in self.curs.description]
+        replacers = {}
+        for colnum in colnums:
+            substval = columns_available[int(colnum[0].column_number)-1]
+            substkey = arg[colnum[1]:colnum[2]]
+            replacers[substkey] = substval
+        for colname in colnames:
+            substvals = []
+            target = colname[0][0].upper()
+            target = target.replace('*', '.*')
+            for col in columns_available:
+                if re.match(target, col):
+                    substvals.append(col)
+            if substvals:
+                replacers[colname[0][0]] = ', '.join(substvals)
+        replacers = sorted(replacers.items(), key=len, reverse=True)
+        replacers.reverse()
+        result = columnlist.columns
+        for (k, v) in replacers:
+            result = result.replace(k, v)  # could be confused by wildcards inside comments, strings
+        return result + columnlist.remainder
         
     rowlimitPattern = pyparsing.Word(pyparsing.nums)('rowlimit')
     terminators = '; \\C \\t \\i \\p \\l \\L \\b '.split() + output_templates.keys()
@@ -533,8 +561,10 @@ class sqlpyPlus(sqlpython.sqlpython):
             print "Specify desired number of rows after terminator (not '%s')" % arg.parsed.suffix
         self.varsUsed = findBinds(arg, self.binds, bindVarsIn)
         if self.wildsql:
-            arg = self.expandWildSql(arg)        
-        self.curs.execute('select ' + arg, self.varsUsed)
+            selecttext = self.expandWildSql(arg)
+        else:
+            selecttext = arg
+        self.curs.execute('select ' + selecttext, self.varsUsed)
         self.rows = self.curs.fetchmany(min(self.maxfetch, (rowlimit or self.maxfetch)))
         self.rc = self.curs.rowcount
         if self.rc > 0:
