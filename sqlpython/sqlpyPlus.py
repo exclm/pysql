@@ -500,8 +500,8 @@ class sqlpyPlus(sqlpython.sqlpython):
 
     negator = pyparsing.Literal('!')('exclude')
     colNumber = pyparsing.Optional(negator) + pyparsing.Literal('.') + pyparsing.Word('-' + pyparsing.nums, pyparsing.nums)('column_number')
-    colName = negator + pyparsing.Word('$_#' + pyparsing.alphas, '$_#' + pyparsing.alphanums)('standard_word')
-    wildColName = pyparsing.Optional(negator) + pyparsing.Word('*$_#' + pyparsing.alphas, '*$_#' + pyparsing.alphanums, min=2)('wildcard_word')
+    colName = negator + pyparsing.Word('$_#' + pyparsing.alphas, '$_#' + pyparsing.alphanums)('column_name')
+    wildColName = pyparsing.Optional(negator) + pyparsing.Word('*%$_#' + pyparsing.alphas, '*%$_#' + pyparsing.alphanums, min=2)('column_name')
     wildSqlParser = colNumber ^ colName ^ wildColName
     wildSqlParser.ignore(pyparsing.cStyleComment).ignore(Parser.comment_def). \
                   ignore(pyparsing.sglQuotedString).ignore(pyparsing.dblQuotedString)   
@@ -522,29 +522,37 @@ class sqlpyPlus(sqlpython.sqlpython):
         included = set()
         excluded = set()        
         for (col, startpos, endpos) in parseresults:
-            if col.column_number:
+            replacers[arg[startpos:endpos]] = []            
+            if col.column_name:
+                finder = col.column_name.replace('*','.*')
+                finder = finder.replace('%','.*')
+                colnames = [c for c in columns_available if re.match(finder, c, re.IGNORECASE)]
+            elif col.column_number:
                 idx = int(col.column_number)
                 if idx > 0:
                     idx -= 1                
-                colname = columns_available[idx]                
+                colnames = [columns_available[idx]]
+            if not colnames:
+                print 'No columns found matching criteria.'
+                return 'null from dual'
+            for colname in colnames:
                 if col.exclude:
                     included.discard(colname)
                     include_here = columns_available[:]
                     include_here.remove(colname)
-                    replacers[arg[startpos:endpos]] = include_here
+                    replacers[arg[startpos:endpos]].extend(include_here)
                     excluded.add(colname)
                 else:
-                    included.add(colname)
+                    #included.add(colname)
                     excluded.discard(colname)
-                    replacers[arg[startpos:endpos]] = colname
+                    replacers[arg[startpos:endpos]].append(colname)
                     
         replacers = sorted(replacers.items(), key=len, reverse=True)
         result = columnlist.columns
         for (target, replacement) in replacers:
-            if isinstance(replacement, list):
-                cols = [r for r in replacement if r not in excluded and r not in included]
-                replacement = ', '.join(cols)
-                included.update(cols)
+            cols = [r for r in replacement if r not in excluded and r not in included]
+            replacement = ', '.join(cols)
+            included.update(cols)
             result = result.replace(target, replacement)
         # some column names could get wiped out completely - fix their dangling commas
         result = self.emptyCommaRegex.sub(',', result)
