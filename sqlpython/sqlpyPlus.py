@@ -514,6 +514,13 @@ class sqlpyPlus(sqlpython.sqlpython):
         except pyparsing.ParseException:
             return arg
         parseresults = list(self.wildSqlParser.scanString(columnlist.columns))
+        # I would rather exclude non-wild column names in the grammar,
+        # but can't figure out how
+        parseresults = [p for p in parseresults if 
+                        p[0].column_number or 
+                        '*' in p[0].column_name or
+                        '%' in p[0].column_name or
+                        p[0].exclude]
         if not parseresults:
             return arg       
         self.curs.execute('select * ' + columnlist.remainder, self.varsUsed)
