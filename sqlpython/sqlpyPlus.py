@@ -499,7 +499,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                         pyparsing.SkipTo(pyparsing.stringEnd)('remainder')
 
     negator = pyparsing.Literal('!')('exclude')
-    colNumber = pyparsing.Optional(negator) + pyparsing.Literal('*') + pyparsing.Word('-' + pyparsing.nums, pyparsing.nums)('column_number')
+    colNumber = pyparsing.Optional(negator) + pyparsing.Literal('.') + pyparsing.Word('-' + pyparsing.nums, pyparsing.nums)('column_number')
     colName = negator + pyparsing.Word('$_#' + pyparsing.alphas, '$_#' + pyparsing.alphanums)('standard_word')
     wildColName = pyparsing.Optional(negator) + pyparsing.Word('*$_#' + pyparsing.alphas, '*$_#' + pyparsing.alphanums, min=2)('wildcard_word')
     wildSqlParser = colNumber ^ colName ^ wildColName
@@ -550,7 +550,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         result = self.emptyCommaRegex.sub(',', result)
         result = self.deadStarterCommaRegex.sub('', result)
         result = self.deadEnderCommaRegex.sub('', result)
-        return result + columnlist.remainder
+        return result + ' ' + columnlist.remainder
         
     rowlimitPattern = pyparsing.Word(pyparsing.nums)('rowlimit')
     terminators = '; \\C \\t \\i \\p \\l \\L \\b '.split() + output_templates.keys()
