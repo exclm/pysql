@@ -498,38 +498,56 @@ class sqlpyPlus(sqlpython.sqlpython):
     columnlistPattern = pyparsing.SkipTo(pyparsing.CaselessKeyword('from'))('columns') + \
                         pyparsing.SkipTo(pyparsing.stringEnd)('remainder')
 
-    legalOracleColName = pyparsing.Word('_$#' + pyparsing.alphas, '_$#' + pyparsing.alphanums)('column_name')
-    wildColNamePattern = pyparsing.Word('_$#*' + pyparsing.alphas, '_$#*' + pyparsing.alphanums)
-    wildSqlColnum = (pyparsing.Literal('*') + pyparsing.Word(pyparsing.nums)('column_number'))('expr')
-    wildSqlColName = pyparsing.Literal('*') + legalOracleColName 
-    wildSqlNot = pyparsing.Literal('!') + legalOracleColName
-    wildSqlNotColnum = pyparsing.Literal('!') + wildSqlColnum    
-    for patt in (columnlistPattern, wildSqlColnum, wildSqlNot, wildSqlNotColnum):
-        patt.ignore(pyparsing.cStyleComment).ignore(Parser.comment_def). \
-             ignore(pyparsing.sglQuotedString).ignore(pyparsing.dblQuotedString)         
+    negator = pyparsing.Optional('!')('exclude')
+    colNumber = negator + pyparsing.Literal('*') + pyparsing.Word('-' + pyparsing.nums, pyparsing.nums)('column_number')
+    colName = negator + pyparsing.Word('$_#' + pyparsing.alphas, '$_#' + pyparsing.alphanums)('standard_word')
+    wildColName = negator + pyparsing.Word('*$_#' + pyparsing.alphas, '*$_#' + pyparsing.alphanums)('wildcard_word')
+    wildSqlParser = colNumber ^ colName ^ wildColName
+    wildSqlParser.ignore(pyparsing.cStyleComment).ignore(Parser.comment_def). \
+                  ignore(pyparsing.sglQuotedString).ignore(pyparsing.dblQuotedString)         
     def expandWildSql(self, arg):
         try:
             columnlist = self.columnlistPattern.parseString(arg)
         except pyparsing.ParseException:
             return arg
+        notcolnums = list(self.wildSqlNotColnum.scanString(arg))
         colnums = list(self.wildSqlColnum.scanString(arg))
         colnames = [cn for cn in self.wildColNamePattern.scanString(arg) if '*' in cn[0][0]]
-        excluded_columns = list(self.wildSqlNot.scanString(arg))
-        if not (colnums or colnames or excluded_columns):
+        if not (colnums or colnames or notcolnums):
             return arg
         self.curs.execute('select * ' + columnlist.remainder, self.varsUsed)
         columns_available = [d[0] for d in self.curs.description]
         replacers = {}
+        alreadyincluded = []
+        alreadyexcluded = []
+        for colnum in notcolnums:
+            colindex = int(colnum[0].column_number)            
+            if colindex > 0:
+                exclude  = columns_available[colindex-1]
+            else:
+                exclude = columns_available[colindex]            
+            alreadyexcluded.append(exclude)
+            columns_to_add = [c for c in columns_available if c not in alreadyexcluded and c not in alreadyincluded]
+            alreadyincluded.extend(columns_to_add)
+            substval = ', '.join(columns_to_add)
+            substkey = arg[colnum[1]:colnum[2]]
+            replacers[substkey] = columns_to_add
+        for (k, cols) in replacers.items():
+            replacers[k] = [col for col in cols if col not in alreadyexcluded]
         for colnum in colnums:
-            substval = columns_available[int(colnum[0].column_number)-1]
+            colindex = int(colnum[0].column_number)
+            if colindex > 0:
+                substval = columns_available[colindex-1]
+            else:
+                substval = columns_available[colindex]
             substkey = arg[colnum[1]:colnum[2]]
             replacers[substkey] = substval
         for colname in colnames:
             substvals = []
-            target = colname[0][0].upper()
+            target = colname[0][0]
             target = target.replace('*', '.*')
             for col in columns_available:
-                if re.match(target, col):
+                if re.match(target, col, flags=re.IGNORECASE):
                     substvals.append(col)
             if substvals:
                 replacers[colname[0][0]] = ', '.join(substvals)
@@ -537,7 +555,10 @@ class sqlpyPlus(sqlpython.sqlpython):
         replacers.reverse()
         result = columnlist.columns
         for (k, v) in replacers:
-            result = result.replace(k, v)  # could be confused by wildcards inside comments, strings
+            if v:
+                result = result.replace(k, v)  # could be confused by wildcards inside comments, strings
+            else:
+                result = result.replace(k, '') # no good - adjacent columns result
         return result + columnlist.remainder
         
     rowlimitPattern = pyparsing.Word(pyparsing.nums)('rowlimit')
