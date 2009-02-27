@@ -371,7 +371,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         self.spoolFile = None
         self.autobind = False
         self.heading = True
-        self.wildsql = True
+        self.wildsql = False
 
     # overrides cmd's parseline
     def parseline(self, line):
@@ -547,7 +547,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                     included.discard(colname)
                     include_here = columns_available[:]
                     include_here.remove(colname)
-                    replacers[arg[startpos:endpos]].extend(include_here)
+                    replacers[arg[startpos:endpos]].extend(i for i in include_here if i not in replacers[arg[startpos:endpos]])
                     excluded.add(colname)
                 else:
                     #included.add(colname)
@@ -558,6 +558,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         result = columnlist.columns
         for (target, replacement) in replacers:
             cols = [r for r in replacement if r not in excluded and r not in included]
+            
             replacement = ', '.join(cols)
             included.update(cols)
             result = result.replace(target, replacement)
