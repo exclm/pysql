@@ -1,5 +1,5 @@
 #
-# SqlPython V1.5.3
+# SqlPython V1.6.0
 # Author: Luca.Canali@cern.ch, Apr 2006
 # Rev 25-Feb-09
 #

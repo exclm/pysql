@@ -389,7 +389,32 @@ class sqlpyPlus(sqlpython.sqlpython):
         return cmd, arg, line
     
     do__load = Cmd.do_load
-
+    
+    def do_remark_begin(self, line):
+        '''Wrapping a *single* SQL or PL/SQL statement in `REMARK_BEGIN` and `REMARK_END`
+        tells sqlpython to submit the enclosed code directly to Oracle as a single
+        unit of code.
+        
+        Without these markers, sqlpython fails to properly distinguish the beginning
+        and end of all but the simplest PL/SQL blocks, causing errors.  sqlpython also
+        slows down when parsing long SQL statements as it tries to determine whether
+        the statement has ended yet; `REMARK_BEGIN` and `REMARK_END` allow it to skip this
+        parsing.
+        
+        REMARK_BEGIN and REMARK_END will be read as comments by standard SQL*Plus.
+        '''
+        statement = []
+        next = self.pseudo_raw_input(self.continuationPrompt)
+        while not next.lower().strip().startswith('remark_end'):
+            #and not next.lower().strip().startswith('--- end'):
+            statement.append(next)
+            next = self.pseudo_raw_input(self.continuationPrompt)
+        statement = self.parsed('\n'.join(statement))
+        return self.onecmd(statement)        
+    
+    def remark(self, line):
+        pass
+    
     def onecmd_plus_hooks(self, line):                          
         line = self.precmd(line)
         stop = self.onecmd(line)
@@ -501,7 +526,7 @@ class sqlpyPlus(sqlpython.sqlpython):
     negator = pyparsing.Literal('!')('exclude')
     colNumber = pyparsing.Optional(negator) + pyparsing.Literal('.') + pyparsing.Word('-' + pyparsing.nums, pyparsing.nums)('column_number')
     colName = negator + pyparsing.Word('$_#' + pyparsing.alphas, '$_#' + pyparsing.alphanums)('column_name')
-    wildColName = pyparsing.Optional(negator) + pyparsing.Word('*%$_#' + pyparsing.alphas, '*%$_#' + pyparsing.alphanums, min=2)('column_name')
+    wildColName = pyparsing.Optional(negator) + pyparsing.Word('?*%$_#' + pyparsing.alphas, '?*%$_#' + pyparsing.alphanums, min=2)('column_name')
     wildSqlParser = colNumber ^ colName ^ wildColName
     wildSqlParser.ignore(pyparsing.cStyleComment).ignore(Parser.comment_def). \
                   ignore(pyparsing.sglQuotedString).ignore(pyparsing.dblQuotedString)   
@@ -520,6 +545,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                         p[0].column_number or 
                         '*' in p[0].column_name or
                         '%' in p[0].column_name or
+                        '?' in p[0].column_name or                        
                         p[0].exclude]
         if not parseresults:
             return arg       
@@ -533,7 +559,8 @@ class sqlpyPlus(sqlpython.sqlpython):
             if col.column_name:
                 finder = col.column_name.replace('*','.*')
                 finder = finder.replace('%','.*')
-                colnames = [c for c in columns_available if re.match(finder, c, re.IGNORECASE)]
+                finder = finder.replace('?','.')
+                colnames = [c for c in columns_available if re.match(finder + '$', c, re.IGNORECASE)]
             elif col.column_number:
                 idx = int(col.column_number)
                 if idx > 0:
@@ -1037,6 +1064,8 @@ class sqlpyPlus(sqlpython.sqlpython):
         lines = [line1]
         while True:
             line = self.pseudo_raw_input(self.continuationPrompt)
+            if line == 'EOF':
+                return
             if line.strip() == '/':
                 try:
                     self.curs.execute('\n'.join(lines))
