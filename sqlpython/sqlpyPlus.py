@@ -391,9 +391,10 @@ class sqlpyPlus(sqlpython.sqlpython):
     do__load = Cmd.do_load
     
     def do_remark_begin(self, line):
-        '''Wrapping a *single* SQL or PL/SQL statement in `REMARK_BEGIN` and `REMARK_END`
+        '''
+        Wrapping a *single* SQL or PL/SQL statement in `REMARK_BEGIN` and `REMARK_END`
         tells sqlpython to submit the enclosed code directly to Oracle as a single
-        unit of code.
+        unit of code.  
         
         Without these markers, sqlpython fails to properly distinguish the beginning
         and end of all but the simplest PL/SQL blocks, causing errors.  sqlpython also
@@ -401,7 +402,8 @@ class sqlpyPlus(sqlpython.sqlpython):
         the statement has ended yet; `REMARK_BEGIN` and `REMARK_END` allow it to skip this
         parsing.
         
-        REMARK_BEGIN and REMARK_END will be read as comments by standard SQL*Plus.
+        Standard SQL*Plus interprets REMARK_BEGIN and REMARK_END as comments, so it is
+        safe to include them in SQL*Plus scripts.
         '''
         statement = []
         next = self.pseudo_raw_input(self.continuationPrompt)
@@ -409,8 +411,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             #and not next.lower().strip().startswith('--- end'):
             statement.append(next)
             next = self.pseudo_raw_input(self.continuationPrompt)
-        statement = self.parsed('\n'.join(statement))
-        return self.onecmd(statement)        
+        return self.onecmd('\n'.join(statement))        
     
     def remark(self, line):
         pass
@@ -524,9 +525,11 @@ class sqlpyPlus(sqlpython.sqlpython):
                         pyparsing.SkipTo(pyparsing.stringEnd)('remainder')
 
     negator = pyparsing.Literal('!')('exclude')
-    colNumber = pyparsing.Optional(negator) + pyparsing.Literal('.') + pyparsing.Word('-' + pyparsing.nums, pyparsing.nums)('column_number')
+    colNumber = pyparsing.Optional(negator) + pyparsing.Literal('#') + pyparsing.Word('-' + pyparsing.nums, pyparsing.nums)('column_number')
     colName = negator + pyparsing.Word('$_#' + pyparsing.alphas, '$_#' + pyparsing.alphanums)('column_name')
     wildColName = pyparsing.Optional(negator) + pyparsing.Word('?*%$_#' + pyparsing.alphas, '?*%$_#' + pyparsing.alphanums, min=2)('column_name')
+    colNumber.ignore(pyparsing.cStyleComment).ignore(Parser.comment_def). \
+              ignore(pyparsing.sglQuotedString).ignore(pyparsing.dblQuotedString) 
     wildSqlParser = colNumber ^ colName ^ wildColName
     wildSqlParser.ignore(pyparsing.cStyleComment).ignore(Parser.comment_def). \
                   ignore(pyparsing.sglQuotedString).ignore(pyparsing.dblQuotedString)   
@@ -577,22 +580,23 @@ class sqlpyPlus(sqlpython.sqlpython):
                     replacers[arg[startpos:endpos]].extend(i for i in include_here if i not in replacers[arg[startpos:endpos]])
                     excluded.add(colname)
                 else:
-                    #included.add(colname)
                     excluded.discard(colname)
                     replacers[arg[startpos:endpos]].append(colname)
                     
         replacers = sorted(replacers.items(), key=len, reverse=True)
         result = columnlist.columns
         for (target, replacement) in replacers:
-            cols = [r for r in replacement if r not in excluded and r not in included]
-            
+            cols = [r for r in replacement if r not in excluded and r not in included]            
             replacement = ', '.join(cols)
             included.update(cols)
             result = result.replace(target, replacement)
-        # some column names could get wiped out completely - fix their dangling commas
+        # some column names could get wiped out completely, so we fix their dangling commas
         result = self.emptyCommaRegex.sub(',', result)
         result = self.deadStarterCommaRegex.sub('', result)
         result = self.deadEnderCommaRegex.sub('', result)
+        if not result.strip():
+            print 'No columns found matching criteria.'
+            return 'null from dual'        
         return result + ' ' + columnlist.remainder
         
     rowlimitPattern = pyparsing.Word(pyparsing.nums)('rowlimit')
@@ -669,7 +673,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                             ddlargs = [object_type, object_name]
                         else:
                             ddlargs = [object_type, object_name, owner]
-                        self.stdout.write(str(self.curs.callfunc('DBMS_METADATA.GET_DDL', cx_Oracle.CLOB, ddlargs)))
+                        self.stdout.write('REMARK_BEGIN\n%s\nREMARK_END\n\n' % str(self.curs.callfunc('DBMS_METADATA.GET_DDL', cx_Oracle.CLOB, ddlargs)))
                     except cx_Oracle.DatabaseError:
                         if object_type == 'JOB':
                             print '%s: DBMS_METADATA.GET_DDL does not support JOBs (MetaLink DocID 567504.1)' % object_name
@@ -678,7 +682,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                     if opts.full:
                         for dependent_type in ('OBJECT_GRANT', 'CONSTRAINT', 'TRIGGER'):        
                             try:
-                                self.stdout.write(str(self.curs.callfunc('DBMS_METADATA.GET_DEPENDENT_DDL', cx_Oracle.CLOB,
+                                self.stdout.write('REMARK_BEGIN\n%s\nREMARK_END\n\n' % str(self.curs.callfunc('DBMS_METADATA.GET_DEPENDENT_DDL', cx_Oracle.CLOB,
                                                                          [dependent_type, object_name, owner])))
                             except cx_Oracle.DatabaseError:
                                 pass
