@@ -1107,7 +1107,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             moreColumns = ''
             
         # 'Normal' sort order is DATE DESC (maybe), object type ASC, object name ASC
-        sortdirection = ('DESC' if hasattr(opts, 'reverse') and opts.reverse else 'ASC')
+        sortdirection = (hasattr(opts, 'reverse') and opts.reverse and 'DESC') or 'ASC'
         orderby = 'object_type %s, object_name %s' % (sortdirection, sortdirection)
         if hasattr(opts, 'timesort') and opts.timesort:
             orderby = 'last_ddl_time %s, %s' % (('ASC' if hasattr(opts, 'reverse') and opts.reverse else 'DESC'), orderby)
