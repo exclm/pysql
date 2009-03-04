@@ -316,7 +316,8 @@ class CaselessDict(dict):
         return dict.pop(self, key.lower(), def_val)
 
 class Parser(object):
-    comment_def = "--" + pyparsing.ZeroOrMore(pyparsing.CharsNotIn("\n"))    
+    #comment_def = "--" + pyparsing.ZeroOrMore(pyparsing.CharsNotIn("\n"))    
+    comment_def = "--" + ~ ('-' + pyparsing.CaselessKeyword('begin')) + pyparsing.ZeroOrMore(pyparsing.CharsNotIn("\n"))    
     def __init__(self, scanner, retainSeparator=True):
         self.scanner = scanner
         self.scanner.ignore(pyparsing.sglQuotedString)
@@ -360,6 +361,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                       create drop alter _multiline_comment'''.split()
     sqlpython.sqlpython.noSpecialParse.append('spool')
     commentGrammars = pyparsing.Or([pyparsing.Literal('--') + pyparsing.restOfLine, pyparsing.cStyleComment])
+    commentGrammars = pyparsing.Or([Parser.comment_def, pyparsing.cStyleComment])
     defaultFileName = 'afiedt.buf'
     def __init__(self):
         sqlpython.sqlpython.__init__(self)
@@ -669,11 +671,14 @@ class sqlpyPlus(sqlpython.sqlpython):
                         if vc:
                             subprocess.call(vc + [filename])
                     try:
-                        if object_type in ['CONTEXT', 'DIRECTORY', 'JOB']:
-                            ddlargs = [object_type, object_name]
+                        if object_type == 'PACKAGE':
+                            ddl = [['PACKAGE_SPEC', object_name, owner],['PACKAGE_BODY', object_name, owner]]                            
+                        elif object_type in ['CONTEXT', 'DIRECTORY', 'JOB']:
+                            ddl = [[object_type, object_name]]
                         else:
-                            ddlargs = [object_type, object_name, owner]
-                        self.stdout.write('REMARK BEGIN %s\n%s\nREMARK END\n\n' % (object_name, str(self.curs.callfunc('DBMS_METADATA.GET_DDL', cx_Oracle.CLOB, ddlargs))))
+                            ddl = [[object_type, object_name, owner]]
+                        for ddlargs in ddl:
+                            self.stdout.write('REMARK BEGIN %s\n%s\nREMARK END\n\n' % (object_name, str(self.curs.callfunc('DBMS_METADATA.GET_DDL', cx_Oracle.CLOB, ddlargs))))
                     except cx_Oracle.DatabaseError:
                         if object_type == 'JOB':
                             print '%s: DBMS_METADATA.GET_DDL does not support JOBs (MetaLink DocID 567504.1)' % object_name
