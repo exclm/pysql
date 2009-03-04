@@ -362,13 +362,13 @@ class sqlpyPlus(sqlpython.sqlpython):
     sqlpython.sqlpython.noSpecialParse.append('spool')
     commentGrammars = pyparsing.Or([pyparsing.Literal('--') + pyparsing.restOfLine, pyparsing.cStyleComment])
     commentGrammars = pyparsing.Or([Parser.comment_def, pyparsing.cStyleComment])
-    defaultFileName = 'afiedt.buf'
+    default_file_name = 'afiedt.buf'
     def __init__(self):
         sqlpython.sqlpython.__init__(self)
         self.binds = CaselessDict()
         self.settable += 'autobind commit_on_exit maxfetch maxtselctrows timeout heading wildsql'.split()
+        self.settable.remove('case_insensitive')
         self.settable.sort()
-        # settables must be lowercase
         self.stdoutBeforeSpool = sys.stdout
         self.spoolFile = None
         self.autobind = False
@@ -412,10 +412,10 @@ class sqlpyPlus(sqlpython.sqlpython):
         if not line.lower().strip().startswith('begin'):
             return
         statement = []
-        next = self.pseudo_raw_input(self.continuationPrompt)
+        next = self.pseudo_raw_input(self.continuation_prompt)
         while next.lower().split()[:2] != ['remark','end']:
             statement.append(next)
-            next = self.pseudo_raw_input(self.continuationPrompt)
+            next = self.pseudo_raw_input(self.continuation_prompt)
         return self.onecmd('\n'.join(statement))        
     
     def onecmd_plus_hooks(self, line):                          
@@ -730,7 +730,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         """Displays source code."""
         self._pull(arg, opts)
             
-    supported_ddl_types = 'CLUSTER, CONTEXT, DATABASE LINK, DIRECTORY, FUNCTION, INDEX, JOB, LIBRARY, MATERIALIZED VIEW, PACKAGE, PACKAGE BODY, OPERATOR, PACKAGE, PROCEDURE, SEQUENCE, SYNONYM, TABLE, TRIGGER, VIEW, TYPE, TYPE BODY, XML SCHEMA'
+    supported_ddl_types = 'CLUSTER, CONTEXT, DATABASE LINK, DIRECTORY, FUNCTION, INDEX, JOB, LIBRARY, MATERIALIZED VIEW, PACKAGE, PACKAGE BODY, PACKAGE SPEC, OPERATOR, PACKAGE, PROCEDURE, SEQUENCE, SYNONYM, TABLE, TRIGGER, VIEW, TYPE, TYPE BODY, XML SCHEMA'
     do_pull.__doc__ += '\n\nSupported DDL types: ' + supported_ddl_types
     supported_ddl_types = supported_ddl_types.split(', ')    
 
@@ -1072,7 +1072,7 @@ class sqlpyPlus(sqlpython.sqlpython):
     def anon_plsql(self, line1):
         lines = [line1]
         while True:
-            line = self.pseudo_raw_input(self.continuationPrompt)
+            line = self.pseudo_raw_input(self.continuation_prompt)
             if line == 'EOF':
                 return
             if line.strip() == '/':

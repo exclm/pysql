@@ -92,7 +92,8 @@ class sqlpython(cmd2.Cmd):
         
     def default(self, arg):
         self.varsUsed = sqlpyPlus.findBinds(arg, self.binds, givenBindVars={})
-        if arg.parsed.command.lower() in ('create',):
+        ending_args = arg.lower().split()[-2:]
+        if 'end' in ending_args:
             command = '%s %s;'
         else:
             command = '%s %s'        
