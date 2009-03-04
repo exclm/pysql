@@ -390,31 +390,31 @@ class sqlpyPlus(sqlpython.sqlpython):
     
     do__load = Cmd.do_load
     
-    def do_remark_begin(self, line):
+    def do_remark(self, line):
         '''
-        Wrapping a *single* SQL or PL/SQL statement in `REMARK_BEGIN` and `REMARK_END`
+        REMARK is one way to denote a comment in SQL*Plus.
+        
+        Wrapping a *single* SQL or PL/SQL statement in `REMARK BEGIN` and `REMARK END`
         tells sqlpython to submit the enclosed code directly to Oracle as a single
         unit of code.  
         
         Without these markers, sqlpython fails to properly distinguish the beginning
         and end of all but the simplest PL/SQL blocks, causing errors.  sqlpython also
         slows down when parsing long SQL statements as it tries to determine whether
-        the statement has ended yet; `REMARK_BEGIN` and `REMARK_END` allow it to skip this
+        the statement has ended yet; `REMARK BEGIN` and `REMARK END` allow it to skip this
         parsing.
         
-        Standard SQL*Plus interprets REMARK_BEGIN and REMARK_END as comments, so it is
+        Standard SQL*Plus interprets REMARK BEGIN and REMARK END as comments, so it is
         safe to include them in SQL*Plus scripts.
         '''
+        if not line.lower().strip().startswith('begin'):
+            return
         statement = []
         next = self.pseudo_raw_input(self.continuationPrompt)
-        while not next.lower().strip().startswith('remark_end'):
-            #and not next.lower().strip().startswith('--- end'):
+        while next.lower().split()[:2] != ['remark','end']:
             statement.append(next)
             next = self.pseudo_raw_input(self.continuationPrompt)
         return self.onecmd('\n'.join(statement))        
-    
-    def remark(self, line):
-        pass
     
     def onecmd_plus_hooks(self, line):                          
         line = self.precmd(line)
@@ -673,7 +673,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                             ddlargs = [object_type, object_name]
                         else:
                             ddlargs = [object_type, object_name, owner]
-                        self.stdout.write('REMARK_BEGIN\n%s\nREMARK_END\n\n' % str(self.curs.callfunc('DBMS_METADATA.GET_DDL', cx_Oracle.CLOB, ddlargs)))
+                        self.stdout.write('REMARK BEGIN %s\n%s\nREMARK END\n\n' % (object_name, str(self.curs.callfunc('DBMS_METADATA.GET_DDL', cx_Oracle.CLOB, ddlargs))))
                     except cx_Oracle.DatabaseError:
                         if object_type == 'JOB':
                             print '%s: DBMS_METADATA.GET_DDL does not support JOBs (MetaLink DocID 567504.1)' % object_name
@@ -682,7 +682,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                     if opts.full:
                         for dependent_type in ('OBJECT_GRANT', 'CONSTRAINT', 'TRIGGER'):        
                             try:
-                                self.stdout.write('REMARK_BEGIN\n%s\nREMARK_END\n\n' % str(self.curs.callfunc('DBMS_METADATA.GET_DEPENDENT_DDL', cx_Oracle.CLOB,
+                                self.stdout.write('REMARK BEGIN\n%s\nREMARK END\n\n' % str(self.curs.callfunc('DBMS_METADATA.GET_DEPENDENT_DDL', cx_Oracle.CLOB,
                                                                          [dependent_type, object_name, owner])))
                             except cx_Oracle.DatabaseError:
                                 pass
