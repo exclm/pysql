@@ -670,20 +670,22 @@ class sqlpyPlus(sqlpython.sqlpython):
                         self.stdout = open(filename, 'w')
                         if vc:
                             subprocess.call(vc + [filename])
-                    try:
-                        if object_type == 'PACKAGE':
-                            ddl = [['PACKAGE_SPEC', object_name, owner],['PACKAGE_BODY', object_name, owner]]                            
-                        elif object_type in ['CONTEXT', 'DIRECTORY', 'JOB']:
-                            ddl = [[object_type, object_name]]
-                        else:
-                            ddl = [[object_type, object_name, owner]]
-                        for ddlargs in ddl:
+                    if object_type == 'PACKAGE':
+                        ddl = [['PACKAGE_SPEC', object_name, owner],['PACKAGE_BODY', object_name, owner]]                            
+                    elif object_type in ['CONTEXT', 'DIRECTORY', 'JOB']:
+                        ddl = [[object_type, object_name]]
+                    else:
+                        ddl = [[object_type, object_name, owner]]
+                    for ddlargs in ddl:
+                        try:
                             self.stdout.write('REMARK BEGIN %s\n%s\nREMARK END\n\n' % (object_name, str(self.curs.callfunc('DBMS_METADATA.GET_DDL', cx_Oracle.CLOB, ddlargs))))
-                    except cx_Oracle.DatabaseError:
-                        if object_type == 'JOB':
-                            print '%s: DBMS_METADATA.GET_DDL does not support JOBs (MetaLink DocID 567504.1)' % object_name
-                            continue
-                        raise
+                        except cx_Oracle.DatabaseError, errmsg:
+                            if object_type == 'JOB':
+                                print '%s: DBMS_METADATA.GET_DDL does not support JOBs (MetaLink DocID 567504.1)' % object_name
+                            elif 'ORA-31603' in str(errmsg): # not found, as in package w/o package body
+                                pass
+                            else:
+                                raise
                     if opts.full:
                         for dependent_type in ('OBJECT_GRANT', 'CONSTRAINT', 'TRIGGER'):        
                             try:
@@ -735,6 +737,11 @@ class sqlpyPlus(sqlpython.sqlpython):
     supported_ddl_types = supported_ddl_types.split(', ')    
 
     def _vc(self, arg, opts, program):
+        if not os.path.exists('.%s' % program):
+            create = raw_input('%s repository not yet in current directory (%s).  Create (y/N)? ' % 
+                               (program, os.getcwd()))
+            if not create.strip().lower().startswith('y'):
+                return
         subprocess.call([program, 'init'])
         opts.dump = True
         self._pull(arg, opts, vc=[program, 'add'])
