@@ -366,10 +366,11 @@ class sqlpyPlus(sqlpython.sqlpython):
     def __init__(self):
         sqlpython.sqlpython.__init__(self)
         self.binds = CaselessDict()
-        self.settable += 'autobind commit_on_exit maxfetch maxtselctrows timeout heading wildsql'.split()
+        self.settable += 'autobind commit_on_exit maxfetch maxtselctrows sql_echo timeout heading wildsql'.split()
         self.settable.remove('case_insensitive')
         self.settable.sort()
         self.stdoutBeforeSpool = sys.stdout
+        self.sql_echo = False
         self.spoolFile = None
         self.autobind = False
         self.heading = True
@@ -477,7 +478,7 @@ class sqlpyPlus(sqlpython.sqlpython):
     legalOracle = re.compile('[a-zA-Z_$#]')
 
     def select_scalar_list(self, sql, binds={}):
-        self.curs.execute(sql, binds)
+        self._execute(sql, binds)
         return [r[0] for r in self.curs.fetchall()]
     
     columnNameRegex = re.compile(
@@ -858,7 +859,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         target = arg.upper()        
         object_type, owner, object_name, colName = self.resolve_with_column(target)
         if object_type:
-            self.curs.execute(queries['tabComments'], {'table_name':object_name, 'owner':owner})
+            self._execute(queries['tabComments'], {'table_name':object_name, 'owner':owner})
             self.stdout.write("%s %s.%s: %s\n" % (object_type, owner, object_name, self.curs.fetchone()[0]))
             if colName:
                 sql = queries['oneColComments']
@@ -881,7 +882,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                                   )[0]
             elif len(parts) == 1:
                 object_name = parts[0]
-                self.curs.execute(queries['resolve'], {'objName':object_name.upper()})
+                self._execute(queries['resolve'], {'objName':object_name.upper()})
                 object_type, object_name, owner = self.curs.fetchone()
         except (TypeError, IndexError):
             print 'Could not resolve object %s.' % identifier
@@ -1136,7 +1137,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         statement = '''SELECT %(owner)s, object_type, object_name 
                   FROM   %(whose)s_objects %(where)s
                   ORDER BY object_type, object_name''' % clauses
-        self.curs.execute(statement)
+        self._execute(statement)
         return self.curs.fetchall()
     
     @options([make_option('-l', '--long', action='store_true', help='long descriptions'),
@@ -1159,7 +1160,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         targets = [] 
         for target in targetnames:
             if '*' in target:
-                self.curs.execute("SELECT owner, table_name FROM all_tables WHERE table_name LIKE '%s'%s" %
+                self._execute("SELECT owner, table_name FROM all_tables WHERE table_name LIKE '%s'%s" %
                                   (target.upper().replace('*','%')), arg.terminator)
                 for row in self.curs:
                     targets.append('%s.%s' % row)
@@ -1169,7 +1170,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             print target
             target = target.rstrip(';')
             try:
-                self.curs.execute('select * from %s where 1=0' % target) # just to fill description
+                self._execute('select * from %s where 1=0' % target) # just to fill description
                 if opts.ignorecase:
                     sql = ' or '.join("LOWER(%s) LIKE '%%%s%%'" % (d[0], pattern.lower()) for d in self.curs.description)                                        
                 else:
@@ -1181,6 +1182,11 @@ class sqlpyPlus(sqlpython.sqlpython):
                 import traceback
                 traceback.print_exc(file=sys.stdout)                
 
+    def _execute(self, sql, bindvars={}):
+        if self.sql_echo:
+            print sql
+        self.curs.execute(sql, bindvars)
+
     def do_refs(self, arg):
         '''Lists referential integrity (foreign key constraints) on an object.'''
         
@@ -1188,27 +1194,28 @@ class sqlpyPlus(sqlpython.sqlpython):
             print 'Usage: refs (table name)'
         result = []
         (type, owner, table_name) = self.resolve(arg.upper())        
-        self.curs.execute("""SELECT constraint_name, r_owner, r_constraint_name 
+        sql = """SELECT constraint_name, r_owner, r_constraint_name 
                              FROM   all_constraints 
                              WHERE  constraint_type = 'R'
                              AND    owner = :owner
-                             AND    table_name = :table_name""",
-                             {"owner": owner, "table_name": table_name})
+                             AND    table_name = :table_name"""
+        self._execute(sql, {"owner": owner, "table_name": table_name})
         for (constraint_name, remote_owner, remote_constraint_name) in self.curs.fetchall():
             result.append('%s on %s.%s:' % (constraint_name, owner, table_name))
-            self.curs.execute("SELECT column_name FROM all_cons_columns WHERE owner = :owner AND constraint_name = :constraint_name ORDER BY position",
-                              {'constraint_name': constraint_name, 'owner': owner})
+            
+            self._execute("SELECT column_name FROM all_cons_columns WHERE owner = :owner AND constraint_name = :constraint_name ORDER BY position",
+                          {'constraint_name': constraint_name, 'owner': owner})
             result.append("    (%s)" % (",".join(col[0] for col in self.curs.fetchall())))
-            self.curs.execute("SELECT table_name FROM all_constraints WHERE owner = :remote_owner AND constraint_name = :remote_constraint_name",
-                              {'remote_owner': remote_owner, 'remote_constraint_name': remote_constraint_name})
+            self._execute("SELECT table_name FROM all_constraints WHERE owner = :remote_owner AND constraint_name = :remote_constraint_name",
+                          {'remote_owner': remote_owner, 'remote_constraint_name': remote_constraint_name})
             remote_table_name = self.curs.fetchone()[0]
             result.append("must be in %s:" % (remote_table_name))
-            self.curs.execute("SELECT column_name FROM all_cons_columns WHERE owner = :remote_owner AND constraint_name = :remote_constraint_name ORDER BY position",
+            self._execute("SELECT column_name FROM all_cons_columns WHERE owner = :remote_owner AND constraint_name = :remote_constraint_name ORDER BY position",
                               {'remote_constraint_name': remote_constraint_name, 'remote_owner': remote_owner})
             result.append('    (%s)\n' % (",".join(col[0] for col in self.curs.fetchall())))
         remote_table_name = table_name
         remote_owner = owner
-        self.curs.execute("""SELECT  owner, constraint_name, table_name, r_constraint_name
+        self._execute("""SELECT  owner, constraint_name, table_name, r_constraint_name
                              FROM    all_constraints
                              WHERE   (r_owner, r_constraint_name) IN
                                ( SELECT owner, constraint_name
@@ -1218,14 +1225,14 @@ class sqlpyPlus(sqlpython.sqlpython):
                           {'remote_table_name': remote_table_name, 'remote_owner': remote_owner})
         for (owner, constraint_name, table_name, remote_constraint_name) in self.curs.fetchall():
             result.append('%s on %s.%s:' % (constraint_name, owner, table_name))
-            self.curs.execute("SELECT column_name FROM all_cons_columns WHERE owner = :owner AND constraint_name = :constraint_name ORDER BY position",
+            self._execute("SELECT column_name FROM all_cons_columns WHERE owner = :owner AND constraint_name = :constraint_name ORDER BY position",
                               {'constraint_name': constraint_name, 'owner': owner})
             result.append("    (%s)" % (",".join(col[0] for col in self.curs.fetchall())))
-            self.curs.execute("SELECT table_name FROM all_constraints WHERE owner = :remote_owner AND constraint_name = :remote_constraint_name",
+            self._execute("SELECT table_name FROM all_constraints WHERE owner = :remote_owner AND constraint_name = :remote_constraint_name",
                               {'remote_owner': remote_owner, 'remote_constraint_name': remote_constraint_name})
             remote_table_name = self.curs.fetchone()[0]
             result.append("must be in %s:" % (remote_table_name))
-            self.curs.execute("SELECT column_name FROM all_cons_columns WHERE owner = :remote_owner AND constraint_name = :remote_constraint_name ORDER BY position",
+            self._execute("SELECT column_name FROM all_cons_columns WHERE owner = :remote_owner AND constraint_name = :remote_constraint_name ORDER BY position",
                               {'remote_constraint_name': remote_constraint_name, 'remote_owner': remote_owner})
             result.append('    (%s)\n' % (",".join(col[0] for col in self.curs.fetchall())))
         self.stdout.write('\n'.join(result) + "\n")
