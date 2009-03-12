@@ -1034,7 +1034,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             except KeyError:
                 self.stdout.write('No bind variable %s\n' % arg)
         else:
-            for (var, val) in self.binds.items():
+            for (var, val) in sorted(self.binds.items()):
                 print ':%s = %s' % (var, val)
 
     assignmentScanner = Parser(pyparsing.Literal(':=') ^ '=')
