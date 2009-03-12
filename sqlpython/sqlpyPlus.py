@@ -870,24 +870,27 @@ class sqlpyPlus(sqlpython.sqlpython):
             self.do_select(self.parsed(sql, terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix), 
                            bindVarsIn=bindVarsIn)
 
+    def _resolve(self, identifier):
+        parts = identifier.split('.')
+        if len(parts) == 2:
+            owner, object_name = parts
+            object_type = self.select_scalar_list('SELECT object_type FROM all_objects WHERE owner = :owner AND object_name = :object_name',
+                              {'owner': owner, 'object_name': object_name.upper()}
+                              )[0]
+        elif len(parts) == 1:
+            object_name = parts[0]
+            self._execute(queries['resolve'], {'objName':object_name.upper()})
+            object_type, object_name, owner = self.curs.fetchone()
+        return object_type, owner, object_name
+        
     def resolve(self, identifier):
         """Checks (my objects).name, (my synonyms).name, (public synonyms).name
         to resolve a database object's name. """
-        parts = identifier.split('.')
         try:
-            if len(parts) == 2:
-                owner, object_name = parts
-                object_type = self.select_scalar_list('SELECT object_type FROM all_objects WHERE owner = :owner AND object_name = :object_name',
-                                  {'owner': owner, 'object_name': object_name.upper()}
-                                  )[0]
-            elif len(parts) == 1:
-                object_name = parts[0]
-                self._execute(queries['resolve'], {'objName':object_name.upper()})
-                object_type, object_name, owner = self.curs.fetchone()
+            return self._resolve(identifier)
         except (TypeError, IndexError):
             print 'Could not resolve object %s.' % identifier
-            object_type, owner, object_name = '', '', ''
-        return object_type, owner, object_name
+            return '', '', ''
 
     def resolve_with_column(self, identifier):
         colName = None
@@ -992,28 +995,58 @@ class sqlpyPlus(sqlpython.sqlpython):
 
     @options([all_users_option])
     def do__dir_tables(self, arg, opts):
+        '''
+        Lists all tables whose names match argument.
+        '''        
         sql = """SELECT table_name, 'TABLE' as type%s FROM %s_tables WHERE table_name LIKE '%%%s%%';""" % \
                        (opts.scope['col'], opts.scope['view'], arg.upper())
+        if self.sql_echo:
+            print sql
         self.do_select(self.parsed(sql, terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix))
         
     @options([all_users_option])
     def do__dir_views(self, arg, opts):
+        '''
+        Lists all views whose names match argument.
+        '''
         sql = """SELECT view_name, 'VIEW' as type%s FROM %s_views WHERE view_name LIKE '%%%s%%';""" % \
                        (opts.scope['col'], opts.scope['view'], arg.upper())
+        if self.sql_echo:
+            print sql
         self.do_select(self.parsed(sql, terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix))
         
-    @options([all_users_option])
-    def do__dir_indexes(self, arg, opts):
-        sql = """SELECT index_name, index_type%s FROM %s_indexes WHERE index_name LIKE '%%%s%%' OR table_name LIKE '%%%s%%';""" % \
-                       (opts.scope['col'], opts.scope['view'], arg.upper(), arg.upper())
-        self.do_select(self.parsed(sql, terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix))
+    def do__dir_indexes(self, arg):
+        '''
+        Called with an exact table name, lists the indexes of that table.
+        Otherwise, acts as shortcut for `ls index/*(arg)*`
+        '''
+        try:
+            table_type, table_owner, table_name = self._resolve(arg)
+        except TypeError, IndexError:
+            return self.onecmd('ls Index/*%s*' % arg)
+        sql = """SELECT owner, index_name, index_type FROM all_indexes
+                 WHERE  table_owner = :table_owner
+                 AND    table_name = :table_name;
+                 ORDER BY owner, index_name"""
+        self.do_select(self.parsed(sql, terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix),
+                       bindVarsIn = {'table_owner': table_owner, 'table_name': table_name})
 
     def do__dir_tablespaces(self, arg):
+        '''
+        Lists all tablespaces.
+        '''
         sql = """SELECT tablespace_name, file_name from dba_data_files;"""
+        if self.sql_echo:
+            print sql
         self.do_select(self.parsed(sql, terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix))
 
     def do__dir_schemas(self, arg):
+        '''
+        Lists all object owners, together with the number of objects they own.
+        '''
         sql = """SELECT owner, count(*) AS objects FROM all_objects GROUP BY owner ORDER BY owner;"""
+        if self.sql_echo:
+            print sql
         self.do_select(self.parsed(sql, terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix))
 
     def do_head(self, arg):
