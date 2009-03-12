@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# MySqlPy V1.6.0
+# MySqlPy V1.6.1
 # Author: Luca.Canali@cern.ch
 # 
 #
@@ -13,9 +13,9 @@ import sys, tempfile, optparse, unittest
 
 class mysqlpy(sqlpyPlus):
     '''
-MySqlPy V1.6.0 - 'sqlplus in python'
+MySqlPy V1.6.1 - 'sqlplus in python'
 Author: Luca.Canali@cern.ch
-Rev: 1.6.0, 02-Mar-09
+Rev: 1.6.1, 15-Mar-09
 
 Companion of SqlPython, a python module that reproduces Oracle's command line within python
 and sqlpyPlus. Major contributions by Catherine Devlin, http://catherinedevlin.blogspot.com
@@ -106,6 +106,21 @@ Do not confuse with `GET myfile.sql` and `@myfile.sql`,
 which get and run SQL scripts from disk.'''
         self.onecmd(self.query_load10g)
 
+    @options([make_option('-u', '--uppercase', action='store_true', 
+                          help='use ALL CAPS')])
+    def do_greet(self, args, opts):
+        '''
+        Documentation for the command goes into this string
+        at the beginning of the method.
+        '''
+        result = 'Hello'
+        for name in args.split():
+            result += ',' + name
+        result += '!\n'
+        if opts.uppercase:
+            result = result.upper()
+        self.stdout.write(result)
+        
     def do_db(self,args,filepath='pass.txt'): 
         '''Exec do_connect to db_alias in args (credentials form the file pass.txt) '''
         f = open(filepath,'r')
