@@ -155,8 +155,9 @@ which get and run SQL scripts from disk.'''
 
     def do_explain(self,args):
         '''prints the plan of a given statement from the sql cache. 1 parameter: sql_id, see also do_sql '''
-        if len(args) > 2 and args[0].lower() == 'plan' and args[1].lower() == 'for':
-            self.curs.execute('explain %s' % ' '.join(args))
+        words = args.sqlit()
+        if len(words) > 2 and words[0].lower() == 'plan' and words[1].lower() == 'for':
+            self.curs.execute('explain %s' % args)
             print 'Explained.  (see plan table)'
             return 
         self.query = "select * from table(dbms_xplan.display_cursor('"+args+"'))"
