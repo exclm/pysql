@@ -203,10 +203,6 @@ and c1.owner = :owner
 """
 }
 
-if float(sys.version[:3]) < 2.3:
-    def enumerate(lst):
-        return zip(range(len(lst)), lst)
-
 class SoftwareSearcher(object):
     def __init__(self, softwareList, purpose):
         self.softwareList = softwareList
@@ -242,7 +238,6 @@ class SoftwareSearcher(object):
                or customize %s to make it aware of yours.
 Looked for these programs:
 %s""" % (self.purpose, __file__, "\n".join([s[0] for s in self.softwareList])))
-    #v2.4: %s""" % (self.purpose, __file__, "\n".join(s[0] for s in self.softwareList)))
 
 softwareLists = {
     'diff/merge': [  
@@ -316,7 +311,6 @@ class CaselessDict(dict):
         return dict.pop(self, key.lower(), def_val)
 
 class Parser(object):
-    #comment_def = "--" + pyparsing.ZeroOrMore(pyparsing.CharsNotIn("\n"))    
     comment_def = "--" + ~ ('-' + pyparsing.CaselessKeyword('begin')) + pyparsing.ZeroOrMore(pyparsing.CharsNotIn("\n"))    
     def __init__(self, scanner, retainSeparator=True):
         self.scanner = scanner
@@ -430,21 +424,6 @@ class sqlpyPlus(sqlpython.sqlpython):
         for (scchar, scto) in self.shortcuts.items():
             print '%s: %s' % (scchar, scto)
 
-    def colnames(self):
-        return [d[0] for d in curs.description]
-
-    def sql_format_itm(self, itm, needsquotes):
-        if itm is None:
-            return 'NULL'
-        if needsquotes:
-            return "'%s'" % str(itm)
-        return str(itm)
-    tableNameFinder = re.compile(r'from\s+([\w$#_"]+)', re.IGNORECASE | re.MULTILINE | re.DOTALL)          
-    inputStatementFormatters = {
-        cx_Oracle.STRING: "'%s'",
-        cx_Oracle.DATETIME: "TO_DATE('%s', 'YYYY-MM-DD HH24:MI:SS')"}
-    inputStatementFormatters[cx_Oracle.CLOB] = inputStatementFormatters[cx_Oracle.STRING]
-    inputStatementFormatters[cx_Oracle.TIMESTAMP] = inputStatementFormatters[cx_Oracle.DATETIME]    
     def output(self, outformat, rowlimit):
         self.tblname = self.tableNameFinder.search(self.curs.statement).group(1)
         self.colnames = [d[0] for d in self.curs.description]
