@@ -424,6 +424,12 @@ class sqlpyPlus(sqlpython.sqlpython):
         for (scchar, scto) in self.shortcuts.items():
             print '%s: %s' % (scchar, scto)
 
+    tableNameFinder = re.compile(r'from\s+([\w$#_"]+)', re.IGNORECASE | re.MULTILINE | re.DOTALL)          
+    inputStatementFormatters = {
+        cx_Oracle.STRING: "'%s'",
+        cx_Oracle.DATETIME: "TO_DATE('%s', 'YYYY-MM-DD HH24:MI:SS')"}
+    inputStatementFormatters[cx_Oracle.CLOB] = inputStatementFormatters[cx_Oracle.STRING]
+    inputStatementFormatters[cx_Oracle.TIMESTAMP] = inputStatementFormatters[cx_Oracle.DATETIME]                
     def output(self, outformat, rowlimit):
         self.tblname = self.tableNameFinder.search(self.curs.statement).group(1)
         self.colnames = [d[0] for d in self.curs.description]
