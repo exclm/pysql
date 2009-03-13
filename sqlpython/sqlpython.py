@@ -28,6 +28,7 @@ class sqlpython(cmd2.Cmd):
     def do_connect(self, arg):
         '''Opens the DB connection'''
         modeval = 0
+        oraserv = None
         for modere, modevalue in self.connection_modes.items():
             if modere.search(arg):
                 arg = modere.sub('', arg)
