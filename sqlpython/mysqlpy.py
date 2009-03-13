@@ -120,8 +120,14 @@ which get and run SQL scripts from disk.'''
         
     def do_db(self,args,filepath='pass.txt'): 
         '''Exec do_connect to db_alias in args (credentials form the file pass.txt) '''
-        f = open(filepath,'r')
-        connectstr = f.readline().strip() +'@'+args
+        try:
+            f = open(filepath,'r')
+        except IOError:
+            print 'Need a file %s containing username/password' % filepath
+            raise
+        connectstr = f.readline().strip()
+        if args:
+            connectstr += '@'+args
         self.do_connect(connectstr)
         f.close()
 
