@@ -106,17 +106,14 @@ Do not confuse with `GET myfile.sql` and `@myfile.sql`,
 which get and run SQL scripts from disk.'''
         self.onecmd(self.query_load10g)
 
+    def do_hello(self, arg):
+        print 'Hello, World!'
+        
     @options([make_option('-u', '--uppercase', action='store_true', 
                           help='use ALL CAPS')])
-    def do_greet(self, args, opts):
-        '''
-        Documentation for the command goes into this string
-        at the beginning of the method.
-        '''
-        result = 'Hello'
-        for name in args.split():
-            result += ',' + name
-        result += '!\n'
+    def do_greet(self, arg, opts):
+        'Provides a personalized greeting.'
+        result = 'Hello %s!\n' % arg
         if opts.uppercase:
             result = result.upper()
         self.stdout.write(result)
