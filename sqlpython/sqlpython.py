@@ -67,6 +67,7 @@ class sqlpython(cmd2.Cmd):
         except Exception, e:
             print e
             
+    do_host = cmd2.Cmd.do_shell
     
     def emptyline(self):
         pass
