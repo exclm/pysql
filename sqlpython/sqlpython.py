@@ -66,6 +66,8 @@ class sqlpython(cmd2.Cmd):
             self.prompt = '%s@%s> ' % (orauser, self.sid)
         except Exception, e:
             print e
+        if self.serveroutput:
+            self.curs.callproc('dbms_output.enable', [])
             
     do_host = cmd2.Cmd.do_shell
     
