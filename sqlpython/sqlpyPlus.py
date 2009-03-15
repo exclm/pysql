@@ -360,7 +360,7 @@ class sqlpyPlus(sqlpython.sqlpython):
     def __init__(self):
         sqlpython.sqlpython.__init__(self)
         self.binds = CaselessDict()
-        self.settable += 'autobind commit_on_exit maxfetch maxtselctrows sql_echo timeout heading wildsql'.split()
+        self.settable += 'autobind commit_on_exit maxfetch maxtselctrows serveroutput sql_echo timeout heading wildsql'.split()
         self.settable.remove('case_insensitive')
         self.settable.sort()
         self.stdoutBeforeSpool = sys.stdout
@@ -369,7 +369,8 @@ class sqlpyPlus(sqlpython.sqlpython):
         self.autobind = False
         self.heading = True
         self.wildsql = False
-
+        self.serveroutput = True
+        
     # overrides cmd's parseline
     def parseline(self, line):
         """Parse the line into a command name and a string containing
@@ -386,6 +387,22 @@ class sqlpyPlus(sqlpython.sqlpython):
         return cmd, arg, line
     
     do__load = Cmd.do_load
+
+    def dbms_output(self):
+        "Dumps contents of Oracle's DBMS_OUTPUT buffer (where PUT_LINE goes)"
+        line = self.curs.var(cx_Oracle.STRING)
+        status = self.curs.var(cx_Oracle.NUMBER)
+        self.curs.callproc('dbms_output.get_line', [line, status])
+        while not status.getvalue():
+            self.stdout.write(line.getvalue())
+            self.stdout.write('\n')
+            self.curs.callproc('dbms_output.get_line', [line, status])
+        
+    def postcmd(self, stop, line):
+        """Hook method executed just after a command dispatch is finished."""        
+        if self.serveroutput:
+            self.dbms_output()
+        return stop
     
     def do_remark(self, line):
         '''
@@ -418,6 +435,12 @@ class sqlpyPlus(sqlpython.sqlpython):
         stop = self.onecmd(line)
         stop = self.postcmd(stop, line)
 
+    def _onchange_serveroutput(self, old, new):
+        if new:
+            self.curs.callproc('dbms_output.enable', [])        
+        else:
+            self.curs.callproc('dbms_output.disable', [])        
+        
     def do_shortcuts(self,arg):
         """Lists available first-character shortcuts
         (i.e. '!dir' is equivalent to 'shell dir')"""

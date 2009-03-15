@@ -108,16 +108,7 @@ which get and run SQL scripts from disk.'''
 
     def do_hello(self, arg):
         print 'Hello, World!'
-        
-    @options([make_option('-u', '--uppercase', action='store_true', 
-                          help='use ALL CAPS')])
-    def do_greet(self, arg, opts):
-        'Provides a personalized greeting.'
-        result = 'Hello %s!\n' % arg
-        if opts.uppercase:
-            result = result.upper()
-        self.stdout.write(result)
-        
+                
     def do_db(self,args,filepath='pass.txt'): 
         '''Exec do_connect to db_alias in args (credentials form the file pass.txt) '''
         try:
