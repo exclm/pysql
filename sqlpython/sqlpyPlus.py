@@ -356,6 +356,8 @@ class sqlpyPlus(sqlpython.sqlpython):
     sqlpython.sqlpython.noSpecialParse.append('spool')
     commentGrammars = pyparsing.Or([pyparsing.Literal('--') + pyparsing.restOfLine, pyparsing.cStyleComment])
     commentGrammars = pyparsing.Or([Parser.comment_def, pyparsing.cStyleComment])
+    prefixParser = pyparsing.Optional(pyparsing.Word(pyparsing.nums)('connection_number') 
+                                      + ':')
     default_file_name = 'afiedt.buf'
     def __init__(self):
         sqlpython.sqlpython.__init__(self)
