@@ -22,52 +22,77 @@ class sqlpython(cmd2.Cmd):
         self.terminator = ';'
         self.timeout = 30
         self.commit_on_exit = True
+        self.connections = []
+        self.prompts = []
+        self.connection_number = None
         
     connection_modes = {re.compile(' AS SYSDBA', re.IGNORECASE): cx_Oracle.SYSDBA, 
                         re.compile(' AS SYSOPER', re.IGNORECASE): cx_Oracle.SYSOPER}
-    def do_connect(self, arg):
+    @cmd2.options([cmd2.make_option('-a', '--add', action='store_true', 
+                                    help='add connection (keep current connection)'),])
+    def do_connect(self, arg, opts):
         '''Opens the DB connection'''
-        modeval = 0
-        oraserv = None
-        for modere, modevalue in self.connection_modes.items():
-            if modere.search(arg):
-                arg = modere.sub('', arg)
-                modeval = modevalue
+        if not arg:
+            self.stdout.write('\n'.join(self.prompts) + '\n')
+            return
         try:
-            orauser, oraserv = arg.split('@')
-        except ValueError:
-            try:
-                oraserv = os.environ['ORACLE_SID']
-            except KeyError:
-                print 'instance not specified and environment variable ORACLE_SID not set'
-                return
-            orauser = arg
-        self.sid = oraserv
-        try:
-            host, self.sid = oraserv.split('/')
-            try:
-                host, port = host.split(':')
-                port = int(port)
-            except ValueError:
-                port = 1521
-            oraserv = cx_Oracle.makedsn(host, port, self.sid)
-        except ValueError:
-            pass
-        try:
-            orauser, orapass = orauser.split('/')
-        except ValueError:
-            orapass = getpass.getpass('Password: ')
-        if orauser.upper() == 'SYS' and not modeval:
-            print 'Privilege not specified for SYS, assuming SYSOPER'
-            modeval = cx_Oracle.SYSOPER
-        try:
-            self.orcl = cx_Oracle.connect(orauser,orapass,oraserv,modeval)
+            self.connection_number = int(arg)
+            self.orcl = self.connections[self.connection_number]
+            self.prompt = self.prompts[self.connection_number]
             self.curs = self.orcl.cursor()
-            self.prompt = '%s@%s> ' % (orauser, self.sid)
-        except Exception, e:
-            print e
-        if self.serveroutput:
-            self.curs.callproc('dbms_output.enable', [])
+        except IndexError:
+            self.stdout.write('\n'.join(self.prompts))
+            return            
+        except ValueError:            
+            modeval = 0
+            oraserv = None
+            for modere, modevalue in self.connection_modes.items():
+                if modere.search(arg):
+                    arg = modere.sub('', arg)
+                    modeval = modevalue
+            try:
+                orauser, oraserv = arg.split('@')
+            except ValueError:
+                try:
+                    oraserv = os.environ['ORACLE_SID']
+                except KeyError:
+                    print 'instance not specified and environment variable ORACLE_SID not set'
+                    return
+                orauser = arg
+            self.sid = oraserv
+            try:
+                host, self.sid = oraserv.split('/')
+                try:
+                    host, port = host.split(':')
+                    port = int(port)
+                except ValueError:
+                    port = 1521
+                oraserv = cx_Oracle.makedsn(host, port, self.sid)
+            except ValueError:
+                pass
+            try:
+                orauser, orapass = orauser.split('/')
+            except ValueError:
+                orapass = getpass.getpass('Password: ')
+            if orauser.upper() == 'SYS' and not modeval:
+                print 'Privilege not specified for SYS, assuming SYSOPER'
+                modeval = cx_Oracle.SYSOPER
+            try:
+                self.orcl = cx_Oracle.connect(orauser,orapass,oraserv,modeval)
+                if opts.add or (self.connection_number is None):
+                    self.connections.append(self.orcl)
+                    self.prompts.append(None)
+                    self.connection_number = len(self.connections) - 1
+                else:
+                    self.connections[self.connection_number] = self.orcl
+                self.curs = self.orcl.cursor()
+                self.prompt = '%d:%s@%s> ' % (self.connection_number, orauser, self.sid)
+                self.prompts[self.connection_number] = self.prompt
+            except Exception, e:
+                print e
+                return
+            if self.serveroutput:
+                self.curs.callproc('dbms_output.enable', [])
             
     do_host = cmd2.Cmd.do_shell
     
