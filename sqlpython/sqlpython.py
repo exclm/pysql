@@ -26,6 +26,22 @@ class sqlpython(cmd2.Cmd):
         self.prompts = []
         self.connection_number = None
         
+    def successful_connection_to_number(self, arg):
+        try:
+            self.connection_number = int(arg)
+            self.orcl = self.connections[self.connection_number]
+            self.prompt = self.prompts[self.connection_number]
+            self.curs = self.orcl.cursor()
+            if self.serveroutput:
+                self.curs.callproc('dbms_output.enable', [])            
+        except ValueError:            
+            return False
+        return True
+
+    def list_connections(self):
+        self.stdout.write('Existing connections:\n')
+        self.stdout.write('\n'.join(self.prompts) + '\n')
+        
     connection_modes = {re.compile(' AS SYSDBA', re.IGNORECASE): cx_Oracle.SYSDBA, 
                         re.compile(' AS SYSOPER', re.IGNORECASE): cx_Oracle.SYSOPER}
     @cmd2.options([cmd2.make_option('-a', '--add', action='store_true', 
@@ -33,67 +49,79 @@ class sqlpython(cmd2.Cmd):
     def do_connect(self, arg, opts):
         '''Opens the DB connection'''
         if not arg:
-            self.stdout.write('\n'.join(self.prompts) + '\n')
+            self.list_connections()
             return
         try:
-            self.connection_number = int(arg)
-            self.orcl = self.connections[self.connection_number]
-            self.prompt = self.prompts[self.connection_number]
-            self.curs = self.orcl.cursor()
-        except IndexError:
-            self.stdout.write('\n'.join(self.prompts))
-            return            
-        except ValueError:            
-            modeval = 0
-            oraserv = None
-            for modere, modevalue in self.connection_modes.items():
-                if modere.search(arg):
-                    arg = modere.sub('', arg)
-                    modeval = modevalue
-            try:
-                orauser, oraserv = arg.split('@')
-            except ValueError:
-                try:
-                    oraserv = os.environ['ORACLE_SID']
-                except KeyError:
-                    print 'instance not specified and environment variable ORACLE_SID not set'
-                    return
-                orauser = arg
-            self.sid = oraserv
-            try:
-                host, self.sid = oraserv.split('/')
-                try:
-                    host, port = host.split(':')
-                    port = int(port)
-                except ValueError:
-                    port = 1521
-                oraserv = cx_Oracle.makedsn(host, port, self.sid)
-            except ValueError:
-                pass
-            try:
-                orauser, orapass = orauser.split('/')
-            except ValueError:
-                orapass = getpass.getpass('Password: ')
-            if orauser.upper() == 'SYS' and not modeval:
-                print 'Privilege not specified for SYS, assuming SYSOPER'
-                modeval = cx_Oracle.SYSOPER
-            try:
-                self.orcl = cx_Oracle.connect(orauser,orapass,oraserv,modeval)
-                if opts.add or (self.connection_number is None):
-                    self.connections.append(self.orcl)
-                    self.prompts.append(None)
-                    self.connection_number = len(self.connections) - 1
-                else:
-                    self.connections[self.connection_number] = self.orcl
-                self.curs = self.orcl.cursor()
-                self.prompt = '%d:%s@%s> ' % (self.connection_number, orauser, self.sid)
-                self.prompts[self.connection_number] = self.prompt
-            except Exception, e:
-                print e
+            if self.successful_connection_to_number(arg):
                 return
-            if self.serveroutput:
-                self.curs.callproc('dbms_output.enable', [])
-            
+        except IndexError:
+            self.list_connections()
+            return
+        modeval = 0
+        oraserv = None
+        for modere, modevalue in self.connection_modes.items():
+            if modere.search(arg):
+                arg = modere.sub('', arg)
+                modeval = modevalue
+        try:
+            orauser, oraserv = arg.split('@')
+        except ValueError:
+            try:
+                oraserv = os.environ['ORACLE_SID']
+            except KeyError:
+                print 'instance not specified and environment variable ORACLE_SID not set'
+                return
+            orauser = arg
+        self.sid = oraserv
+        try:
+            host, self.sid = oraserv.split('/')
+            try:
+                host, port = host.split(':')
+                port = int(port)
+            except ValueError:
+                port = 1521
+            oraserv = cx_Oracle.makedsn(host, port, self.sid)
+        except ValueError:
+            pass
+        try:
+            orauser, orapass = orauser.split('/')
+        except ValueError:
+            orapass = getpass.getpass('Password: ')
+        if orauser.upper() == 'SYS' and not modeval:
+            print 'Privilege not specified for SYS, assuming SYSOPER'
+            modeval = cx_Oracle.SYSOPER
+        try:
+            self.orcl = cx_Oracle.connect(orauser,orapass,oraserv,modeval)
+            if opts.add or (self.connection_number is None):
+                self.connections.append(self.orcl)
+                self.prompts.append(None)
+                self.connection_number = len(self.connections) - 1
+            else:
+                self.connections[self.connection_number] = self.orcl
+            self.curs = self.orcl.cursor()
+            self.prompt = '%d:%s@%s> ' % (self.connection_number, orauser, self.sid)
+            self.prompts[self.connection_number] = self.prompt
+        except Exception, e:
+            print e
+            return
+        if self.serveroutput:
+            self.curs.callproc('dbms_output.enable', [])
+    def postparsing_precmd(self, statement):
+        stop = 0
+        self.saved_connection_number = None
+        if statement.parsed.connection_number:
+            saved_connection_number = self.connection_number
+            try:
+                if self.successful_connection_to_number(statement.parsed.connection_number):
+                    self.saved_connection_number = saved_connection_number
+            except IndexError:
+                self.list_connections()
+        return stop, statement           
+    def postparsing_postcmd(self, stop):
+        if self.saved_connection_number is not None:
+            self.successful_connection_to_number(self.saved_connection_number)
+        return stop
+                
     do_host = cmd2.Cmd.do_shell
     
     def emptyline(self):
