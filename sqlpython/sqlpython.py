@@ -22,20 +22,20 @@ class sqlpython(cmd2.Cmd):
         self.terminator = ';'
         self.timeout = 30
         self.commit_on_exit = True
-        self.connections = []
-        self.prompts = []
+        self.connections = {}
         
     def no_connection(self):
-        self.promt = 'SQL.No_Connection> '
+        self.prompt = 'SQL.No_Connection> '
         self.curs = None
         self.orcl = None
         self.connection_number = None
         
     def successful_connection_to_number(self, arg):
         try:
-            self.connection_number = int(arg)
-            self.orcl = self.connections[self.connection_number]
-            self.prompt = self.prompts[self.connection_number]
+            connection_number = int(arg)
+            self.orcl = self.connections[connection_number]['conn']
+            self.prompt = self.connections[connection_number]['prompt']
+            self.connection_number = connection_number
             self.curs = self.orcl.cursor()
             if self.serveroutput:
                 self.curs.callproc('dbms_output.enable', [])            
@@ -45,39 +45,43 @@ class sqlpython(cmd2.Cmd):
 
     def list_connections(self):
         self.stdout.write('Existing connections:\n')
-        self.stdout.write('\n'.join(self.prompts) + '\n')
+        self.stdout.write('\n'.join(v['prompt'] for (k,v) in sorted(self.connections.items())) + '\n')
         
     def disconnect(self, arg):
         try:
             connection_number = int(arg)
             connection = self.connections[connection_number]
-        except (ValueError, IndexError):
+        except (ValueError, KeyError):
             self.list_connections()
             return
         if self.commit_on_exit:
-            connection.commit()
+            connection['conn'].commit()
         self.connections.pop(connection_number)
-        self.prompts.pop(connection_number)
         if connection_number == self.connection_number:
             self.no_connection()
-        
+            
+    def closeall(self):
+        for connection_number in self.connections.keys():
+            self.disconnect(connection_number)
+        self.curs = None
+        self.no_connection()        
+            
     connection_modes = {re.compile(' AS SYSDBA', re.IGNORECASE): cx_Oracle.SYSDBA, 
                         re.compile(' AS SYSOPER', re.IGNORECASE): cx_Oracle.SYSOPER}
     @cmd2.options([cmd2.make_option('-a', '--add', action='store_true', 
                                     help='add connection (keep current connection)'),
                    cmd2.make_option('-c', '--close', action='store_true', 
                                     help='close connection {N} (or current)'),
-                   cmd2.make_option('--closeall', action='store_true', 
+                   cmd2.make_option('-C', '--closeall', action='store_true', 
                                     help='close all connections'),])
     def do_connect(self, arg, opts):
         '''Opens the DB connection'''
         if opts.closeall:
-            for connection_number in range(len(self.connections)):
-                self.disconnect(connection_number)
-            self.curs = None
-            self.no_connection()
+            self.closeall()
             return
         if opts.close:
+            if not arg:
+                arg = self.connection_number
             self.disconnect(arg)
             return
         if not arg:
@@ -125,14 +129,16 @@ class sqlpython(cmd2.Cmd):
         try:
             self.orcl = cx_Oracle.connect(orauser,orapass,oraserv,modeval)
             if opts.add or (self.connection_number is None):
-                self.connections.append(self.orcl)
-                self.prompts.append(None)
-                self.connection_number = len(self.connections) - 1
+                try:
+                    self.connection_number = max(self.connections.keys()) + 1
+                except ValueError:
+                    self.connection_number = 0
+                self.connections[self.connection_number] = {'conn':self.orcl}
             else:
-                self.connections[self.connection_number] = self.orcl
+                self.connections[self.connection_number] = {'conn':self.orcl}
             self.curs = self.orcl.cursor()
             self.prompt = '%d:%s@%s> ' % (self.connection_number, orauser, self.sid)
-            self.prompts[self.connection_number] = self.prompt
+            self.connections[self.connection_number]['prompt'] = self.prompt
         except Exception, e:
             print e
             return
@@ -146,8 +152,9 @@ class sqlpython(cmd2.Cmd):
             try:
                 if self.successful_connection_to_number(statement.parsed.connection_number):
                     self.saved_connection_number = saved_connection_number
-            except IndexError:
+            except KeyError:
                 self.list_connections()
+                raise KeyError, 'No connection #%s' % statement.parsed.connection_number
         return stop, statement           
     def postparsing_postcmd(self, stop):
         if self.saved_connection_number is not None:
@@ -194,9 +201,8 @@ class sqlpython(cmd2.Cmd):
     def do_rollback(self, arg=''):
         self.default(self.parsed('rollback %s;' % (arg)))
     def do_quit(self, arg):
-        if self.commit_on_exit and hasattr(self, 'curs'):
-            self.do_commit()
-            #self.default(self.parsed('commit'))
+        if self.commit_on_exit:
+            self.closeall()
         return cmd2.Cmd.do_quit(self, None)
     do_exit = do_quit
     do_q = do_quit

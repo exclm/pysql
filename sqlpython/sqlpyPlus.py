@@ -392,13 +392,16 @@ class sqlpyPlus(sqlpython.sqlpython):
 
     def dbms_output(self):
         "Dumps contents of Oracle's DBMS_OUTPUT buffer (where PUT_LINE goes)"
-        line = self.curs.var(cx_Oracle.STRING)
-        status = self.curs.var(cx_Oracle.NUMBER)
-        self.curs.callproc('dbms_output.get_line', [line, status])
-        while not status.getvalue():
-            self.stdout.write(line.getvalue())
-            self.stdout.write('\n')
+        try:
+            line = self.curs.var(cx_Oracle.STRING)
+            status = self.curs.var(cx_Oracle.NUMBER)
             self.curs.callproc('dbms_output.get_line', [line, status])
+            while not status.getvalue():
+                self.stdout.write(line.getvalue())
+                self.stdout.write('\n')
+                self.curs.callproc('dbms_output.get_line', [line, status])
+        except AttributeError:
+            pass
         
     def postcmd(self, stop, line):
         """Hook method executed just after a command dispatch is finished."""        
