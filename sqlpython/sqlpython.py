@@ -17,13 +17,18 @@ class sqlpython(cmd2.Cmd):
 
     def __init__(self):
         cmd2.Cmd.__init__(self)
-        self.prompt = 'SQL.No_Connection> '
+        self.no_connection()
         self.maxfetch = 1000
         self.terminator = ';'
         self.timeout = 30
         self.commit_on_exit = True
         self.connections = []
         self.prompts = []
+        
+    def no_connection(self):
+        self.promt = 'SQL.No_Connection> '
+        self.curs = None
+        self.orcl = None
         self.connection_number = None
         
     def successful_connection_to_number(self, arg):
@@ -42,12 +47,39 @@ class sqlpython(cmd2.Cmd):
         self.stdout.write('Existing connections:\n')
         self.stdout.write('\n'.join(self.prompts) + '\n')
         
+    def disconnect(self, arg):
+        try:
+            connection_number = int(arg)
+            connection = self.connections[connection_number]
+        except (ValueError, IndexError):
+            self.list_connections()
+            return
+        if self.commit_on_exit:
+            connection.commit()
+        self.connections.pop(connection_number)
+        self.prompts.pop(connection_number)
+        if connection_number == self.connection_number:
+            self.no_connection()
+        
     connection_modes = {re.compile(' AS SYSDBA', re.IGNORECASE): cx_Oracle.SYSDBA, 
                         re.compile(' AS SYSOPER', re.IGNORECASE): cx_Oracle.SYSOPER}
     @cmd2.options([cmd2.make_option('-a', '--add', action='store_true', 
-                                    help='add connection (keep current connection)'),])
+                                    help='add connection (keep current connection)'),
+                   cmd2.make_option('-c', '--close', action='store_true', 
+                                    help='close connection {N} (or current)'),
+                   cmd2.make_option('--closeall', action='store_true', 
+                                    help='close all connections'),])
     def do_connect(self, arg, opts):
         '''Opens the DB connection'''
+        if opts.closeall:
+            for connection_number in range(len(self.connections)):
+                self.disconnect(connection_number)
+            self.curs = None
+            self.no_connection()
+            return
+        if opts.close:
+            self.disconnect(arg)
+            return
         if not arg:
             self.list_connections()
             return
@@ -163,7 +195,8 @@ class sqlpython(cmd2.Cmd):
         self.default(self.parsed('rollback %s;' % (arg)))
     def do_quit(self, arg):
         if self.commit_on_exit and hasattr(self, 'curs'):
-            self.default(self.parsed('commit'))
+            self.do_commit()
+            #self.default(self.parsed('commit'))
         return cmd2.Cmd.do_quit(self, None)
     do_exit = do_quit
     do_q = do_quit
