@@ -1,4 +1,4 @@
-testdata@eqdev> CREATE TABLE species (
+0:testdata@eqdev> CREATE TABLE species (
 > ID     NUMBER(8,0) CONSTRAINT xnn1_species NOT NULL
 >                    CONSTRAINT xpk_species PRIMARY KEY,
 > NAME   VARCHAR2(12) CONSTRAINT xnn2_species NOT NULL
@@ -6,29 +6,29 @@ testdata@eqdev> CREATE TABLE species (
 
 Executed
 
-testdata@eqdev> :id = 0
-testdata@eqdev> :name = 'turtle'
-testdata@eqdev> INSERT INTO species VALUES (:id, :name);
+0:testdata@eqdev> :id = 0
+0:testdata@eqdev> :name = 'turtle'
+0:testdata@eqdev> INSERT INTO species VALUES (:id, :name);
 
 Executed (1 rows)
 
-testdata@eqdev> :id = 1
-testdata@eqdev> :name = 'python'
-testdata@eqdev> INSERT INTO species VALUES (:id, :name);
+0:testdata@eqdev> :id = 1
+0:testdata@eqdev> :name = 'python'
+0:testdata@eqdev> INSERT INTO species VALUES (:id, :name);
 
 Executed (1 rows)
 
-testdata@eqdev> :id = 2
-testdata@eqdev> :name = 'parrot'
-testdata@eqdev> INSERT INTO species VALUES (:id, :name);
+0:testdata@eqdev> :id = 2
+0:testdata@eqdev> :name = 'parrot'
+0:testdata@eqdev> INSERT INTO species VALUES (:id, :name);
 
 Executed (1 rows)
 
-testdata@eqdev> commit;
+0:testdata@eqdev> commit;
 
 Executed
 
-testdata@eqdev> select * from species;
+0:testdata@eqdev> select * from species;
 
 ID NAME  
 -- ------
@@ -38,7 +38,7 @@ ID NAME
 
 3 rows selected.
 
-testdata@eqdev> select *
+0:testdata@eqdev> select *
 > from species;
 
 ID NAME  
@@ -49,7 +49,7 @@ ID NAME
 
 3 rows selected.
 
-testdata@eqdev> select * from species\h
+0:testdata@eqdev> select * from species\h
 
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
@@ -85,8 +85,8 @@ testdata@eqdev> select * from species\h
 
 3 rows selected.
 
-testdata@eqdev> DROP TABLE species;
+0:testdata@eqdev> DROP TABLE species;
 
 Executed
 
-testdata@eqdev> 
+0:testdata@eqdev> 
