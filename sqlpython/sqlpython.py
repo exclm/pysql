@@ -165,7 +165,43 @@ class sqlpython(cmd2.Cmd):
     
     def emptyline(self):
         pass
-                           
+
+    def _show_errors(self, all_users=False, limit=None, mintime=None):
+        if all_users:
+            user = ''
+        else:
+            user = "WHERE ao.owner = user\n"
+        self.curs.execute('''
+            SELECT ae.owner, ae.name, ae.type, ae.position, ae.line, ae.attribute, 
+                   ae.text error_text,
+                   src.text object_text,
+                   ao.last_ddl_time
+            FROM   all_errors ae
+            JOIN   all_objects ao ON (    ae.owner = ao.owner
+                                      AND ae.name = ao.object_name
+                                      AND ae.type = ao.object_type)
+            JOIN   all_source src ON (    ae.owner = src.owner
+                                      AND ae.name = src.name
+                                      AND ae.type = src.type
+                                      AND ae.line = src.line)
+            %sORDER BY ao.last_ddl_time DESC''' % user)
+        if limit is None:
+            errors = self.curs.fetchall()
+        else:
+            errors = self.curs.fetchmany(numRows = limit)
+        for err in errors:
+            if (mintime is not None) and (err[8] < mintime):
+                break
+            print '%s at line %d of %s %s.%s:' % (err[5], err[4], err[2], err[0], err[1])
+            print err[7]
+            print (' ' * (err[3]-1)) + '^'
+            print err[6]
+            print '\n'
+            
+    def current_database_time(self):
+        self.curs.execute('select sysdate from dual')
+        return self.curs.fetchone()[0]
+        
     def do_terminators(self, arg):
         """;    standard Oracle format
 \\c   CSV (with headings)
@@ -192,33 +228,10 @@ class sqlpython(cmd2.Cmd):
         if 'end' in ending_args:
             command = '%s %s;'
         else:
-            command = '%s %s'        
-        self.curs.execute('select sysdate from dual')
-        timestamp = self.curs.fetchone()[0]
-        self.orcl.commit()
+            command = '%s %s'    
+        current_time = self.current_database_time()
         self.curs.execute(command % (arg.parsed.command, arg.parsed.args), self.varsUsed)
-        self.curs.execute('''
-            SELECT ae.owner, ae.name, ae.type, ae.position, ae.line, ae.attribute, 
-                   ae.text error_text,
-                   src.text object_text,
-                   ao.last_ddl_time
-            FROM   all_errors ae
-            JOIN   all_objects ao ON (    ae.owner = ao.owner
-                                      AND ae.name = ao.object_name
-                                      AND ae.type = ao.object_type)
-            JOIN   all_source src ON (    ae.owner = src.owner
-                                      AND ae.name = src.name
-                                      AND ae.type = src.type
-                                      AND ae.line = src.line)
-            WHERE  ao.last_ddl_time >= :timestamp
-            ORDER BY ae.sequence ASC'''
-                          , {'timestamp': timestamp}
-                                       )
-        for err in self.curs:
-            print '%s at line %d of %s %s.%s:' % (err[5], err[4], err[2], err[0], err[1])
-            print err[7]
-            print (' ' * (err[3]-1)) + '^'
-            print err[6]
+        self._show_errors(all_users=True, limit=1, mintime=current_time)
         print '\nExecuted%s\n' % ((self.curs.rowcount > 0) and ' (%d rows)' % self.curs.rowcount or '')
             
     def do_commit(self, arg=''):
