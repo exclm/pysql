@@ -721,8 +721,8 @@ class sqlpyPlus(sqlpython.sqlpython):
         show                  - display value of all sqlpython parameters
         show (parameter name) - display value of a sqlpython parameter
         show parameter (parameter name) - display value of an ORACLE parameter
-        show err              - errors from the most recent PL/SQL object compilation.
-        show all err          - all compilation errors from the user's PL/SQL objects.
+        show err (object type/name)     - errors from latest PL/SQL object compilation.
+        show all err (type/name)        - all compilation errors from the user's PL/SQL objects.
         '''
         if arg.startswith('param'):
             try:
@@ -741,9 +741,9 @@ class sqlpyPlus(sqlpython.sqlpython):
             argpieces = arg.lower().split()
             try:
                 if argpieces[0][:3] == 'err':
-                    return self._show_errors(all_users=False, limit=1)
+                    return self._show_errors(all_users=False, limit=1, targets=argpieces[1:])
                 elif (argpieces[0], argpieces[1][:3]) == ('all','err'):
-                    return self._show_errors(all_users=False, limit=None)
+                    return self._show_errors(all_users=False, limit=None, targets=argpieces[2:])
             except IndexError:
                 pass
             return Cmd.do_show(self, arg)
