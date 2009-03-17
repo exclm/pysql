@@ -721,6 +721,8 @@ class sqlpyPlus(sqlpython.sqlpython):
         show                  - display value of all sqlpython parameters
         show (parameter name) - display value of a sqlpython parameter
         show parameter (parameter name) - display value of an ORACLE parameter
+        show err              - errors from the most recent PL/SQL object compilation.
+        show all err          - all compilation errors from the user's PL/SQL objects.
         '''
         if arg.startswith('param'):
             try:
@@ -736,7 +738,16 @@ class sqlpyPlus(sqlpython.sqlpython):
                                      WHEN 6 THEN 'BIG INTEGER' END type, 
                            value FROM v$parameter WHERE name LIKE '%%%s%%';""" % paramname)
         else:
+            argpieces = arg.lower().split()
+            try:
+                if argpieces[0][:3] == 'err':
+                    return self._show_errors(all_users=False, limit=1)
+                elif (argpieces[0], argpieces[1][:3]) == ('all','err'):
+                    return self._show_errors(all_users=False, limit=None)
+            except IndexError:
+                pass
             return Cmd.do_show(self, arg)
+    do_sho = do_show
             
     @options([make_option('-d', '--dump', action='store_true', help='dump results to files'),
               make_option('-f', '--full', action='store_true', help='get dependent objects as well'),
@@ -1151,7 +1162,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                              OR object_type || '/' || object_name = '%s'""" % \
                             (target, target)
             else:
-                where = "\nWHERE object_type || '/' || object_name LIKE '%%%s%%'" % (arg.upper().replace('*','%'))
+                where = "\nWHERE object_type || '/' || object_name LIKE '%s'" % (arg.upper().replace('*','%'))
         else:
             where = ''
         if opts.all:
