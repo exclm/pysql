@@ -166,11 +166,16 @@ class sqlpython(cmd2.Cmd):
     def emptyline(self):
         pass
 
-    def _show_errors(self, all_users=False, limit=None, mintime=None):
+    def _show_errors(self, all_users=False, limit=None, mintime=None, targets=[]):
         if all_users:
             user = ''
         else:
-            user = "WHERE ao.owner = user\n"
+            user = "AND ao.owner = user\n"
+        if targets:
+            target = 'AND (%s)\n' % ' OR '.join("ae.type || '/' || ae.name LIKE '%s'" % 
+                                              t.upper().replace('*','%') for t in targets)
+        else:
+            target = ''
         self.curs.execute('''
             SELECT ae.owner, ae.name, ae.type, ae.position, ae.line, ae.attribute, 
                    ae.text error_text,
@@ -184,7 +189,8 @@ class sqlpython(cmd2.Cmd):
                                       AND ae.name = src.name
                                       AND ae.type = src.type
                                       AND ae.line = src.line)
-            %sORDER BY ao.last_ddl_time DESC''' % user)
+            WHERE 1=1
+            %s%sORDER BY ao.last_ddl_time DESC''' % (user, target))
         if limit is None:
             errors = self.curs.fetchall()
         else:
