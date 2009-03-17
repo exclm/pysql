@@ -14,6 +14,13 @@ output_templates = {
   </${tblname}_resultset>
 </xml>"""),
 
+'\\j': genshi.template.NewTextTemplate("""
+{"${tblname}_resultset: [{% for row in rows %}
+    "${tblname}": {{% for (colname, itm) in zip(colnames, row) %}
+        "${colname.lower()}": "${itm}",{% end %} },
+    {% end %}]
+}"""),  
+      
 '\\h': genshi.template.MarkupTemplate("""
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns:py="http://genshi.edgewall.org/" xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">

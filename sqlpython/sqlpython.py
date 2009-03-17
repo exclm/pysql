@@ -216,6 +216,7 @@ class sqlpython(cmd2.Cmd):
 \\G   aligned list
 \\h   HTML table
 \\i   INSERT statements
+\\j   JSON
 \\s   CSV (with headings)
 \\S   CSV (no headings)
 \\t   transposed
