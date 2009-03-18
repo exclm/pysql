@@ -351,8 +351,8 @@ class ResultSet(list):
 
 class Result(tuple):
     def __str__(self):
-        for colname in self.resultset.colnames:
-            return '%s: %s' % (colname, getattr(self.colname))
+        return '\n'.join('%s: %s' % (colname, self[idx]) 
+                         for (idx, colname) in enumerate(self.resultset.colnames))
     def __getattr__(self, attr):
         attr = attr.lower()
         try:
@@ -456,7 +456,15 @@ class sqlpyPlus(sqlpython.sqlpython):
             statement.append(next)
             next = self.pseudo_raw_input(self.continuation_prompt)
         return self.onecmd('\n'.join(statement))        
-    
+
+    def do_py(self, arg):  
+        '''
+        py <command>: Executes a Python command.
+        py: Enters interactive Python mode (end with `\py`).
+        Past SELECT results are stored in list `r`; most recent resultset is `r[-1]`.
+        '''
+        Cmd.__py__(self, arg)
+        
     def onecmd_plus_hooks(self, line):                          
         line = self.precmd(line)
         stop = self.onecmd(line)
