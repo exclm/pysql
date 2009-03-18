@@ -24,8 +24,10 @@ output_templates = {
 }"""),  
 
 '\\j': genshi.template.NewTextTemplate("""
-{"${tblname}_resultset": [
-${',\\n'.join('        {%s}' % ', '.join('"%s": %s' % (colname,'"%s"' % itm) for (colname, itm) in zip(colnames, row)) for row in rows)}
+{"${tblname}": [
+${',\\n'.join('        {%s}' % ', '.join('"%s": %s' % (colname,
+        ((isinstance(itm,int) or isinstance(itm,float)) and '%s' or '"%s"') % str(itm)
+    ) for (colname, itm) in zip(colnames, row)) for row in rows)}
     ]
 }"""),  
 
