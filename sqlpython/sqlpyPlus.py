@@ -290,7 +290,11 @@ class CaselessDict(dict):
     def __getitem__(self, key):
         return dict.__getitem__(self, key.lower())
     def __setitem__(self, key, value):
-        dict.__setitem__(self, key.lower(), value)
+        try:
+            key = key.lower()
+        except AttributeError:
+            pass
+        dict.__setitem__(self, key, value)
     def __contains__(self, key):
         return dict.__contains__(self, key.lower())
     def has_key(self, key):
@@ -362,6 +366,10 @@ class Result(tuple):
                 return getattr(self.resultset, attr)
             else:
                 raise AttributeError, "available columns are: " + ", ".join(self.resultset.colnames)      
+    def bind(self):
+        for (idx, colname) in enumerate(self.resultset.colnames):
+            self.resultset.pystate['binds'][colname] = self[idx]
+            self.resultset.pystate['binds'][idx+1] = self[idx]
               
 class sqlpyPlus(sqlpython.sqlpython):
     defaultExtension = 'sql'
@@ -393,7 +401,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         self.substvars = {}
         self.result_history = []
         self.result_history_max_mbytes = 10
-        self.pystate = {'r': []}
+        self.pystate = {'r': [], 'binds': self.binds}
         
     # overrides cmd's parseline
     def parseline(self, line):
@@ -463,7 +471,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         py: Enters interactive Python mode (end with `\py`).
         Past SELECT results are stored in list `r`; most recent resultset is `r[-1]`.
         '''
-        Cmd.__py__(self, arg)
+        return Cmd.do_py(self, arg)
         
     def onecmd_plus_hooks(self, line):                          
         line = self.precmd(line)
@@ -677,15 +685,8 @@ class sqlpyPlus(sqlpython.sqlpython):
     rowlimitPattern = pyparsing.Word(pyparsing.nums)('rowlimit')
     terminators = '; \\C \\t \\i \\p \\l \\L \\b '.split() + output_templates.keys()
 
-    def bind(self, row):
-        self.binds.update(dict(zip([''.join(l for l in d[0] if l.isalnum()) for d in self.curs.description], self.rows[0])))
-        for (i, val) in enumerate(self.rows[0]):
-            varname = ''.join(letter for letter in self.curs.description[i][0] if letter.isalnum() or letter == '_')
-            self.binds[varname] = val
-            self.binds[str(i+1)] = val
-
-        
-        
+    def do_bind(self, arg):
+        self.pystate['r'][-1][-1].bind()
         
     def do_select(self, arg, bindVarsIn=None, terminator=None):
         """Fetch rows from a table.
@@ -715,7 +716,8 @@ class sqlpyPlus(sqlpython.sqlpython):
             resultset = ResultSet()
             resultset.colnames = [d[0].lower() for d in self.curs.description]
             resultset.statement = 'select ' + selecttext
-            resultset.bindvars = self.varsUsed
+            resultset.varsUsed = self.varsUsed
+            resultset.pystate = self.pystate
             resultset.extend([Result(r) for r in self.rows])
             for row in resultset:
                 row.resultset = resultset
@@ -726,11 +728,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         elif self.rc == 1: 
             print '\n1 row selected.\n'
             if self.autobind:
-                self.binds.update(dict(zip([''.join(l for l in d[0] if l.isalnum()) for d in self.curs.description], self.rows[0])))
-                for (i, val) in enumerate(self.rows[0]):
-                    varname = ''.join(letter for letter in self.curs.description[i][0] if letter.isalnum() or letter == '_')
-                    self.binds[varname] = val
-                    self.binds[str(i+1)] = val
+                self.do_bind(None)
         elif self.rc < self.maxfetch:
             print '\n%d rows selected.\n' % self.rc
         else:
