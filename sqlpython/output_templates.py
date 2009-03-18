@@ -14,15 +14,6 @@ output_templates = {
   </${tblname}_resultset>
 </xml>"""),
 
-
-'\\j': genshi.template.NewTextTemplate("""
-{"${tblname}_resultset": [
-    ${',\\n   '.join('{%s}' % (
-    ','.join('"%s": "%s"\\n    ' % ((colname, itm) for (colname, itm) in zip(colnames, row))) 
-    for row in rows))}
-    ]
-}"""),  
-
 '\\j': genshi.template.NewTextTemplate("""
 {"${tblname}": [
 ${',\\n'.join('        {%s}' % ', '.join('"%s": %s' % (colname,
