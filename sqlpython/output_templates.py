@@ -14,13 +14,21 @@ output_templates = {
   </${tblname}_resultset>
 </xml>"""),
 
+
 '\\j': genshi.template.NewTextTemplate("""
-{"${tblname}_resultset": [{% for row in rows %}
-    {${','.join('"%s": "%s"\\n    ' % (colname, itm) for (colname, itm) in zip(colnames, row))}
-    }
-    {% end %}\
+{"${tblname}_resultset": [
+    ${',\\n   '.join('{%s}' % (
+    ','.join('"%s": "%s"\\n    ' % ((colname, itm) for (colname, itm) in zip(colnames, row))) 
+    for row in rows))}
     ]
 }"""),  
+
+'\\j': genshi.template.NewTextTemplate("""
+{"${tblname}_resultset": [
+${',\\n'.join('        {%s}' % ', '.join('"%s": %s' % (colname,'"%s"' % itm) for (colname, itm) in zip(colnames, row)) for row in rows)}
+    ]
+}"""),  
+
 
 '\\h': genshi.template.MarkupTemplate("""
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
