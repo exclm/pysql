@@ -469,7 +469,8 @@ class sqlpyPlus(sqlpython.sqlpython):
         '''
         py <command>: Executes a Python command.
         py: Enters interactive Python mode (end with `\py`).
-        Past SELECT results are stored in list `r`; most recent resultset is `r[-1]`.
+        Past SELECT results are stored in list `r`; 
+            most recent resultset is `r[-1]`.
         SQL bind variables can be accessed/changed via `binds`.
         '''
         return Cmd.do_py(self, arg)
