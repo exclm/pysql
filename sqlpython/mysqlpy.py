@@ -122,13 +122,6 @@ which get and run SQL scripts from disk.'''
         self.do_connect(connectstr)
         f.close()
 
-    def do_py(self, arg):  
-        '''Executes a python command'''
-        try:
-            exec(arg)
-        except Exception, e:
-            print e
-
     def do_tselect(self, arg):  
         '''executes a query and prints the result in trasposed form. Useful when querying tables with many columns'''  
         self.do_select(self.parsed(arg, terminator='\\t'))
