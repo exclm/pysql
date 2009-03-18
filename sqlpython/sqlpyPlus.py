@@ -346,6 +346,23 @@ def findBinds(target, existingBinds, givenBindVars = {}):
                 print 'Bind variable %s not defined.' % (varname)                
     return result
 
+class ResultSet(list):
+    pass
+
+class Result(tuple):
+    def __str__(self):
+        for colname in self.resultset.colnames:
+            return '%s: %s' % (colname, getattr(self.colname))
+    def __getattr__(self, attr):
+        attr = attr.lower()
+        try:
+            return self[self.resultset.colnames.index(attr)]
+        except ValueError:
+            if attr in ('colnames', 'statement', 'bindvars'):
+                return getattr(self.resultset, attr)
+            else:
+                raise AttributeError, "available columns are: " + ", ".join(self.resultset.colnames)      
+              
 class sqlpyPlus(sqlpython.sqlpython):
     defaultExtension = 'sql'
     sqlpython.sqlpython.shortcuts.update({':': 'setbind', 
@@ -362,7 +379,7 @@ class sqlpyPlus(sqlpython.sqlpython):
     def __init__(self):
         sqlpython.sqlpython.__init__(self)
         self.binds = CaselessDict()
-        self.settable += 'autobind commit_on_exit maxfetch maxtselctrows serveroutput sql_echo timeout heading wildsql'.split()
+        self.settable += 'autobind commit_on_exit maxfetch maxtselctrows result_history_max_mbytes scan serveroutput sql_echo timeout heading wildsql'.split()
         self.settable.remove('case_insensitive')
         self.settable.sort()
         self.stdoutBeforeSpool = sys.stdout
@@ -372,6 +389,11 @@ class sqlpyPlus(sqlpython.sqlpython):
         self.heading = True
         self.wildsql = False
         self.serveroutput = True
+        self.scan = True
+        self.substvars = {}
+        self.result_history = []
+        self.result_history_max_mbytes = 10
+        self.pystate = {'r': []}
         
     # overrides cmd's parseline
     def parseline(self, line):
@@ -615,9 +637,48 @@ class sqlpyPlus(sqlpython.sqlpython):
             return 'null from dual'        
         return result + ' ' + columnlist.remainder
         
+    def do_ampersand_substitution(self, raw, regexpr, isglobal):
+        subst = regexpr.search(raw)
+        while subst:
+            fullexpr, var = subst.group(1), subst.group(2)
+            print 'Substitution variable %s found in:' % fullexpr
+            print raw[max(subst.start()-20, 0):subst.end()+20]
+            if isglobal and (var in self.substvars):
+                val = self.substvars[var]
+            else:
+                val = raw_input('Substitution for %s (SET SCAN OFF to halt substitution): ' % fullexpr)
+                if val.lower().split() == ['set','scan','off']:
+                    self.scan = False
+                    return raw
+                if isglobal:
+                    self.substvars[var] = val                
+            raw = raw.replace(fullexpr, val)
+            print 'Substituted %s for %s' % (val, fullexpr)
+            subst = regexpr.search(raw) # do not FINDALL b/c we don't want to ask twice
+        return raw
+                
+    doubleampre = re.compile('(&&([a-zA-Z\d_$#]+))')
+    singleampre = re.compile( '(&([a-zA-Z\d_$#]+))')
+    def preparse(self, raw, **kwargs):
+        if self.scan:
+            raw = self.do_ampersand_substitution(raw, regexpr=self.doubleampre, isglobal=True)
+        if self.scan:
+            raw = self.do_ampersand_substitution(raw, regexpr=self.singleampre, isglobal=False)
+        return raw
+    
     rowlimitPattern = pyparsing.Word(pyparsing.nums)('rowlimit')
     terminators = '; \\C \\t \\i \\p \\l \\L \\b '.split() + output_templates.keys()
 
+    def bind(self, row):
+        self.binds.update(dict(zip([''.join(l for l in d[0] if l.isalnum()) for d in self.curs.description], self.rows[0])))
+        for (i, val) in enumerate(self.rows[0]):
+            varname = ''.join(letter for letter in self.curs.description[i][0] if letter.isalnum() or letter == '_')
+            self.binds[varname] = val
+            self.binds[str(i+1)] = val
+
+        
+        
+        
     def do_select(self, arg, bindVarsIn=None, terminator=None):
         """Fetch rows from a table.
 
@@ -643,7 +704,15 @@ class sqlpyPlus(sqlpython.sqlpython):
         self.rows = self.curs.fetchmany(min(self.maxfetch, (rowlimit or self.maxfetch)))
         self.rc = self.curs.rowcount
         if self.rc > 0:
+            resultset = ResultSet()
+            resultset.colnames = [d[0].lower() for d in self.curs.description]
+            resultset.statement = 'select ' + selecttext
+            resultset.bindvars = self.varsUsed
+            resultset.extend([Result(r) for r in self.rows])
+            for row in resultset:
+                row.resultset = resultset
             self.stdout.write('\n%s\n' % (self.output(arg.parsed.terminator, rowlimit)))
+            self.pystate['r'].append(resultset)
         if self.rc == 0:
             print '\nNo rows Selected.\n'
         elif self.rc == 1: 
