@@ -1,27 +1,27 @@
 SQL.No_Connection> connect testschema/testschema@orcl
-testschema@orcl> CREATE TABLE play (
+0:testschema@orcl> CREATE TABLE play (
 >   title   VARCHAR2(40) CONSTRAINT xpk_play PRIMARY KEY,
 >   author  VARCHAR2(40));
 
+Executed (1 rows)
+
+0:testschema@orcl> INSERT INTO play VALUES ('Twelfth Night', 'Shakespeare');
+
+Executed (1 rows)
+
+0:testschema@orcl> INSERT INTO play VALUES ('The Tempest', 'Shakespeare');
+
+Executed (1 rows)
+
+0:testschema@orcl> INSERT INTO play VALUES ('Agamemnon', 'Aeschylus');
+
+Executed (1 rows)
+
+0:testschema@orcl> commit;
+
 Executed
 
-testschema@orcl> INSERT INTO play VALUES ('Twelfth Night', 'Shakespeare');
-
-Executed (1 rows)
-
-testschema@orcl> INSERT INTO play VALUES ('The Tempest', 'Shakespeare');
-
-Executed (1 rows)
-
-testschema@orcl> INSERT INTO play VALUES ('Agamemnon', 'Aeschylus');
-
-Executed (1 rows)
-
-testschema@orcl> commit;
-
-Executed
-
-testschema@orcl> select
+0:testschema@orcl> select
 > *
 > from
 > play;
@@ -34,7 +34,7 @@ Agamemnon     Aeschylus
 
 3 rows selected.
 
-testschema@orcl> ls
+0:testschema@orcl> ls
 
 NAME          
 --------------
@@ -43,7 +43,7 @@ TABLE/PLAY
 
 2 rows selected.
 
-testschema@orcl> ls table
+0:testschema@orcl> ls table/*
 
 NAME      
 ----------
@@ -51,7 +51,7 @@ TABLE/PLAY
 
 1 row selected.
 
-testschema@orcl> desc play
+0:testschema@orcl> desc play
 TABLE TESTSCHEMA.PLAY
 
 COLUMN_NAME Null?    DATA_TYPE
@@ -61,15 +61,15 @@ AUTHOR      NULL     VARCHAR2(40)
 
 2 rows selected.
 
-testschema@orcl> COMMENT ON COLUMN play.author IS 'Primary author (if multiple)';
+0:testschema@orcl> COMMENT ON COLUMN play.author IS 'Primary author (if multiple)';
 
 Executed
 
-testschema@orcl> COMMENT ON TABLE play IS 'I like plays.';
+0:testschema@orcl> COMMENT ON TABLE play IS 'I like plays.';
 
 Executed
 
-testschema@orcl> comments play
+0:testschema@orcl> comments play
 TABLE TESTSCHEMA.PLAY: I like plays.
 
 COLUMN_NAME COMMENTS
@@ -79,7 +79,7 @@ AUTHOR      Primary author (if multiple)
 
 2 rows selected.
 
-testschema@orcl> cat play
+0:testschema@orcl> cat play
 
 TITLE         AUTHOR
 ------------- -----------
@@ -89,7 +89,7 @@ Agamemnon     Aeschylus
 
 3 rows selected.
 
-testschema@orcl> help terminators
+0:testschema@orcl> help terminators
 ;    standard Oracle format
 \c   CSV (with headings)
 \C   CSV (no headings)
@@ -97,6 +97,7 @@ testschema@orcl> help terminators
 \G   aligned list
 \h   HTML table
 \i   INSERT statements
+\j   JSON
 \s   CSV (with headings)
 \S   CSV (no headings)
 \t   transposed
@@ -105,7 +106,7 @@ testschema@orcl> help terminators
 \L   scatter plot (no lines)
 \b   bar graph
 \p   pie chart
-testschema@orcl> select * from play where author='Shakespeare'\c
+0:testschema@orcl> select * from play where author='Shakespeare'\c
 
 TITLE,AUTHOR
 "Twelfth Night","Shakespeare"
@@ -113,7 +114,7 @@ TITLE,AUTHOR
 
 2 rows selected.
 
-testschema@orcl> select * from play where author='Shakespeare'\g
+0:testschema@orcl> select * from play where author='Shakespeare'\g
 
 
 
@@ -128,7 +129,7 @@ AUTHOR: Shakespeare
 
 2 rows selected.
 
-testschema@orcl> select * from play where author='Shakespeare'\h
+0:testschema@orcl> select * from play where author='Shakespeare'\h
 
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
@@ -164,7 +165,7 @@ testschema@orcl> select * from play where author='Shakespeare'\h
 
 2 rows selected.
 
-testschema@orcl> select * from play\i
+0:testschema@orcl> select * from play\i
 
 
 INSERT INTO play (TITLE, AUTHOR) VALUES ('Twelfth Night', 'Shakespeare');
@@ -173,7 +174,7 @@ INSERT INTO play (TITLE, AUTHOR) VALUES ('Agamemnon', 'Aeschylus');
 
 3 rows selected.
 
-testschema@orcl> select * from play where author='Shakespeare'\t
+0:testschema@orcl> select * from play where author='Shakespeare'\t
 
 
 COLUMN NAME ROW N.1       ROW N.2
@@ -183,7 +184,7 @@ AUTHOR      Shakespeare   Shakespeare
 
 2 rows selected.
 
-testschema@orcl> select * from play where author='Shakespeare'\x
+0:testschema@orcl> select * from play where author='Shakespeare'\x
 
 
 <xml>
@@ -201,18 +202,30 @@ testschema@orcl> select * from play where author='Shakespeare'\x
 
 2 rows selected.    
 
-testschema@orcl> set
+0:testschema@orcl> set
 autobind: False
 commit_on_exit: True
+continuation_prompt: > 
+default_file_name: afiedt.buf
 echo: False
 editor: gedit
 heading: True
 maxfetch: 1000
 maxtselctrows: 10
-prompt: testschema@orcl>
+prompt: 0:testschema@orcl> 
+result_history_max_mbytes: 10
+scan: True
+serveroutput: True
+sql_echo: False
 timeout: 30
 timing: False
-testschema@orcl> select * from play where author like 'A%';
+wildsql: False
+
+0:testschema@orcl> set autobind on
+autobind - was: False
+now: True
+
+0:testschema@orcl> select * from play where author like 'A%';
 
 TITLE     AUTHOR   
 --------- ---------
@@ -220,12 +233,12 @@ Agamemnon Aeschylus
 
 1 row selected.
 
-testschema@orcl> print
+0:testschema@orcl> print
 :1 = Agamemnon
 :2 = Aeschylus
-:title = Agamemnon
 :author = Aeschylus
-testschema@orcl> select * from play where title = :1;
+:title = Agamemnon
+0:testschema@orcl> select * from play where title = :1;
 
 TITLE     AUTHOR   
 --------- ---------
@@ -233,7 +246,7 @@ Agamemnon Aeschylus
 
 1 row selected.
 
-testschema@orcl> select * from play where author = :author;
+0:testschema@orcl> select * from play where author = :author;
 
 TITLE     AUTHOR   
 --------- ---------
@@ -241,7 +254,7 @@ Agamemnon Aeschylus
 
 1 row selected.
 
-testschema@orcl> help grep
+0:testschema@orcl> help grep
 grep PATTERN TABLE - search for term in any of TABLE's fields
 Usage: grep [options] arg
 
@@ -249,7 +262,7 @@ Options:
   -h, --help         show this help message and exit
   -i, --ignore-case  Case-insensitive search
 
-testschema@orcl> grep -i EM play
+0:testschema@orcl> grep -i EM play
 play
 
 TITLE       AUTHOR
@@ -259,8 +272,8 @@ Agamemnon   Aeschylus
 
 2 rows selected.
 
-testschema@orcl> -- \d command inspired by postgresql's psql
-testschema@orcl> \dt
+0:testschema@orcl> -- \d command inspired by postgresql's psql
+0:testschema@orcl> \dt
 
 TABLE_NAME TYPE
 ---------- -----
@@ -268,7 +281,7 @@ PLAY       TABLE
 
 1 row selected.
 
-testschema@orcl> \di
+0:testschema@orcl> \di
 
 INDEX_NAME INDEX_TYPE
 ---------- ----------
@@ -276,14 +289,14 @@ XPK_PLAY   NORMAL
 
 1 row selected.
 
-testschema@orcl> CREATE OR REPLACE VIEW review
+0:testschema@orcl> CREATE OR REPLACE VIEW review
 > AS
 >   SELECT title, author, 'A masterpiece!' review
 >   FROM   play;
 
 Executed
 
-testschema@orcl> \dv
+0:testschema@orcl> \dv
 
 VIEW_NAME TYPE
 --------- ----
@@ -291,7 +304,7 @@ REVIEW    VIEW
 
 1 row selected.
 
-testschema@orcl> cat review
+0:testschema@orcl> cat review
 
 TITLE         AUTHOR      REVIEW
 ------------- ----------- --------------
@@ -301,14 +314,14 @@ Agamemnon     Aeschylus   A masterpiece!
 
 3 rows selected.
 
-testschema@orcl> drop view review;
+0:testschema@orcl> drop view review;
 
 Executed
 
-testschema@orcl> drop table play;
+0:testschema@orcl> drop table play;
 
 Executed
 
-testschema@orcl> foo
+0:testschema@orcl> foo
 
 bar
