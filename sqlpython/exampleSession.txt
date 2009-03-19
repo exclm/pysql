@@ -281,11 +281,11 @@ PLAY       TABLE
 
 1 row selected.
 
-0:testschema@orcl> \di
+0:testschema@orcl> \di play
 
-INDEX_NAME INDEX_TYPE
----------- ----------
-XPK_PLAY   NORMAL
+OWNER      INDEX_NAME INDEX_TYPE
+---------- ---------- ----------
+TESTSCHEMA XPK_PLAY   NORMAL    
 
 1 row selected.
 

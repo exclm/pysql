@@ -369,7 +369,7 @@ class Result(tuple):
     def bind(self):
         for (idx, colname) in enumerate(self.resultset.colnames):
             self.resultset.pystate['binds'][colname] = self[idx]
-            self.resultset.pystate['binds'][idx+1] = self[idx]
+            self.resultset.pystate['binds'][str(idx+1)] = self[idx]
               
 class sqlpyPlus(sqlpython.sqlpython):
     defaultExtension = 'sql'
