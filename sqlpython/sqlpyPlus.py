@@ -387,7 +387,7 @@ class sqlpyPlus(sqlpython.sqlpython):
     def __init__(self):
         sqlpython.sqlpython.__init__(self)
         self.binds = CaselessDict()
-        self.settable += 'autobind commit_on_exit maxfetch maxtselctrows result_history_max_mbytes scan serveroutput sql_echo timeout heading wildsql'.split()
+        self.settable += 'autobind commit_on_exit maxfetch maxtselctrows scan serveroutput sql_echo store_results timeout heading wildsql'.split()
         self.settable.remove('case_insensitive')
         self.settable.sort()
         self.stdoutBeforeSpool = sys.stdout
@@ -400,7 +400,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         self.scan = True
         self.substvars = {}
         self.result_history = []
-        self.result_history_max_mbytes = 10
+        self.store_results = True
         self.pystate = {'r': [], 'binds': self.binds}
         
     # overrides cmd's parseline
@@ -655,7 +655,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             return 'null from dual'        
         return result + ' ' + columnlist.remainder
         
-    def do_ampersand_substitution(self, raw, regexpr, isglobal):
+    def ampersand_substitution(self, raw, regexpr, isglobal):
         subst = regexpr.search(raw)
         while subst:
             fullexpr, var = subst.group(1), subst.group(2)
@@ -679,16 +679,27 @@ class sqlpyPlus(sqlpython.sqlpython):
     singleampre = re.compile( '(&([a-zA-Z\d_$#]+))')
     def preparse(self, raw, **kwargs):
         if self.scan:
-            raw = self.do_ampersand_substitution(raw, regexpr=self.doubleampre, isglobal=True)
+            raw = self.ampersand_substitution(raw, regexpr=self.doubleampre, isglobal=True)
         if self.scan:
-            raw = self.do_ampersand_substitution(raw, regexpr=self.singleampre, isglobal=False)
+            raw = self.ampersand_substitution(raw, regexpr=self.singleampre, isglobal=False)
         return raw
     
     rowlimitPattern = pyparsing.Word(pyparsing.nums)('rowlimit')
     terminators = '; \\C \\t \\i \\p \\l \\L \\b '.split() + output_templates.keys()
 
-    def do_bind(self, arg):
-        self.pystate['r'][-1][-1].bind()
+    @options([make_option('-r', '--row', type="int", default=-1,
+                          help='Bind row #ROW instead of final row (zero-based)')])    
+    def do_bind(self, arg=None, opts={}):
+        '''
+        Inserts the results from the final row in the last completed SELECT statement
+        into bind variables with names corresponding to the column names.  When the optional 
+        `autobind` setting is on, this will be issued automatically after every query that 
+        returns exactly one row.
+        '''
+        try:
+            self.pystate['r'][-1][opts.row].bind()
+        except IndexError:
+            print self.do_bind.__doc__
         
     def do_select(self, arg, bindVarsIn=None, terminator=None):
         """Fetch rows from a table.
@@ -706,6 +717,8 @@ class sqlpyPlus(sqlpython.sqlpython):
         except ValueError:
             rowlimit = 0
             print "Specify desired number of rows after terminator (not '%s')" % arg.parsed.suffix
+        if arg.parsed.terminator == '\\t':
+            rowlimit = rowlimit or self.maxtselctrows
         self.varsUsed = findBinds(arg, self.binds, bindVarsIn)
         if self.wildsql:
             selecttext = self.expandWildSql(arg)
@@ -717,20 +730,20 @@ class sqlpyPlus(sqlpython.sqlpython):
         if self.rc > 0:
             resultset = ResultSet()
             resultset.colnames = [d[0].lower() for d in self.curs.description]
+            resultset.pystate = self.pystate
             resultset.statement = 'select ' + selecttext
             resultset.varsUsed = self.varsUsed
-            resultset.pystate = self.pystate
             resultset.extend([Result(r) for r in self.rows])
             for row in resultset:
                 row.resultset = resultset
-            self.stdout.write('\n%s\n' % (self.output(arg.parsed.terminator, rowlimit)))
             self.pystate['r'].append(resultset)
+            self.stdout.write('\n%s\n' % (self.output(arg.parsed.terminator, rowlimit)))
         if self.rc == 0:
             print '\nNo rows Selected.\n'
         elif self.rc == 1: 
             print '\n1 row selected.\n'
             if self.autobind:
-                self.do_bind(None)
+                self.do_bind()
         elif self.rc < self.maxfetch:
             print '\n%d rows selected.\n' % self.rc
         else:
@@ -1029,7 +1042,8 @@ class sqlpyPlus(sqlpython.sqlpython):
             self.stdout = self.spoolFile
 
     def do_write(self, args):
-        print 'Use (query) > outfilename instead.'
+        'Obsolete command.  Use (query) > outfilename instead.'
+        print self.do_write.__doc__
         return
 
     def do_compare(self, args):
@@ -1226,6 +1240,9 @@ class sqlpyPlus(sqlpython.sqlpython):
             lines.append(line)
 
     def do_begin(self, arg):
+        '''
+        PL/SQL blocks can be used normally in sqlpython, though enclosing statements in
+        REMARK BEGIN... REMARK END statements can help with parsing speed.'''
         self.anon_plsql('begin ' + arg)
 
     def do_declare(self, arg):
@@ -1275,6 +1292,10 @@ class sqlpyPlus(sqlpython.sqlpython):
               make_option('-t', '--timesort', action='store_true', help="Sort by last_ddl_time"),              
               make_option('-r', '--reverse', action='store_true', help="Reverse order while sorting")])        
     def do_ls(self, arg, opts):
+        '''
+        Lists objects as through they were in an {object_type}/{object_name} UNIX
+        directory structure.  `*` and `%` may be used as wildcards.
+        '''
         statement = '''SELECT object_type || '/' || %(objname)s AS name %(moreColumns)s 
                   FROM   %(whose)s_objects %(where)s
                   ORDER BY %(orderby)s;''' % self._ls_statement(arg, opts)
@@ -1282,7 +1303,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         
     @options([make_option('-i', '--ignore-case', dest='ignorecase', action='store_true', help='Case-insensitive search')])        
     def do_grep(self, arg, opts):
-        """grep PATTERN TABLE - search for term in any of TABLE's fields"""    
+        """grep {target} {table} [{table2,...}] - search for {target} in any of {table}'s fields"""    
 
         targetnames = arg.split()
         pattern = targetnames.pop(0)
