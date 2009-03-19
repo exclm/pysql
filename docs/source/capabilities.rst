@@ -84,33 +84,35 @@ When `< {filename}` is included in your command, it is replaced with the content
 
 Examples:: 
 
+  Need examples!!!!
+  
 Special output formats
 ======================
 
 By replacing the `;` that terminates a SELECT statement with a backslash-character
 sequence, you can get output in a number of useful formats.  The `terminators`
-command lists them, for your convenience::
+command lists them, for your convenience.
 
-===  ======================== ================================
-                              Especially useful for
-===  ======================== ================================
-;    standard Oracle format
-\c   CSV (with headings)      sending to spreadsheets   
-\C   CSV (no headings)
-\g   list                     wide output with linewraps
-\G   aligned list
-\h   HTML table               web reports
-\i   INSERT statements        copying to other instances
-\j   JSON
-\s   CSV (with headings)
-\S   CSV (no headings)
-\t   transposed               "narrow" tables like v$database
-\x   XML
-\l   line plot, with markers
-\L   scatter plot (no lines)
-\b   bar graph
-\p   pie chart
-===  ======================== ================================
+========== ======================== ================================
+terminator format                   Useful for
+========== ======================== ================================
+;          standard Oracle format
+\\c        CSV (with headings)      sending to spreadsheets   
+\\C        CSV (no headings)
+\\g        list                     wide output with linewraps
+\\G        aligned list
+\\h        HTML table               web reports
+\\i        INSERT statements        copying to other instances
+\\j        JSON
+\\s        CSV (with headings)
+\\S        CSV (no headings)
+\\t        transposed               "narrow" tables like v$database
+\\x        XML
+\\l        line plot, with markers
+\\L        scatter plot (no lines)
+\\b        bar graph
+\\p        pie chart                                                 
+========== ======================== ================================
 
 Most of these output formats are even more useful when combined with special output
 destinations.  For example, `SELECT * FROM party\h > /var/www/party_report.html`
@@ -144,7 +146,7 @@ cat {remainder of query}
    that fits into a SELECT statement (WHERE, ORDER BY, etc.)
    
 grep {grep {target} {table} [{table2,...}]
-   Equivalent to SELECT * FROM {table} WHERE *any column* LIKE '%{target}%'
+   Equivalent to SELECT * FROM {table} WHERE *any column* LIKE '%{target}%'.
    Useful when you don't know, don't remember, or don't care which column
    a value may be found in.
    
@@ -156,14 +158,17 @@ find -c {target}, find -t {column}
   Lists all tables or columns whose names contain {target}.  More convenient than
   querying user_tab_columns/all_tab_columns or user_tables/all_tables.
   Options::
+  
     -a           Find all objects (not just my own)  
   
 PostgreSQL-like shortcuts
 =========================
 
------ ------------------
-z     y
------ ------------------
+psql, the command-line client for the open-source database `PostgreSQL <http://www.postgresql.org/>`_ uses a number
+of backslash-character sequences as convenient shortcuts.  sqlpython steals many of
+them.
+
+===== ===================
 \\c   connect
 \\d   desc
 \\e   edit
@@ -181,7 +186,7 @@ z     y
 \\dv  _dir_views
 \\di  _dir_indexes
 \\?   help psql
------ ------------------
+===== ===================
 
 PL/SQL source code
 ==================
@@ -203,6 +208,7 @@ find {target}
   Lists all PL/SQL objects whose source code contains the {target} string.  
   Always case-insensitive.
   Options::
+
     -a           Search all PL/SQL objects (not just my own)    
   
 
@@ -369,32 +375,36 @@ Parameters
 
 Several parameters control the behavior of sqlpython itself.  
 
-===================== ==================================================  ===============
-                                                                          default
-===================== ==================================================  ===============
-autobind              When True, single-row queries automatically `bind`  False
-commit_on_exit        Automatically commits work at end of session        True
-continuation_prompt   Prompt for second line and onward of long statement >
-default_file_name     The file opened by `edit`, if not specified         afiedt.buf
-echo                  Echo command entered before executing               False
-editor                Text editor invoked by `edit`.                      varies
-heading               Print column names                                  True
-maxfetch              Maximum number of rows to return from any query     1000
-maxtselctrows         Maximum # of rows from a tselect or \\n query       10
-prompt                Probably unwise to change                           user@instance>
-scan                  Interpret & as indicating substitution variables    True
-serveroutput          Print DBMS_OUTPUT.PUT_LINE results                  True
-sql_echo              Print text of "behind-the-scenes" queries           False
-timeout               In seconds                                          30
-timing                Print time for each command to execute              False
-wildsql               Accept *, %, #, and ! in column names               False
-===================== ==================================================  ===============
+===================== ===================================================  ===============
+parameter             effect                                               default
+===================== ===================================================  ===============
+autobind              When True, single-row queries automatically `bind`   False
+commit_on_exit        Automatically commits work at end of session         True
+continuation_prompt   Prompt for second line and onward of long statement  >
+default_file_name     The file opened by `edit`, if not specified          afiedt.buf
+echo                  Echo command entered before executing                False
+editor                Text editor invoked by `edit`.                       varies
+heading               Print column names                                   True
+maxfetch              Maximum number of rows to return from any query      1000
+maxtselctrows         Maximum # of rows from a tselect or \\n query        10
+prompt                Probably unwise to change                            user@instance>
+scan                  Interpret & as indicating substitution variables     True
+serveroutput          Print DBMS_OUTPUT.PUT_LINE results                   True
+sql_echo              Print text of "behind-the-scenes" queries            False
+timeout               In seconds                                           30
+timing                Print time for each command to execute               False
+wildsql               Accept *, %, #, and ! in column names                False
+===================== ===================================================  ===============
 
 The user can change these with the `set {paramname} {new-value}` statement.  
-The True/False parameters accept new
-values permissively, recognizing "True", "False", "T", "F", "yes", "no", "on", "off"...
+The True/False parameters accept new values permissively, recognizing "True", "False", 
+"T", "F", "yes", "no", "on", "off", etc.
 
-`set` and `show` both list the current values of the sqlpython parameters.
+`set` and `show` both list the current values of the sqlpython parameters.  They
+also recognize any abbreviated parameter name, so long as it is long enough to be
+unique.  That is, `show maxf` is recognized as `show maxfetch`, but `show max` is
+too short to distinguish between `maxfetch` and `maxtselctrows`.
+
 `show parameter {param}` shows current Oracle parameters (from v$parameter), as it does
 in SQL\*Plus.
 
