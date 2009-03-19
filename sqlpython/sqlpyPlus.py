@@ -1233,13 +1233,9 @@ class sqlpyPlus(sqlpython.sqlpython):
         
     def _ls_statement(self, arg, opts):
         if arg:
-            target = arg.upper()
-            if hasattr(opts, 'exact') and opts.exact:
-                where = """\nWHERE object_name = '%s'
-                             OR object_type || '/' || object_name = '%s'""" % \
-                            (target, target)
-            else:
-                where = "\nWHERE object_type || '/' || object_name LIKE '%s'" % (arg.upper().replace('*','%'))
+            target = arg.upper().replace('*','%')
+            where = """\nWHERE object_type || '/' || object_name LIKE '%s'
+                       OR object_name LIKE '%s'""" % (target, target)
         else:
             where = ''
         if opts.all:
@@ -1277,8 +1273,7 @@ class sqlpyPlus(sqlpython.sqlpython):
     @options([make_option('-l', '--long', action='store_true', help='long descriptions'),
               make_option('-a', '--all', action='store_true', help="all schemas' objects"),
               make_option('-t', '--timesort', action='store_true', help="Sort by last_ddl_time"),              
-              make_option('-r', '--reverse', action='store_true', help="Reverse order while sorting"),              
-              make_option('-x', '--exact', action='store_true', default=False, help="match name exactly")])        
+              make_option('-r', '--reverse', action='store_true', help="Reverse order while sorting")])        
     def do_ls(self, arg, opts):
         statement = '''SELECT object_type || '/' || %(objname)s AS name %(moreColumns)s 
                   FROM   %(whose)s_objects %(where)s

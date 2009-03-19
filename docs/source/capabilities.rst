@@ -75,7 +75,7 @@ to modify their behavior.
 
 ls
    Lists objects from the data dictionaries, as though they were in a 
-   *object_type*/*object_name* directory structure.  Thus, `ls view/`
+   *object_type*/*object_name* directory structure.  Thus, `ls view/\*`
    lists all the user's views.
 
 cat
