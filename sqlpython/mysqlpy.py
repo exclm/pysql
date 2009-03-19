@@ -123,7 +123,10 @@ which get and run SQL scripts from disk.'''
         f.close()
 
     def do_tselect(self, arg):  
-        '''executes a query and prints the result in trasposed form. Useful when querying tables with many columns'''  
+        '''
+        Executes a query and prints the result in trasposed form;
+        equivalent to terminating query with `\\t` instead of `;`.
+        Useful when querying tables with many columns and few rows.'''  
         self.do_select(self.parsed(arg, terminator='\\t'))
 
     def do_sql(self,args):
