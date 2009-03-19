@@ -243,16 +243,126 @@ Wild SQL
 ========
 
 Wild SQL is a nonstandard SQL feature that must be enabled with `set wildsql on`.  When it is
-enabled, column names in a SELECT statement do not need to be explicitly typed.  
+enabled, column names in a SELECT statement do not need to be explicitly typed; they can be
+specified with special Wild SQL symbols: wildcards (`*`, `%`, `_`); column numbers (`#{N}`);
+and NOT-style exclusion (`!`).  The symbols can even be combined.
 
-* % or \* as wildcards::
+::
 
-  SELECT d* FROM v$database;
+  jrrt@orcl> cat party
+  
+  NAME    STR INT WIS DEX CON CHA
+  ------- --- --- --- --- --- ---
+  Frodo     8  14  16  15  14  16
+  Gimli    17  12  10  11  17  11
+  Legolas  13  15  14  18  15  17
+  Sam      11   9  14  11  16  13
+  
+  4 rows selected.
+  
+  jrrt@orcl> set wild on
+  wildsql - was: False
+  now: True
+  jrrt@orcl> select *i* from party;
+  
+  INT WIS
+  --- ---
+   14  16
+   12  10
+   15  14
+    9  14
+  
+  4 rows selected.
+  
+  jrrt@orcl> select #1, #5 from party;
+  
+  NAME    DEX
+  ------- ---
+  Frodo    15
+  Gimli    11
+  Legolas  18
+  Sam      11
+  
+  4 rows selected.
+  
+  jrrt@orcl> select !str from party;
+  
+  NAME    INT WIS DEX CON CHA
+  ------- --- --- --- --- ---
+  Frodo    14  16  15  14  16
+  Gimli    12  10  11  17  11
+  Legolas  15  14  18  15  17
+  Sam       9  14  11  16  13
+  
+  4 rows selected.
+  
+  jrrt@orcl> select n*, !#3, !c* from party;
+  
+  NAME    STR WIS DEX
+  ------- --- --- ---
+  Frodo     8  16  15
+  Gimli    17  10  11
+  Legolas  13  14  18
+  Sam      11  14  11
+  
+  4 rows selected.
 
-  SELECT 
+Wild SQL symbols only work in the first SELECT statement in a query; they do not work in 
+subqueries, subsequent UNIONed queries, etc.
 
-Wild SQL can only be used in the primary column list of straightforward SELECT statements, 
-not in subqueries, `UNION`ed queries, etc.
+Python
+======
+
+The `py` command allows the user to execute Python commands, either one-at-a-time (with
+`py {command}`) or in an interactive environment (beginning with a bare `py` statement,
+and continuing until `end py` is entered).
+
+A history of result sets from each query is exposed to the python session as the list `r`; 
+the most recent result set is `r[-1]`. Bind variables are exposed as the dictionary `binds`. 
+All variables are retained each time the python environment is entered (whether interactively, 
+or with one-line `py` statements).
+
+Resultsets in `r` are read-only, but `binds` can be written as well as read, and will 
+be working bind variables in the SQL environment.
+
+::
+
+  0:testschema@eqtest> select title, author from play;
+  
+  TITLE           AUTHOR
+  --------------- -----------
+  Timon of Athens Shakespeare
+  Twelfth Night   Shakespeare
+  The Tempest     Shakespeare
+  Agamemnon       Aeschylus
+  
+  4 rows selected.
+  
+  0:testschema@eqtest> py import urllib
+  0:testschema@eqtest> py current_season = urllib.urlopen('http://cincyshakes.com/').read()
+  0:testschema@eqtest> py
+  Now accepting python commands; end with `end py`
+  >>> r[-1]
+  [('Timon of Athens', 'Shakespeare'), ('Twelfth Night', 'Shakespeare'), ('The Tempest', 'Shakespeare'), ('Agamemnon', 'Aeschylus')]
+  >>> for row in r[-1]:
+  ...     print '%s by %s' % (row.title, row.author)
+  Timon of Athens by Shakespeare
+  Twelfth Night by Shakespeare
+  The Tempest by Shakespeare
+  Agamemnon by Aeschylus
+  >>> [row.title for row in r[-1] if row.title in current_season]
+  ['Timon of Athens', 'Twelfth Night']
+  >>> binds['nowplaying'] = [row.title for row in r[-1] if row.title in current_season][0]
+  >>> end py
+  0:testschema@eqtest> print
+  :nowplaying = Timon of Athens
+  0:testschema@eqtest> select title, author from play where title = :nowplaying;
+  
+  TITLE           AUTHOR
+  --------------- -----------
+  Timon of Athens Shakespeare
+  
+  1 row selected.
 
 Parameters
 ==========
