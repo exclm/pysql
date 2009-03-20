@@ -401,7 +401,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         self.substvars = {}
         self.result_history = []
         self.store_results = True
-        self.pystate = {'r': [], 'binds': self.binds}
+        self.pystate = {'r': [], 'binds': self.binds, 'substs': self.substvars}
         
     # overrides cmd's parseline
     def parseline(self, line):
@@ -417,8 +417,6 @@ class sqlpyPlus(sqlpython.sqlpython):
             print 'Not connected.'
             return '', '', ''
         return cmd, arg, line
-    
-    do__load = Cmd.do_load
 
     def dbms_output(self):
         "Dumps contents of Oracle's DBMS_OUTPUT buffer (where PUT_LINE goes)"
@@ -471,10 +469,21 @@ class sqlpyPlus(sqlpython.sqlpython):
         py: Enters interactive Python mode (end with `\py`).
         Past SELECT results are stored in list `r`; 
             most recent resultset is `r[-1]`.
-        SQL bind variables can be accessed/changed via `binds`.
+        SQL bind variables can be accessed/changed via `binds`;
+        substitution variables via `substs`.
         '''
         return Cmd.do_py(self, arg)
-        
+
+    def do_get(self, args):
+        """
+        `get {script.sql}` or `@{script.sql}` runs the command(s) in {script.sql}.
+        If additional arguments are supplied, they are assigned to &1, &2, etc.
+        """        
+        fname, args = args.split()[0], args.split()[1:]
+        for (idx, arg) in enumerate(args):
+            self.substvars[str(idx+1)] = arg
+        return Cmd.do__load(self, fname)
+    
     def onecmd_plus_hooks(self, line):                          
         line = self.precmd(line)
         stop = self.onecmd(line)
@@ -654,14 +663,30 @@ class sqlpyPlus(sqlpython.sqlpython):
             print 'No columns found matching criteria.'
             return 'null from dual'        
         return result + ' ' + columnlist.remainder
+
+    def do_prompt(self, args):
+        print args
         
+    def do_accept(self, args):
+        try:
+            prompt = args[args.lower().index('prompt ')+7:]
+        except ValueError:
+            prompt = ''
+        varname = args.lower().split()[0]
+        self.substvars[varname] = self.pseudo_raw_input(prompt)
+        
+    def do_define(self, args):
+        if not args:
+            for (substvar, val) in sorted(self.substvars.items()):
+                print 'DEFINE %s = %s' % (substvar, val)
+                
     def ampersand_substitution(self, raw, regexpr, isglobal):
         subst = regexpr.search(raw)
         while subst:
             fullexpr, var = subst.group(1), subst.group(2)
             print 'Substitution variable %s found in:' % fullexpr
             print raw[max(subst.start()-20, 0):subst.end()+20]
-            if isglobal and (var in self.substvars):
+            if var in self.substvars:
                 val = self.substvars[var]
             else:
                 val = raw_input('Substitution for %s (SET SCAN OFF to halt substitution): ' % fullexpr)
@@ -674,10 +699,13 @@ class sqlpyPlus(sqlpython.sqlpython):
             print 'Substituted %s for %s' % (val, fullexpr)
             subst = regexpr.search(raw) # do not FINDALL b/c we don't want to ask twice
         return raw
-                
-    doubleampre = re.compile('(&&([a-zA-Z\d_$#]+))')
-    singleampre = re.compile( '(&([a-zA-Z\d_$#]+))')
+
+    numericampre = re.compile('(&(\d+))')    
+    doubleampre = re.compile('(&&([a-zA-Z\d_$#]+))', re.IGNORECASE)
+    singleampre = re.compile( '(&([a-zA-Z\d_$#]+))', re.IGNORECASE)
     def preparse(self, raw, **kwargs):
+        if self.scan:
+            raw = self.ampersand_substitution(raw, regexpr=self.numericampre, isglobal=False)
         if self.scan:
             raw = self.ampersand_substitution(raw, regexpr=self.doubleampre, isglobal=True)
         if self.scan:
