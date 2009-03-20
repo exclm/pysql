@@ -33,3 +33,4 @@ Unsupported commands
 
 * SET FEEDBACK OFF
 
+* SET AUTOTRACE ON
