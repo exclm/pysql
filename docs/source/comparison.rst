@@ -653,11 +653,11 @@ highlight the place in a SQL command where a syntax error took place.
 When compiling PL/SQL objects (functions, packages, procedures) that contain errors, 
 the tools vary in the quality of information they return.
  
-  * Senora reports that a compilation error has occured, and `show errors` works as expected.
+* Senora reports that a compilation error has occured, and `show errors` works as expected.
       
-  * YASQL reports that a compilation error has occured.  `show errors` in YASQL lists the compilation errors for *all* invalid PL/SQL objects in the schema.
+* YASQL reports that a compilation error has occured.  `show errors` in YASQL lists the compilation errors for *all* invalid PL/SQL objects in the schema.
   
-  * sqlpython reports errors immediately upon compilation.
+* sqlpython reports errors immediately upon compilation.
       
 Note that, in senora and YASQL, abbreviated forms of `show errors`, like `sho err`, are not recognized.
 
@@ -831,13 +831,13 @@ Now, typing `hello [arguments]` in a sqlpython session calls `do_hello`.  The
 optional arguments will be assigned to `arg`, but in this case they are not used.
 Let's see a more useful function, one that will
 
-  * Make use of the argument string
+* Make use of the argument string
   
-  * Provide online documentation
+* Provide online documentation
   
-  * Use a flag to optionally modify the command's behavior
+* Use a flag to optionally modify the command's behavior
   
-  * Send output to file, paste buffer, or pipe when `>` or `|` is used.
+* Send output to file, paste buffer, or pipe when `>` or `|` is used.
   
 ::
 

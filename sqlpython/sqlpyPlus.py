@@ -397,6 +397,16 @@ class Result(tuple):
             self.resultset.pystate['binds'][colname] = self[idx]
             self.resultset.pystate['binds'][str(idx+1)] = self[idx]
               
+def centeredSlice(lst, center=0, width=1):
+    width = max(width, -1)
+    if center < 0:
+        end = center + width + 1
+        if end >= 0:
+            end = None
+        return lst[center-width:end]
+    else:
+        return lst[max(center-width,0):center+width+1] 
+    
 class sqlpyPlus(sqlpython.sqlpython):
     defaultExtension = 'sql'
     sqlpython.sqlpython.shortcuts.update({':': 'setbind', 
@@ -831,7 +841,16 @@ class sqlpyPlus(sqlpython.sqlpython):
                         ddl = [[object_type, object_name, owner]]
                     for ddlargs in ddl:
                         try:
-                            self.stdout.write('REMARK BEGIN %s\n%s\nREMARK END\n\n' % (object_name, str(self.curs.callfunc('DBMS_METADATA.GET_DDL', cx_Oracle.CLOB, ddlargs))))
+                            code = str(self.curs.callfunc('DBMS_METADATA.GET_DDL', cx_Oracle.CLOB, ddlargs))
+                            if opts.lines:
+                                code = code.splitlines()
+                                template = "%%-%dd:%%s" % len(str(len(code)))
+                                code = '\n'.join(template % (n+1, line) for (n, line) in enumerate(code))
+                            if opts.num is not None:
+                                code = code.splitlines()
+                                code = centeredSlice(code, center=opts.num+1, width=opts.width)
+                                code = '\n'.join(code)
+                            self.stdout.write('REMARK BEGIN %s\n%s\nREMARK END\n\n' % (object_name, code))
                         except cx_Oracle.DatabaseError, errmsg:
                             if object_type == 'JOB':
                                 print '%s: DBMS_METADATA.GET_DDL does not support JOBs (MetaLink DocID 567504.1)' % object_name
@@ -890,6 +909,10 @@ class sqlpyPlus(sqlpython.sqlpython):
             
     @options([make_option('-d', '--dump', action='store_true', help='dump results to files'),
               make_option('-f', '--full', action='store_true', help='get dependent objects as well'),
+              make_option('-l', '--lines', action='store_true', help='print line numbers'),
+              make_option('-n', '--num', type='int', help='only code near line #num'),
+              make_option('-w', '--width', type='int', default=5, 
+                          help='# of lines before and after --lineNo'),              
               make_option('-a', '--all', action='store_true', help="all schemas' objects"),
               make_option('-x', '--exact', action='store_true', help="match object name exactly")])
     def do_pull(self, arg, opts):
