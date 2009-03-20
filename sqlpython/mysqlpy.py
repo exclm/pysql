@@ -98,8 +98,7 @@ WHERE  created > SYSDATE - 7;''')
     def do_longops(self,args):
         '''Runs query_longops defined above, to display long running operations (full scans, etc)'''
         self.onecmd(self.query_longops)
-
-    do_get = Cmd.do__load
+        
     def do_load(self,args):
         '''Runs query_load10g defined above, to display OS load on cluster nodes (10gRAC)
 Do not confuse with `GET myfile.sql` and `@myfile.sql`,
