@@ -13,6 +13,7 @@ Contents:
    intro
    capabilities
    limitations
+   comparison
 
 
 Indices and tables

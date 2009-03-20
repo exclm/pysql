@@ -33,7 +33,30 @@ except (RuntimeError, ImportError):
     pass
 
 descQueries = {
-'TABLE': ("""
+'TABLE': {
+    True: # long description
+("""
+SELECT atc.column_id "#",
+atc.column_name,
+CASE atc.nullable WHEN 'Y' THEN 'NULL' ELSE 'NOT NULL' END "Null?",
+atc.data_type ||
+CASE atc.data_type WHEN 'DATE' THEN ''
+ELSE '(' ||
+CASE atc.data_type WHEN 'NUMBER' THEN TO_CHAR(atc.data_precision) ||
+CASE atc.data_scale WHEN 0 THEN ''
+ELSE ',' || TO_CHAR(atc.data_scale) END
+ELSE TO_CHAR(atc.data_length) END 
+END ||
+CASE atc.data_type WHEN 'DATE' THEN '' ELSE ')' END
+data_type,
+acc.comments
+FROM all_tab_columns atc
+JOIN all_col_comments acc ON (acc.owner = atc.owner AND acc.table_name = atc.table_name AND acc.column_name = atc.column_name)
+WHERE atc.table_name = :object_name
+AND      atc.owner = :owner
+ORDER BY atc.column_id;""",),
+    None: # short description
+("""
 SELECT atc.column_name,
 CASE atc.nullable WHEN 'Y' THEN 'NULL' ELSE 'NOT NULL' END "Null?",
 atc.data_type ||
@@ -49,7 +72,10 @@ data_type
 FROM all_tab_columns atc
 WHERE atc.table_name = :object_name
 AND      atc.owner = :owner
-ORDER BY atc.column_id;""",),
+ORDER BY atc.column_id;""",)
+}
+          ,
+
 'PROCEDURE': ("""
 SELECT NVL(argument_name, 'Return Value') argument_name,             
 data_type,
@@ -375,7 +401,7 @@ class sqlpyPlus(sqlpython.sqlpython):
     defaultExtension = 'sql'
     sqlpython.sqlpython.shortcuts.update({':': 'setbind', 
                                           '\\': 'psql', 
-                                          '@': '_load'})
+                                          '@': 'get'})
     multilineCommands = '''select insert update delete tselect
                       create drop alter _multiline_comment'''.split()
     sqlpython.sqlpython.noSpecialParse.append('spool')
@@ -940,39 +966,52 @@ class sqlpyPlus(sqlpython.sqlpython):
             sql = "SELECT * from %s_source where UPPER(text) like '%%%s%%';" % (opts.scope['view'], capArg)
         self.do_select(self.parsed(sql, terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix))
         
-    @options([all_users_option])
+            
+    @options([all_users_option,
+              make_option('-l', '--long', action='store_true', help='include column #, comments')])
     def do_describe(self, arg, opts):
         "emulates SQL*Plus's DESCRIBE"
         target = arg.upper()
-        if not target:
-            return self.do_select(self.parsed("""SELECT object_name, object_type%s 
-                                                 FROM   %s_objects 
-                                                 WHERE  object_type IN ('TABLE','VIEW','INDEX') 
-                                                 ORDER BY object_name;""" % (opts.scope['col'], opts.scope['view']),
-                                              terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix))
-        object_type, owner, object_name = self.resolve(target)
-        if not object_type:
-            return self.do_select(self.parsed("""SELECT object_name, object_type%s FROM %s_objects
-                                                 WHERE  object_type IN ('TABLE','VIEW','INDEX')
-                                                 AND    object_name LIKE '%%%s%%'
-                                                 ORDER BY object_name;""" %
-                                              (opts.scope['col'], opts.scope['view'], target),
-                                              terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix))
+        objnameclause = ''
+        if target:
+            objnameclause = "AND    object_name LIKE '%%%s%%' " % target
+            object_type, owner, object_name = self.resolve(target)
+        if (not target) or (not object_type):
+            if opts.long:
+                query =  """SELECT o.object_name, o.object_type, o.owner, c.comments
+                            FROM   all_objects o
+                            LEFT OUTER JOIN all_tab_comments c ON (o.owner = c.owner AND o.object_name = c.table_name AND o.object_type = 'TABLE')
+                            WHERE  object_type IN ('TABLE','VIEW','INDEX') 
+                            %sORDER BY object_name;""" % objnameclause
+            else:
+                query =  """SELECT object_name, object_type%s 
+                            FROM   %s_objects 
+                            WHERE  object_type IN ('TABLE','VIEW','INDEX') 
+                            %sORDER BY object_name;""" % \
+                            (opts.scope['col'], opts.scope['view'], objnameclause)                                                                             
+            return self.do_select(self.parsed(query, terminator=arg.parsed.terminator or ';', 
+                                  suffix=arg.parsed.suffix))
         self.stdout.write("%s %s.%s\n" % (object_type, owner, object_name))
-        descQ = descQueries.get(object_type)
-        if descQ:
+        try:
+            if object_type == 'TABLE':
+                descQ = descQueries[object_type][opts.long]
+            else:
+                descQ = descQueries[object_type][opts.long]                
             for q in descQ:
                 self.do_select(self.parsed(q, terminator=arg.parsed.terminator or ';' , suffix=arg.parsed.suffix), 
-                               bindVarsIn={'object_name':object_name, 'owner':owner})
-        elif object_type == 'PACKAGE':
-            packageContents = self.select_scalar_list(descQueries['PackageObjects'][0], {'package_name':object_name, 'owner':owner})
-            for packageObj_name in packageContents:
-                self.stdout.write('Arguments to %s\n' % (packageObj_name))
-                sql = self.parsed(descQueries['PackageObjArgs'][0], terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix)
-                self.do_select(sql, bindVarsIn={'package_name':object_name, 'owner':owner, 'object_name':packageObj_name})
+                               bindVarsIn={'object_name':object_name, 'owner':owner})            
+        except KeyError:
+            if object_type == 'PACKAGE':
+                packageContents = self.select_scalar_list(descQueries['PackageObjects'][0], {'package_name':object_name, 'owner':owner})
+                for packageObj_name in packageContents:
+                    self.stdout.write('Arguments to %s\n' % (packageObj_name))
+                    sql = self.parsed(descQueries['PackageObjArgs'][0], terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix)
+                    self.do_select(sql, bindVarsIn={'package_name':object_name, 'owner':owner, 'object_name':packageObj_name})
+
     do_desc = do_describe
 
     def do_deps(self, arg):
+        '''Lists all objects that are dependent upon the object.'''
         target = arg.upper()
         object_type, owner, object_name = self.resolve(target)
         if object_type == 'PACKAGE BODY':
@@ -1390,8 +1429,10 @@ class sqlpyPlus(sqlpython.sqlpython):
             print sql
         self.curs.execute(sql, bindvars)
 
+    #@options([make_option('-l', '--long', action='store_true', 
+    #                      help='Wordy, easy-to-understand form'),])                
     def do_refs(self, arg):
-        '''Lists referential integrity (foreign key constraints) on an object.'''
+        '''Lists referential integrity (foreign key constraints) on an object or referring to it.'''
         
         if not arg.strip():
             print 'Usage: refs (table name)'

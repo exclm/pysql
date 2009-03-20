@@ -39,33 +39,33 @@ in your sqlpython session.
 
 Commands are also entered into a command history.
 
-  `history` or `hi`
-    List entire command history
+history *or* hi
+  List entire command history
 
-  `list` or `li`
-    List only last command
+list *or* li
+  List only last command
 
-  `hi <N>`
-    List command number <N> from history.  
+hi `<N>`
+  List command number <N> from history.  
 
-  `hi <N>-`, `hi -<N>`
-    List commands from <N> onward, or up to <N>
+hi `<N>-`, hi `-<N>`
+  List commands from <N> onward, or up to <N>
 
-  `hi <str>`
-    Lists commands that include the string <str>
+hi `<str>`
+  Lists commands that include the string <str>
 
-  `hi /<regex>/` 
-    Lists commands that match the regular expression <regex>
+hi `/<regex>/` 
+  Lists commands that match the regular expression <regex>
 
-  `run`, `r`, or `\\g`
-    Run the most recent command again
+run, r, *or* `\\g`
+  Run the most recent command again
 
-  `run <N>`
-    Run command <N>
+run `<N>`
+  Run command <N>
 
-  `run <str>`, `run /<regex>/`
-    Run command matching <str> or <regex> (as for `history`) - 
-    if multiple items would match, run most recent
+run `<str>`, run `/<regex>/`
+  Run command matching <str> or <regex> (as for `history`) - 
+  if multiple items would match, run most recent
 
 Special I/O destinations
 ========================
@@ -125,7 +125,7 @@ Many sqlpython commands allow you to act as though the database objects
 were files in a UNIX filesystem.  Many of the commands also accept flags
 to modify their behavior.
 
-ls {object type/object name, with wildcards}
+ls `{object type/object name, with wildcards}`
   Lists objects from the data dictionaries, as though they were in a 
   *object_type*/*object_name* directory structure.  Thus, `ls view/\*`
   lists all the user's views.  Calling with no argument is equivalent
@@ -141,14 +141,14 @@ ls {object type/object name, with wildcards}
   `ls -lt *;10` lists the ten items with the most recent last_ddl_time;
   this can be a good way to answer the question, "What was I working on?"
   
-cat {remainder of query}
-   Shorthand for "SELECT * FROM".  Can be combined with anything else
-   that fits into a SELECT statement (WHERE, ORDER BY, etc.)
+cat `{remainder of query}`
+  Shorthand for "SELECT * FROM".  Can be combined with anything else
+  that fits into a SELECT statement (WHERE, ORDER BY, etc.)
    
-grep {grep {target} {table} [{table2,...}]
-   Equivalent to SELECT * FROM {table} WHERE *any column* LIKE '%{target}%'.
-   Useful when you don't know, don't remember, or don't care which column
-   a value may be found in.
+grep `{target}` `{table}` `[{table2,...}]`
+  Equivalent to SELECT * FROM {table} WHERE *any column* LIKE '%{target}%'.
+  Useful when you don't know, don't remember, or don't care which column
+  a value may be found in.
    
   Options::
   
@@ -160,6 +160,41 @@ find -c {target}, find -t {column}
   Options::
   
     -a           Find all objects (not just my own)  
+  
+Data dictionary exploration
+===========================
+
+refs `{table_name}`
+  Lists all foreign key constraints on the table or referring to the table.
+  
+deps `{object_name}`
+  Lists all objects dependent upon the named object.
+  
+comments `{table_name}`
+  Prints comments on a table and its columns.
+
+PL/SQL source code
+==================
+
+pull {object_name}
+  Displays the PL/SQL source code for {object_name}.
+  
+  Options:
+    -d, --dump   dump results to files (object_type/object_name.sql)
+    -f, --full   get dependent objects as well
+    -a, --all    all schemas' objects
+  
+bzr, git, hg `{object_name}`
+  Dump source code to files, as `pull -f`, but also creates or commits to a
+  repository of the appropriate distributed version control system
+  (Bazaar, Git, or Mercurial, respectively).  
+  
+find `{target}`
+  Lists all PL/SQL objects whose source code contains the {target} string.  
+  Always case-insensitive.
+  Options::
+
+    -a           Search all PL/SQL objects (not just my own)    
   
 PostgreSQL-like shortcuts
 =========================
@@ -187,31 +222,7 @@ them.
 \\di  _dir_indexes
 \\?   help psql
 ===== ===================
-
-PL/SQL source code
-==================
-
-pull {object_name}
-  Displays the PL/SQL source code for {object_name}.
   
-  Options:
-    -d, --dump   dump results to files (object_type/object_name.sql)
-    -f, --full   get dependent objects as well
-    -a, --all    all schemas' objects
-  
-bzr, git, hg {object_name}
-  Dump source code to files, as `pull -f`, but also creates or commits to a
-  repository of the appropriate distributed version control system
-  (Bazaar, Git, or Mercurial, respectively).  
-  
-find {target}
-  Lists all PL/SQL objects whose source code contains the {target} string.  
-  Always case-insensitive.
-  Options::
-
-    -a           Search all PL/SQL objects (not just my own)    
-  
-
 Bind variables
 ==============
 
