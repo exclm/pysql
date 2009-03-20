@@ -2,6 +2,9 @@
 Limitations
 ===========
 
+Bug reports and feature requests are welcome at 
+`the project's bug tracker on Assembla <http://trac-hg.assembla.com/sqlpython/report>`_.
+
 Slow parsing
 ------------
 
@@ -26,5 +29,7 @@ REMARK END statement.
 Unsupported commands
 --------------------
 
-  * DBMS_OUTPUT.PUT_LINE
+* PASSWORD
+
+* SET FEEDBACK OFF
 
