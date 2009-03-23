@@ -409,6 +409,7 @@ def centeredSlice(lst, center=0, width=1):
     
 class sqlpyPlus(sqlpython.sqlpython):
     defaultExtension = 'sql'
+    abbrev = True    
     sqlpython.sqlpython.shortcuts.update({':': 'setbind', 
                                           '\\': 'psql', 
                                           '@': 'get'})
@@ -905,7 +906,6 @@ class sqlpyPlus(sqlpython.sqlpython):
             except IndexError:
                 pass
             return Cmd.do_show(self, arg)
-    do_sho = do_show
             
     @options([make_option('-d', '--dump', action='store_true', help='dump results to files'),
               make_option('-f', '--full', action='store_true', help='get dependent objects as well'),
@@ -1031,7 +1031,6 @@ class sqlpyPlus(sqlpython.sqlpython):
                     sql = self.parsed(descQueries['PackageObjArgs'][0], terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix)
                     self.do_select(sql, bindVarsIn={'package_name':object_name, 'owner':owner, 'object_name':packageObj_name})
 
-    do_desc = do_describe
 
     def do_deps(self, arg):
         '''Lists all objects that are dependent upon the object.'''
@@ -1323,8 +1322,6 @@ class sqlpyPlus(sqlpython.sqlpython):
         else:
             if var in self.substvars:
                 print 'DEFINE %s = "%s" (%s)' % (var, self.substvars[var], type(self.substvars[var]))
-
-    do_def = do_define               
     
     def do_exec(self, arg):
         if arg.startswith(':'):
