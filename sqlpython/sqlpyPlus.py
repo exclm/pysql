@@ -508,8 +508,9 @@ class sqlpyPlus(sqlpython.sqlpython):
             most recent resultset is `r[-1]`.
         SQL bind variables can be accessed/changed via `binds`;
         substitution variables via `substs`.
+        Single SQL commands can be issued by beginning commands with `sql`.
         '''
-        return Cmd.do_py(self, arg)
+        return Cmd.do_py(self, arg, escape='sql')
 
     def do_get(self, args):
         """
