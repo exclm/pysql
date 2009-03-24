@@ -508,7 +508,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         Past SELECT results are exposed as list `r`; 
             most recent resultset is `r[-1]`.
         SQL bind, substitution variables are exposed as `binds`, `substs`.
-        SQL and sqlpython commands can be issued with sql('your non-python command here').
+        SQL and sqlpython commands can be issued with sql("your non-python command here").
         '''
         return Cmd.do_py(self, arg)
 
