@@ -332,19 +332,25 @@ Python
 
 The `py` command allows the user to execute Python commands, either one-at-a-time (with
 `py {command}`) or in an interactive environment (beginning with a bare `py` statement,
-and continuing until `end py` is entered).
+and continuing until Ctrl-D, `quit()`, or `exit()` is entered).
 
 A history of result sets from each query is exposed to the python session as the list `r`; 
-the most recent result set is `r[-1]`. Bind variables are exposed as the dictionary `binds`. 
-All variables are retained each time the python environment is entered (whether interactively, 
-or with one-line `py` statements).
+the most recent result set is `r[-1]`.  Each row can be references as a tuple, or as an
+object with an attribute for each column.
+
+Bind variables are exposed as the dictionary `binds`.  Each row from each result set has
+a .bind() method that fills a bind varible for each column with that row's value.
 
 Resultsets in `r` are read-only, but `binds` can be written as well as read, and will 
 be working bind variables in the SQL environment.
 
+SQL and sqlpython commands can be issued from the Python environment with `sql("{your SQL}")`.
+
+All variables are retained each time the python environment is entered (whether interactively, 
+or with one-line `py` statements).
 ::
 
-  0:testschema@eqtest> select title, author from play;
+  0:testschema@orcl> select title, author from play;
   
   TITLE           AUTHOR
   --------------- -----------
@@ -355,32 +361,62 @@ be working bind variables in the SQL environment.
   
   4 rows selected.
   
-  0:testschema@eqtest> py import urllib
-  0:testschema@eqtest> py current_season = urllib.urlopen('http://cincyshakes.com/').read()
-  0:testschema@eqtest> py
-  Now accepting python commands; end with `end py`
+  0:testschema@orcl> py import urllib
+  0:testschema@orcl> py current_season = urllib.urlopen('http://cincyshakes.com/').read()
+  0:testschema@orcl> py
+  Python 2.5.2 (r252:60911, Jul 31 2008, 17:28:52)
+  [GCC 4.2.3 (Ubuntu 4.2.3-2ubuntu7)] on linux2
+  Type "help", "copyright", "credits" or "license" for more information.
+  (mysqlpy)
+  
+          py <command>: Executes a Python command.
+          py: Enters interactive Python mode; end with `Ctrl-D`, `quit()`, or 'exit`.
+          Past SELECT results are exposed as list `r`;
+              most recent resultset is `r[-1]`.
+          SQL bind, substitution variables are exposed as `binds`, `substs`.
+          SQL and sqlpython commands can be issued with sql("your non-python command here").
+  
   >>> r[-1]
   [('Timon of Athens', 'Shakespeare'), ('Twelfth Night', 'Shakespeare'), ('The Tempest', 'Shakespeare'), ('Agamemnon', 'Aeschylus')]
+  >>> r[-1][0][0]
+  'Timon of Athens'
   >>> for row in r[-1]:
-  ...     print '%s by %s' % (row.title, row.author)
-  Timon of Athens by Shakespeare
-  Twelfth Night by Shakespeare
-  The Tempest by Shakespeare
-  Agamemnon by Aeschylus
+  ...     print "%s, by %s" % (row.title, row.author)
+  ...
+  Timon of Athens, by Shakespeare
+  Twelfth Night, by Shakespeare
+  The Tempest, by Shakespeare
+  Agamemnon, by Aeschylus
   >>> [row.title for row in r[-1] if row.title in current_season]
   ['Timon of Athens', 'Twelfth Night']
-  >>> binds['nowplaying'] = [row.title for row in r[-1] if row.title in current_season][0]
-  >>> end py
-  0:testschema@eqtest> print
-  :nowplaying = Timon of Athens
-  0:testschema@eqtest> select title, author from play where title = :nowplaying;
+  >>> binds['author'] = 'Shakespeare'
+  >>> query = "SELECT title FROM play WHERE author = :author"
+  >>> sql(query)
+  
+  TITLE
+  ---------------
+  Timon of Athens
+  Twelfth Night
+  The Tempest
+  
+  3 rows selected.
+  
+  >>> r[-1]
+  [('Timon of Athens',), ('Twelfth Night',), ('The Tempest',)]
+  >>> r[-1][0]
+  ('Timon of Athens',)
+  >>> r[-1][0].bind()
+  >>> binds['title']
+  'Timon of Athens'
+  >>> quit()
+  0:testschema@orcl> select title, author from play where title = :title;
   
   TITLE           AUTHOR
   --------------- -----------
   Timon of Athens Shakespeare
   
   1 row selected.
-
+  
 Parameters
 ==========
 
@@ -395,7 +431,7 @@ continuation_prompt   Prompt for second line and onward of long statement  >
 default_file_name     The file opened by `edit`, if not specified          afiedt.buf
 echo                  Echo command entered before executing                False
 editor                Text editor invoked by `edit`.                       varies
-heading               Print column names                                   True
+heading               Print column names along with results                True
 maxfetch              Maximum number of rows to return from any query      1000
 maxtselctrows         Maximum # of rows from a tselect or \\n query        10
 prompt                Probably unwise to change                            user@instance>
