@@ -26,11 +26,46 @@ the statement begins and ends.
 To parse PL/SQL safely, enclose each free-standing PL/SQL block between a REMARK BEGIN and a
 REMARK END statement.
 
-Unsupported commands
---------------------
+Unsupported SQL\*Plus commands
+------------------------------
+
+(partial list)
+
+* APPEND 
+
+* ARCHIVE LOG
+
+* ATTRIBUTE
+
+* BREAK, BTITLE, CLEAR, COLUMN, COMPUTE, REPFOOTER, REPHEADER, and all SQL\*Plus report formatting commands.  In my opinion, special sqlpython output is
+much more powerful than SQL\*Plus report-formatting anyway.
+
+* COPY (Consider using `cat {table} \\i > table.sql`, `connect -a me@otherplace`, then `@table.sql`)
+
+* DEL
+
+* DISCONNECT
+
+* INPUT
 
 * PASSWORD
+
+* RECOVER
+
+* SET APPINFO
+
+* SET ARRAYSIZE
+
+* SET AUTOCOMMIT (but should!)
+
+* SET AUTOPRINT  (but should!)
 
 * SET FEEDBACK OFF
 
 * SET AUTOTRACE ON
+
+* UNDEFINE
+
+* VARIABLE (unneeded; bind variables can be set without pre-defining them)
+
+* WHENEVER
