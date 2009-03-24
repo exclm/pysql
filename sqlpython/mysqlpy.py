@@ -195,7 +195,7 @@ def run():
                 pass
             my.do_connect(connectstring)
         for arg in sys.argv[1:]:
-            if my.onecmd(arg) == my._STOP_AND_EXIT:
+            if my.onecmd(arg + '\n') == my._STOP_AND_EXIT:
                 return
     except IndexError:
         pass
