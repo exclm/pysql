@@ -435,6 +435,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         self.wildsql = False
         self.serveroutput = True
         self.scan = True
+        self.nonpythoncommand = 'sql'
         self.substvars = {}
         self.result_history = []
         self.store_results = True
@@ -500,17 +501,16 @@ class sqlpyPlus(sqlpython.sqlpython):
             next = self.pseudo_raw_input(self.continuation_prompt)
         return self.onecmd('\n'.join(statement))        
 
-    def do_py(self, arg):  
+    def do_py(self, arg):
         '''
         py <command>: Executes a Python command.
-        py: Enters interactive Python mode (end with `\py`).
-        Past SELECT results are stored in list `r`; 
+        py: Enters interactive Python mode; end with `Ctrl-D`, `quit()`, or 'exit`.
+        Past SELECT results are exposed as list `r`; 
             most recent resultset is `r[-1]`.
-        SQL bind variables can be accessed/changed via `binds`;
-        substitution variables via `substs`.
-        Single SQL commands can be issued by beginning commands with `sql`.
+        SQL bind, substitution variables are exposed as `binds`, `substs`.
+        SQL and sqlpython commands can be issued with sql('your non-python command here').
         '''
-        return Cmd.do_py(self, arg, escape='sql')
+        return Cmd.do_py(self, arg)
 
     def do_get(self, args):
         """
