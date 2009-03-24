@@ -1,6 +1,11 @@
 Introduction
 ============
 
+* Original project homepage: https://twiki.cern.ch/twiki/bin/view/PSSGroup/SqlPython
+* PyPI: http://pypi.python.org/pypi/sqlpython
+* News: http://catherinedevlin.blogspot.com/search/label/sqlpython
+* Current docs: http://packages.python.org/sqlpython/
+
 SQLPython is a command-line interface to Oracle databases.  It is intended as an alternative to Oracle's
 SQL\*Plus.  For the most part, it can be used the same way SQL\*Plus would be used; this documentation
 focuses on the places where SQLPython differs.
