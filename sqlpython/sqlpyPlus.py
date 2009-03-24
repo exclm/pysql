@@ -504,7 +504,8 @@ class sqlpyPlus(sqlpython.sqlpython):
     def do_py(self, arg):
         '''
         py <command>: Executes a Python command.
-        py: Enters interactive Python mode; `Ctrl-D`, `quit()`, 'exit()` ends.
+        py: Enters interactive Python mode.
+        End with `Ctrl-D` (Unix) / `Ctrl-Z` (Windows), `quit()`, 'exit()`.        
         Past SELECT results are exposed as list `r`; 
             most recent resultset is `r[-1]`.
         SQL bind, substitution variables are exposed as `binds`, `substs`.
