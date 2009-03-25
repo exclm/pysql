@@ -845,11 +845,11 @@ class sqlpyPlus(sqlpython.sqlpython):
                     for ddlargs in ddl:
                         try:
                             code = str(self.curs.callfunc('DBMS_METADATA.GET_DDL', cx_Oracle.CLOB, ddlargs))
-                            if opts.lines:
+                            if hasattr(opts, 'lines') and opts.lines:
                                 code = code.splitlines()
                                 template = "%%-%dd:%%s" % len(str(len(code)))
                                 code = '\n'.join(template % (n+1, line) for (n, line) in enumerate(code))
-                            if opts.num is not None:
+                            if hasattr(opts, 'num') and (opts.num is not None):
                                 code = code.splitlines()
                                 code = centeredSlice(code, center=opts.num+1, width=opts.width)
                                 code = '\n'.join(code)
