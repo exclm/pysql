@@ -420,6 +420,11 @@ class sqlpyPlus(sqlpython.sqlpython):
     commentGrammars = pyparsing.Or([Parser.comment_def, pyparsing.cStyleComment])
     prefixParser = pyparsing.Optional(pyparsing.Word(pyparsing.nums)('connection_number') 
                                       + ':')
+    reserved_words = [
+            'alter', 'begin', 'comment', 'create', 'delete', 'drop', 'end', 'for', 'grant', 
+            'insert', 'intersect', 'lock', 'minus', 'on', 'order', 'rename', 
+            'resource', 'revoke', 'select', 'share', 'start', 'union', 'update', 
+            'where', 'with']    
     default_file_name = 'afiedt.buf'
     def __init__(self):
         sqlpython.sqlpython.__init__(self)
@@ -439,6 +444,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         self.substvars = {}
         self.result_history = []
         self.store_results = True
+        
         self.pystate = {'r': [], 'binds': self.binds, 'substs': self.substvars}
         
     # overrides cmd's parseline
@@ -1021,6 +1027,9 @@ class sqlpyPlus(sqlpython.sqlpython):
         self.stdout.write("%s %s.%s\n" % (object_type, owner, object_name))
         try:
             if object_type == 'TABLE':
+                if opts.long:
+                    self._execute(queries['tabComments'], {'table_name':object_name, 'owner':owner})
+                    self.stdout.write(self.curs.fetchone()[0])
                 descQ = descQueries[object_type][opts.long]
             else:
                 descQ = descQueries[object_type][opts.long]                
