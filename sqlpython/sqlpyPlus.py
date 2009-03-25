@@ -23,7 +23,6 @@ or with a python-like shorthand
 
 - catherinedevlin.blogspot.com  May 31, 2006
 """
-#TODO: html escaping; prompt/accept; sqlpath; LOCAL name; python from stdin
 import sys, os, re, sqlpython, cx_Oracle, pyparsing, re, completion, datetime, pickle, binascii, subprocess
 from cmd2 import Cmd, make_option, options, Statekeeper, Cmd2TestCase
 from output_templates import output_templates
@@ -514,17 +513,14 @@ class sqlpyPlus(sqlpython.sqlpython):
         '''
         return Cmd.do_py(self, arg)
 
-    argument_grammar =   pyparsing.QuotedString('"') | pyparsing.QuotedString("'") \
-                       | pyparsing.Word(pyparsing.printables)                       
     def do_get(self, args):
         """
         `get {script.sql}` or `@{script.sql}` runs the command(s) in {script.sql}.
         If additional arguments are supplied, they are assigned to &1, &2, etc.
         """        
-        args = args.split(None,1)
-        fname, args = args[0], (args[1:] or [''])[0]
-        for (idx, arg) in enumerate(self.argument_grammar.scanString(args)):
-            self.substvars[str(idx+1)] = arg[0][0]
+        fname, args = args.split()[0], args.split()[1:]
+        for (idx, arg) in enumerate(args):
+            self.substvars[str(idx+1)] = arg
         return Cmd.do__load(self, fname)
     
     def onecmd_plus_hooks(self, line):                          
@@ -537,6 +533,12 @@ class sqlpyPlus(sqlpython.sqlpython):
             self.curs.callproc('dbms_output.enable', [])        
         else:
             self.curs.callproc('dbms_output.disable', [])        
+        
+    def do_shortcuts(self,arg):
+        """Lists available first-character shortcuts
+        (i.e. '!dir' is equivalent to 'shell dir')"""
+        for (scchar, scto) in self.shortcuts.items():
+            print '%s: %s' % (scchar, scto)
 
     tableNameFinder = re.compile(r'from\s+([\w$#_"]+)', re.IGNORECASE | re.MULTILINE | re.DOTALL)          
     inputStatementFormatters = {
@@ -711,7 +713,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             prompt = ''
         varname = args.lower().split()[0]
         self.substvars[varname] = self.pseudo_raw_input(prompt)
-        
+                
     def ampersand_substitution(self, raw, regexpr, isglobal):
         subst = regexpr.search(raw)
         while subst:
@@ -843,11 +845,11 @@ class sqlpyPlus(sqlpython.sqlpython):
                     for ddlargs in ddl:
                         try:
                             code = str(self.curs.callfunc('DBMS_METADATA.GET_DDL', cx_Oracle.CLOB, ddlargs))
-                            if opts.lines:
+                            if hasattr(opts, 'lines') and opts.lines:
                                 code = code.splitlines()
                                 template = "%%-%dd:%%s" % len(str(len(code)))
                                 code = '\n'.join(template % (n+1, line) for (n, line) in enumerate(code))
-                            if opts.num is not None:
+                            if hasattr(opts, 'num') and (opts.num is not None):
                                 code = code.splitlines()
                                 code = centeredSlice(code, center=opts.num+1, width=opts.width)
                                 code = '\n'.join(code)
@@ -1275,10 +1277,6 @@ class sqlpyPlus(sqlpython.sqlpython):
             return (arg[:startat].strip(), arg[endat:].strip())
         except StopIteration:
             return ''.join(arg.split()[:1]), ''
-        
-    def do_column(self, arg):
-        'COLUMN keyword not supported by sqlpython'
-        print self.do_column.__doc__
         
     assignmentScanner = Parser(pyparsing.Literal(':=') ^ '=')
     def interpret_variable_assignment(self, arg):
