@@ -23,7 +23,7 @@ or with a python-like shorthand
 
 - catherinedevlin.blogspot.com  May 31, 2006
 """
-#TODO: html escaping; prompt/accept; sqlpath; LOCAL name; @@
+#TODO: html escaping; prompt/accept; sqlpath; LOCAL name; python from stdin
 import sys, os, re, sqlpython, cx_Oracle, pyparsing, re, completion, datetime, pickle, binascii, subprocess
 from cmd2 import Cmd, make_option, options, Statekeeper, Cmd2TestCase
 from output_templates import output_templates
