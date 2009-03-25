@@ -797,10 +797,12 @@ Once you have easy_install, simply type (as root, or using `sudo`)::
 The -UZ flags, though optional, will update your sqlpython installation, if necessary, and 
 unzip the code so that you can modify it.
 
-To generate graphs using sqlpython's `\\b`, `\\g`, and `\\l` terminators, you will need to install `pylab`::
+To generate graphs using sqlpython's `\\b`, `\\g`, and `\\l` terminators, you will need to install `pylab` (or `matplotlib`)::
 
   $ easy_install pylab
 
+  $ apt-get install python-matplotlib
+  
 Alternately, a Windows installer is available at http://pypi.python.org/pypi/sqlpython, though easy_install
 works on Windows as well.
 
