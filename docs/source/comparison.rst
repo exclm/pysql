@@ -172,7 +172,8 @@ On Windows, the up- and down-arrow keys can be used to scroll through
 the history of SQL\*Plus commands issued during the session.  SQL\*Plus on UNIX does not provide this feature.  You can restore the feature, however, by installing a free GNU tool called `rlwrap`, then invoking SQL*\Plus under it: `rlwrap sqlplus me@instance`.
 `rlwrap` can also provide cursor-key history to senora, and in fact to any command-line program. 
 
-Gqlplus, YASQL, and sqlpython provide cursor-key command history out of the box.
+Gqlplus and sqlpytyhon provide cursor-key command history out of the box; Senora and YASQL do also, provided
+that the Term::ReadLine::Perl module has been installed (see Installation).
 
 In addition, senora and sqlpython have a `history` or `hi` command that gives a numbered list of all commands issued in the session.  
 
@@ -748,7 +749,7 @@ to install them::
 
   $ cpan
   
-  cpan> install DBI 
+  cpan> install DBI Term::ReadLine::Perl
   cpan> force install DBD::Oracle
 
 If this is your first time running `cpan`, it will ask you many configuration questions
@@ -771,7 +772,7 @@ are recommended and can also be installed through `cpan`::
 
   cpan> install DBI 
   cpan> force install DBD::Oracle
-  cpan> install Term::ReadKey Text::CSV_XS Time::HiRes 
+  cpan> install Term::ReadKey Text::CSV_XS Time::HiRes Term::ReadLine::Perl
 
 Download yasql-1.83.tar.gz from http://sourceforge.net/projects/yasql/, unzip and untar it, and
 cd into yasql-1.83.  Run `./configure`, `make`, and (as root) `make install`.
@@ -799,6 +800,9 @@ unzip the code so that you can modify it.
 To generate graphs using sqlpython's `\\b`, `\\g`, and `\\l` terminators, you will need to install `pylab`::
 
   $ easy_install pylab
+
+Alternately, a Windows installer is available at http://pypi.python.org/pypi/sqlpython, though easy_install
+works on Windows as well.
 
 ===================
 Extending the tools 
