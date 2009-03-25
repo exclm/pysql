@@ -573,7 +573,9 @@ class sqlpyPlus(sqlpython.sqlpython):
             plot.draw()
             return ''
         else:
-            result = sqlpython.pmatrix(self.rows, self.curs.description, self.maxfetch, heading=self.heading)
+            result = sqlpython.pmatrix(self.rows, self.curs.description, 
+                                       self.maxfetch, heading=self.heading, 
+                                       restructuredtext = (outformat == '\\r'))
         return result
         
     legalOracle = re.compile('[a-zA-Z_$#]')
@@ -747,7 +749,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         return raw
     
     rowlimitPattern = pyparsing.Word(pyparsing.nums)('rowlimit')
-    terminators = '; \\C \\t \\i \\p \\l \\L \\b '.split() + output_templates.keys()
+    terminators = '; \\C \\t \\i \\p \\l \\L \\b \\r'.split() + output_templates.keys()
 
     @options([make_option('-r', '--row', type="int", default=-1,
                           help='Bind row #ROW instead of final row (zero-based)')])    

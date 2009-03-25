@@ -217,6 +217,7 @@ class sqlpython(cmd2.Cmd):
 \\h   HTML table
 \\i   INSERT statements
 \\j   JSON
+\\r   ReStructured Text
 \\s   CSV (with headings)
 \\S   CSV (no headings)
 \\t   transposed
@@ -253,7 +254,7 @@ class sqlpython(cmd2.Cmd):
     do_exit = do_quit
     do_q = do_quit
     
-def pmatrix(rows,desc,maxlen=30,heading=True):
+def pmatrix(rows,desc,maxlen=30,heading=True,restructuredtext=False):
     '''prints a matrix, used by sqlpython to print queries' result sets'''
     names = []
     maxen = []
@@ -299,8 +300,11 @@ def pmatrix(rows,desc,maxlen=30,heading=True):
         toprint[j] = ' '.join(toprint[j])
     names = ' '.join(names)
     sepcols = ' '.join(sepcols)
-    if heading:
+    if heading or restructuredtext:
         toprint.insert(0, sepcols)
         toprint.insert(0, names)
+    if restructuredtext:
+        toprint.insert(0, sepcols)
+        toprint.append(sepcols)
     return '\n'.join(toprint)
 
