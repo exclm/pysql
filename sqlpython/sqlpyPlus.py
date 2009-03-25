@@ -388,7 +388,7 @@ class Result(tuple):
         try:
             return self[self.resultset.colnames.index(attr)]
         except ValueError:
-            if attr in ('colnames', 'statement', 'bindvars'):
+            if attr in ('colnames', 'statement', 'bindvars', 'resultset'):
                 return getattr(self.resultset, attr)
             else:
                 raise AttributeError, "available columns are: " + ", ".join(self.resultset.colnames)      
