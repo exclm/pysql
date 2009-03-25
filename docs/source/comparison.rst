@@ -867,7 +867,7 @@ Now we run sqlpython and try the new command::
     jrrt@orcl> greet -u World
     HELLO WORLD!
 
-Senora v0.6 includes a command, `lregister`, that will automatically create a new senora plugin from
+Senora v1.0.1 includes a command, `lregister`, that automatically creates a new senora plugin from
 SQL commands in a file.  This will make an incredibly easy way to make your own senora 
 commands for your favorite tasks.
 
