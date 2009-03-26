@@ -1435,8 +1435,10 @@ class sqlpyPlus(sqlpython.sqlpython):
         targets = [] 
         for target in targetnames:
             if '*' in target:
-                self._execute("SELECT owner, table_name FROM all_tables WHERE table_name LIKE '%s'%s" %
-                                  (target.upper().replace('*','%')), arg.terminator)
+                self._execute("""SELECT owner, object_name FROM all_objects 
+                                 WHERE object_type IN ('TABLE','VIEW')
+                                 AND object_name LIKE '%s'%s""" %
+                              (target.upper().replace('*','%'), arg.parsed.terminator))
                 for row in self.curs:
                     targets.append('%s.%s' % row)
             else:
