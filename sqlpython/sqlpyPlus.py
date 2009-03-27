@@ -32,6 +32,9 @@ try:
 except (RuntimeError, ImportError):
     pass
 
+#TODO: keep DECLARE blocks in history; Oracle error location; YASQL-like SHOW x ON y;
+# round-trip PL/SQL packages; print/stdout inconsistency; \dt (show triggers);
+# spell check
 descQueries = {
 'TABLE': {
     True: # long description
@@ -1354,6 +1357,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         lines = [line1]
         while True:
             line = self.pseudo_raw_input(self.continuation_prompt)
+            self.history[-1] = '%s\n%s' % (self.history[-1], line)
             if line == 'EOF':
                 return
             if line.strip() == '/':
@@ -1437,14 +1441,14 @@ class sqlpyPlus(sqlpython.sqlpython):
             if '*' in target:
                 self._execute("""SELECT owner, object_name FROM all_objects 
                                  WHERE object_type IN ('TABLE','VIEW')
-                                 AND object_name LIKE '%s'%s""" %
-                              (target.upper().replace('*','%'), arg.parsed.terminator))
+                                 AND object_name LIKE '%s'""" %
+                              target.upper().replace('*','%'))
                 for row in self.curs:
                     targets.append('%s.%s' % row)
             else:
                 targets.append(target)
         for target in targets:
-            print target
+            self.stdout.write('%s\n' % target)
             target = target.rstrip(';')
             try:
                 self._execute('select * from %s where 1=0' % target) # just to fill description
