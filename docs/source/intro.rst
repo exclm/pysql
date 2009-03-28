@@ -11,7 +11,13 @@ SQL\*Plus.  For the most part, it can be used the same way SQL\*Plus would be us
 focuses on the places where SQLPython differs.
 
 SQLPython was created by `Luca Canali <http://canali.web.cern.ch/canali/>`_ at CERN.  Most new development
-has been done by `Catherine Devlin <http://catherinedevlin.blogspot.com/>`_.
+has been done by `Catherine Devlin <http://catherinedevlin.blogspot.com/>`_.  The development trunk (very unstable) is at `assembla <https://www.assembla.com/wiki/show/sqlpython>`_; you can install the trunk on your machine with::
+
+	hg clone http://hg.assembla.com/sqlpython sqlpython
+	cd sqlpython
+	python setup.py develop
+
+Using `hg pull`, `hg update` subsequently will update from the current trunk.
 
 SQLPython is based on the Python standard library's 
 `cmd <http://docs.python.org/library/cmd.html#module-cmd>`_ module, and on an extension 
