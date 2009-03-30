@@ -1380,6 +1380,8 @@ class sqlpyPlus(sqlpython.sqlpython):
     def _ls_statement(self, arg, opts):
         if arg:
             target = arg.upper().replace('*','%')
+            if target in self.object_types:
+                target += '/%'
             where = """\nWHERE object_type || '/' || object_name LIKE '%s'
                        OR object_name LIKE '%s'""" % (target, target)
         else:
@@ -1415,11 +1417,49 @@ class sqlpyPlus(sqlpython.sqlpython):
                   ORDER BY object_type, object_name''' % clauses
         self._execute(statement)
         return self.curs.fetchall()
+
+    object_types = (
+        'CLUSTER',              
+        'CONSUMER GROUP',       
+        'CONTEXT',              
+        'DIRECTORY',            
+        'EDITION',              
+        'EVALUATION CONTEXT',   
+        'FUNCTION',             
+        'INDEX',                
+        'INDEX PARTITION',      
+        'INDEXTYPE',            
+        'JAVA CLASS',           
+        'JAVA DATA',            
+        'JAVA RESOURCE',        
+        'JOB',                  
+        'JOB CLASS',            
+        'LIBRARY',              
+        'MATERIALIZED VIEW',    
+        'OPERATOR',             
+        'PACKAGE',              
+        'PACKAGE BODY',         
+        'PROCEDURE',            
+        'PROGRAM',              
+        'RULE',                 
+        'RULE SET',             
+        'SCHEDULE',             
+        'SEQUENCE',             
+        'SYNONYM',              
+        'TABLE',                
+        'TABLE PARTITION',      
+        'TRIGGER',              
+        'TYPE',                 
+        'TYPE BODY',            
+        'VIEW',                 
+        'WINDOW',               
+        'WINDOW GROUP',         
+        'XML SCHEMA')
     
     @options([make_option('-l', '--long', action='store_true', help='long descriptions'),
               make_option('-a', '--all', action='store_true', help="all schemas' objects"),
               make_option('-t', '--timesort', action='store_true', help="Sort by last_ddl_time"),              
-              make_option('-r', '--reverse', action='store_true', help="Reverse order while sorting")])        
+              make_option('-r', '--reverse', action='store_true', help="Reverse order while sorting")])            
     def do_ls(self, arg, opts):
         '''
         Lists objects as through they were in an {object_type}/{object_name} UNIX
