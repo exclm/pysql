@@ -762,7 +762,7 @@ class sqlpyPlus(sqlpython.sqlpython):
 
     @options([make_option('-r', '--row', type="int", default=-1,
                           help='Bind row #ROW instead of final row (zero-based)')])    
-    def do_bind(self, arg=None, opts={}):
+    def do_bind(self, arg, opts):
         '''
         Inserts the results from the final row in the last completed SELECT statement
         into bind variables with names corresponding to the column names.  When the optional 
@@ -816,7 +816,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         elif self.rc == 1: 
             print '\n1 row selected.\n'
             if self.autobind:
-                self.do_bind()
+                self.do_bind('')
         elif self.rc < self.maxfetch:
             print '\n%d rows selected.\n' % self.rc
         else:
@@ -1472,7 +1472,8 @@ class sqlpyPlus(sqlpython.sqlpython):
         
     @options([make_option('-i', '--ignore-case', dest='ignorecase', action='store_true', help='Case-insensitive search')])        
     def do_grep(self, arg, opts):
-        """grep {target} {table} [{table2,...}] - search for {target} in any of {table}'s fields"""    
+        """grep {target} {table} [{table2,...}]
+        search for {target} in any of {table}'s fields"""    
 
         targetnames = arg.split()
         pattern = targetnames.pop(0)

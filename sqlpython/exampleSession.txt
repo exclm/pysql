@@ -98,6 +98,7 @@ Agamemnon     Aeschylus
 \h   HTML table
 \i   INSERT statements
 \j   JSON
+\r   ReStructured Text
 \s   CSV (with headings)
 \S   CSV (no headings)
 \t   transposed
@@ -203,6 +204,7 @@ AUTHOR      Shakespeare   Shakespeare
 2 rows selected.    
 
 0:testschema@orcl> set
+abbrev: True
 autobind: False
 commit_on_exit: True
 continuation_prompt: > 
@@ -213,10 +215,10 @@ heading: True
 maxfetch: 1000
 maxtselctrows: 10
 prompt: 0:testschema@orcl> 
-result_history_max_mbytes: 10
 scan: True
 serveroutput: True
 sql_echo: False
+store_results: True
 timeout: 30
 timing: False
 wildsql: False
@@ -255,7 +257,8 @@ Agamemnon Aeschylus
 1 row selected.
 
 0:testschema@orcl> help grep
-grep PATTERN TABLE - search for term in any of TABLE's fields
+grep {target} {table} [{table2,...}]
+        search for {target} in any of {table}'s fields
 Usage: grep [options] arg
 
 Options:
