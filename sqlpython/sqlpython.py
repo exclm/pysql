@@ -1,5 +1,5 @@
 #
-# SqlPython V1.6.3
+# SqlPython V1.7.0
 # Author: Luca.Canali@cern.ch, Apr 2006
 # Rev 30-Mar-09
 #
@@ -10,7 +10,7 @@
 
 import cmd2,getpass,binascii,cx_Oracle,re,os
 import sqlpyPlus, sqlalchemy
-__version__ = '1.6.3'    
+__version__ = '1.7.0'    
 
 class sqlpython(cmd2.Cmd):
     '''A python module to reproduce Oracle's command line with focus on customization and extention'''
@@ -30,17 +30,21 @@ class sqlpython(cmd2.Cmd):
         self.conn = None
         self.connection_number = None
         
+    def make_connection_current(self, connection_number):
+        self.conn = self.connections[connection_number]['conn']
+        self.prompt = self.connections[connection_number]['prompt']
+        self.rdbms = self.connections[connection_number]['rdbms']
+        self.connection_number = connection_number
+        self.curs = self.conn.cursor()
+            
     def successful_connection_to_number(self, arg):
         try:
             connection_number = int(arg)
-            self.conn = self.connections[connection_number]['conn']
-            self.prompt = self.connections[connection_number]['prompt']
-            self.connection_number = connection_number
-            self.curs = self.conn.cursor()
-            if self.orcl and self.serveroutput:
-                self.curs.callproc('dbms_output.enable', [])            
         except ValueError:            
             return False
+        self.make_connection_current(connection_number)
+        if (self.rdbms == 'oracle') and self.serveroutput:
+            self.curs.callproc('dbms_output.enable', [])           
         return True
 
     def list_connections(self):
@@ -67,8 +71,8 @@ class sqlpython(cmd2.Cmd):
         self.curs = None
         self.no_connection()        
             
-    def url_connect(self, arg):
-        eng = sqlalchemy.create_engine(arg)
+    def url_connect(self, arg, mode=0):
+        eng = sqlalchemy.create_engine(arg) #create_engine refuses "mode" argument
         self.conn = eng.connect().connection
         conn  = {'conn': self.conn, 'prompt': self.prompt, 'dbname': eng.url.database,
                  'rdbms': eng.url.drivername, 'user': eng.url.username or '', 
@@ -109,7 +113,9 @@ class sqlpython(cmd2.Cmd):
             print 'Privilege not specified for SYS, assuming SYSOPER'
             modeval = cx_Oracle.SYSOPER
         if modeval == 0:   # can sqlalchemy connect as sysoper, sysdba?
-            return self.url_connect('oracle://%s:%s@%s' % (orauser, orapass, oraserv))
+            result = self.url_connect('oracle://%s:%s@%s' % (orauser, orapass, oraserv), mode=modeval)
+            result['dbname'] = oraserv
+            return result
         else:
             self.conn = cx_Oracle.connect(orauser,orapass,oraserv,modeval)
             result = {'user': orauser, 'rdbms': 'oracle', 'dbname': sid, 'conn': self.conn} 
@@ -151,13 +157,11 @@ class sqlpython(cmd2.Cmd):
                 self.connection_number = max(self.connections.keys()) + 1
             except ValueError:
                 self.connection_number = 0
+        connect_info['prompt'] = '%d:%s@%s> ' % (self.connection_number, connect_info['user'], connect_info['dbname'])
         self.connections[self.connection_number] = connect_info
+        self.make_connection_current(self.connection_number)
         self.curs = self.conn.cursor()
-        self.orcl = connect_info['rdbms'] == 'oracle'
-        self.prompt = '%d:%s@%s> ' % (self.connection_number, 
-                                      connect_info['user'], connect_info['dbname'])
-        self.connections[self.connection_number]['prompt'] = self.prompt
-        if self.orcl and self.serveroutput:
+        if (self.rdbms == 'oracle') and self.serveroutput:
             self.curs.callproc('dbms_output.enable', [])
     def postparsing_precmd(self, statement):
         stop = 0
@@ -252,11 +256,11 @@ class sqlpython(cmd2.Cmd):
             command = '%s %s;'
         else:
             command = '%s %s'    
-        if self.orcl:
+        if self.rdbms == 'oracle':
             current_time = self.current_database_time()
         self.curs.execute(command % (arg.parsed.command, arg.parsed.args), self.varsUsed)
         executionmessage = '\nExecuted%s\n' % ((self.curs.rowcount > 0) and ' (%d rows)' % self.curs.rowcount or '')
-        if self.orcl:
+        if self.rdbms == 'oracle':
             self._show_errors(all_users=True, limit=1, mintime=current_time)
         print executionmessage
             
