@@ -480,7 +480,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         
     def postcmd(self, stop, line):
         """Hook method executed just after a command dispatch is finished."""        
-        if self.serveroutput:
+        if self.orcl and self.serveroutput:
             self.dbms_output()
         return stop
     
@@ -538,10 +538,11 @@ class sqlpyPlus(sqlpython.sqlpython):
         stop = self.postcmd(stop, line)
 
     def _onchange_serveroutput(self, old, new):
-        if new:
-            self.curs.callproc('dbms_output.enable', [])        
-        else:
-            self.curs.callproc('dbms_output.disable', [])        
+        if self.orcl:
+            if new:
+                self.curs.callproc('dbms_output.enable', [])        
+            else:
+                self.curs.callproc('dbms_output.disable', [])        
         
     def do_shortcuts(self,arg):
         """Lists available first-character shortcuts
@@ -556,7 +557,7 @@ class sqlpyPlus(sqlpython.sqlpython):
     inputStatementFormatters[cx_Oracle.CLOB] = inputStatementFormatters[cx_Oracle.STRING]
     inputStatementFormatters[cx_Oracle.TIMESTAMP] = inputStatementFormatters[cx_Oracle.DATETIME]                
     def output(self, outformat, rowlimit):
-        self.tblname = self.tableNameFinder.search(self.curs.statement).group(1)
+        self.tblname = self.tableNameFinder.search(self.querytext).group(1)
         self.colnames = [d[0] for d in self.curs.description]
         if outformat in output_templates:
             self.colnamelen = max(len(colname) for colname in self.colnames)
@@ -797,10 +798,11 @@ class sqlpyPlus(sqlpython.sqlpython):
             selecttext = self.expandWildSql(arg)
         else:
             selecttext = arg
-        self.curs.execute('select ' + selecttext, self.varsUsed)
+        self.querytext = 'select ' + selecttext
+        self.curs.execute(self.querytext, self.varsUsed)
         self.rows = self.curs.fetchmany(min(self.maxfetch, (rowlimit or self.maxfetch)))
         self.rc = self.curs.rowcount
-        if self.rc > 0:
+        if self.rc != 0:
             resultset = ResultSet()
             resultset.colnames = [d[0].lower() for d in self.curs.description]
             resultset.pystate = self.pystate
@@ -817,7 +819,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             print '\n1 row selected.\n'
             if self.autobind:
                 self.do_bind('')
-        elif self.rc < self.maxfetch:
+        elif (self.rc < self.maxfetch and self.rc > 0):
             print '\n%d rows selected.\n' % self.rc
         else:
             print '\nSelected Max Num rows (%d)' % self.rc
