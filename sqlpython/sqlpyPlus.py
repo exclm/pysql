@@ -33,80 +33,6 @@ try:
 except (RuntimeError, ImportError):
     pass
 
-#TODO: keep DECLARE blocks in history; Oracle error location; YASQL-like SHOW x ON y;
-# round-trip PL/SQL packages; print/stdout inconsistency; \dt (show triggers);
-# spell check
-descQueries = {
-'PROCEDURE': ("""
-SELECT NVL(argument_name, 'Return Value') argument_name,             
-data_type,
-in_out,
-default_value
-FROM all_arguments
-WHERE object_name = :object_name
-AND      owner = :owner
-AND      package_name IS NULL
-ORDER BY sequence;""",),    
-'PackageObjects':("""
-SELECT DISTINCT object_name
-FROM all_arguments
-WHERE package_name = :package_name
-AND      owner = :owner""",),
-'PackageObjArgs':("""
-SELECT object_name,
-argument_name,             
-data_type,
-in_out,
-default_value
-FROM all_arguments
-WHERE package_name = :package_name
-AND      object_name = :object_name
-AND      owner = :owner
-AND      argument_name IS NOT NULL
-ORDER BY sequence;""",),
-'TRIGGER':("""
-SELECT description
-FROM   all_triggers
-WHERE  owner = :owner
-AND    trigger_name = :object_name;
-""",
-"""
-SELECT table_owner,
-base_object_type,
-table_name,
-column_name,
-when_clause,
-status,
-action_type,
-crossedition
-FROM   all_triggers
-WHERE  owner = :owner
-AND    trigger_name = :object_name
-\\t
-""",
-),
-'INDEX':("""
-SELECT index_type,
-table_owner,
-table_name,
-table_type,
-uniqueness,
-compression,
-partitioned,
-temporary,
-generated,
-secondary,
-dropped,
-visibility
-FROM   all_indexes
-WHERE  owner = :owner
-AND    index_name = :object_name
-\\t
-""",)
-}
-descQueries['VIEW'] = metaqueries['desc']['oracle']['TABLE']['short']
-descQueries['FUNCTION'] = descQueries['PROCEDURE'] 
-
 queries = {
 'resolve': """
 SELECT object_type, object_name, owner FROM (
@@ -993,9 +919,9 @@ class sqlpyPlus(sqlpython.sqlpython):
                 if opts.long:
                     self._execute(queries['tabComments'], {'table_name':object_name, 'owner':owner})
                     self.stdout.write(self.curs.fetchone()[0])
-                descQ = metaqueries['desc'][object_type][self.rdbms][(opts.long and 'long') or 'short']
+                descQ = metaqueries['desc'][self.rdbms][object_type][(opts.long and 'long') or 'short']
             else:
-                descQ = descQueries[object_type][opts.long]                
+                descQ = metaqueries['desc'][self.rdbms][object_type]
             for q in descQ:
                 self.do_select(self.parsed(q, terminator=arg.parsed.terminator or ';' , suffix=arg.parsed.suffix), 
                                bindVarsIn={'object_name':object_name, 'owner':owner})            
