@@ -26,6 +26,7 @@ or with a python-like shorthand
 import sys, os, re, sqlpython, cx_Oracle, pyparsing, re, completion, datetime, pickle, binascii, subprocess
 from cmd2 import Cmd, make_option, options, Statekeeper, Cmd2TestCase
 from output_templates import output_templates
+from metadata import metaqueries
 from plothandler import Plot
 try:
     import pylab
@@ -36,49 +37,6 @@ except (RuntimeError, ImportError):
 # round-trip PL/SQL packages; print/stdout inconsistency; \dt (show triggers);
 # spell check
 descQueries = {
-'TABLE': {
-    True: # long description
-("""
-SELECT atc.column_id "#",
-atc.column_name,
-CASE atc.nullable WHEN 'Y' THEN 'NULL' ELSE 'NOT NULL' END "Null?",
-atc.data_type ||
-CASE atc.data_type WHEN 'DATE' THEN ''
-ELSE '(' ||
-CASE atc.data_type WHEN 'NUMBER' THEN TO_CHAR(atc.data_precision) ||
-CASE atc.data_scale WHEN 0 THEN ''
-ELSE ',' || TO_CHAR(atc.data_scale) END
-ELSE TO_CHAR(atc.data_length) END 
-END ||
-CASE atc.data_type WHEN 'DATE' THEN '' ELSE ')' END
-data_type,
-acc.comments
-FROM all_tab_columns atc
-JOIN all_col_comments acc ON (acc.owner = atc.owner AND acc.table_name = atc.table_name AND acc.column_name = atc.column_name)
-WHERE atc.table_name = :object_name
-AND      atc.owner = :owner
-ORDER BY atc.column_id;""",),
-    None: # short description
-("""
-SELECT atc.column_name,
-CASE atc.nullable WHEN 'Y' THEN 'NULL' ELSE 'NOT NULL' END "Null?",
-atc.data_type ||
-CASE atc.data_type WHEN 'DATE' THEN ''
-ELSE '(' ||
-CASE atc.data_type WHEN 'NUMBER' THEN TO_CHAR(atc.data_precision) ||
-CASE atc.data_scale WHEN 0 THEN ''
-ELSE ',' || TO_CHAR(atc.data_scale) END
-ELSE TO_CHAR(atc.data_length) END 
-END ||
-CASE atc.data_type WHEN 'DATE' THEN '' ELSE ')' END
-data_type
-FROM all_tab_columns atc
-WHERE atc.table_name = :object_name
-AND      atc.owner = :owner
-ORDER BY atc.column_id;""",)
-}
-          ,
-
 'PROCEDURE': ("""
 SELECT NVL(argument_name, 'Return Value') argument_name,             
 data_type,
@@ -146,7 +104,7 @@ AND    index_name = :object_name
 \\t
 """,)
 }
-descQueries['VIEW'] = descQueries['TABLE']
+descQueries['VIEW'] = metaqueries['desc']['oracle']['TABLE']['short']
 descQueries['FUNCTION'] = descQueries['PROCEDURE'] 
 
 queries = {
@@ -480,7 +438,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         
     def postcmd(self, stop, line):
         """Hook method executed just after a command dispatch is finished."""        
-        if self.orcl and self.serveroutput:
+        if (self.rdbms == 'oracle') and self.serveroutput:
             self.dbms_output()
         return stop
     
@@ -538,7 +496,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         stop = self.postcmd(stop, line)
 
     def _onchange_serveroutput(self, old, new):
-        if self.orcl:
+        if (self.rdbms == 'oracle'):
             if new:
                 self.curs.callproc('dbms_output.enable', [])        
             else:
@@ -1035,7 +993,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                 if opts.long:
                     self._execute(queries['tabComments'], {'table_name':object_name, 'owner':owner})
                     self.stdout.write(self.curs.fetchone()[0])
-                descQ = descQueries[object_type][opts.long]
+                descQ = metaqueries['desc'][object_type][self.rdbms][(opts.long and 'long') or 'short']
             else:
                 descQ = descQueries[object_type][opts.long]                
             for q in descQ:
