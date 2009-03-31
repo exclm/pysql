@@ -71,8 +71,8 @@ class sqlpython(cmd2.Cmd):
         self.curs = None
         self.no_connection()        
             
-    def url_connect(self, arg, mode=0):
-        eng = sqlalchemy.create_engine(arg) #create_engine refuses "mode" argument
+    def url_connect(self, arg):
+        eng = sqlalchemy.create_engine(arg) 
         self.conn = eng.connect().connection
         conn  = {'conn': self.conn, 'prompt': self.prompt, 'dbname': eng.url.database,
                  'rdbms': eng.url.drivername, 'user': eng.url.username or '', 
@@ -112,14 +112,9 @@ class sqlpython(cmd2.Cmd):
         if orauser.upper() == 'SYS' and not modeval:
             print 'Privilege not specified for SYS, assuming SYSOPER'
             modeval = cx_Oracle.SYSOPER
-        if modeval == 0:   # can sqlalchemy connect as sysoper, sysdba?
-            result = self.url_connect('oracle://%s:%s@%s' % (orauser, orapass, oraserv), mode=modeval)
-            result['dbname'] = oraserv
-            return result
-        else:
-            self.conn = cx_Oracle.connect(orauser,orapass,oraserv,modeval)
-            result = {'user': orauser, 'rdbms': 'oracle', 'dbname': sid, 'conn': self.conn} 
-            return result
+        result = self.url_connect('oracle://%s:%s@%s?mode=%d' % (orauser, orapass, oraserv, modeval))
+        result['dbname'] = oraserv
+        return result
     
     connection_modes = {re.compile(' AS SYSDBA', re.IGNORECASE): cx_Oracle.SYSDBA, 
                         re.compile(' AS SYSOPER', re.IGNORECASE): cx_Oracle.SYSOPER}
