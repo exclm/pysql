@@ -61,7 +61,7 @@ ${',\\n'.join('        {%s}' % ', '.join('"%s": %s' % (colname,
 {% end %}{% end %}"""),
 
 '\\i': genshi.template.NewTextTemplate("""{% for (rowNum, row) in enumerate(rows) %}
-INSERT INTO $tblname (${', '.join(colnames)}) VALUES (${', '.join(f % r for (r,f) in zip(row, formatters))});{% end %}"""),
+INSERT INTO $tblname (${', '.join(colnames)}) VALUES (${', '.join(formattedForSql(r) for r in row)});{% end %}"""),
 
 '\\c': genshi.template.NewTextTemplate("""
 ${','.join(colnames)}{% for row in rows %}
