@@ -112,7 +112,7 @@ class sqlpython(cmd2.Cmd):
         if orauser.upper() == 'SYS' and not modeval:
             print 'Privilege not specified for SYS, assuming SYSOPER'
             modeval = cx_Oracle.SYSOPER
-        result = self.url_connect('oracle://%s:%s@%s?mode=%d' % (orauser, orapass, oraserv, modeval))
+        result = self.url_connect('oracle://%s:%s@%s/?mode=%d' % (orauser, orapass, oraserv, modeval))
         result['dbname'] = oraserv
         return result
     
