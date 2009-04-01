@@ -435,19 +435,23 @@ class sqlpyPlus(sqlpython.sqlpython):
             print '%s: %s' % (scchar, scto)
 
     tableNameFinder = re.compile(r'from\s+([\w$#_"]+)', re.IGNORECASE | re.MULTILINE | re.DOTALL)          
-    inputStatementFormatters = {
-        cx_Oracle.STRING: "'%s'",
-        cx_Oracle.DATETIME: "TO_DATE('%s', 'YYYY-MM-DD HH24:MI:SS')"}
-    inputStatementFormatters[cx_Oracle.CLOB] = inputStatementFormatters[cx_Oracle.STRING]
-    inputStatementFormatters[cx_Oracle.TIMESTAMP] = inputStatementFormatters[cx_Oracle.DATETIME]                
+    def formattedForSql(self, datum):
+        if datum is None:
+            return 'NULL'
+        elif isinstance(datum, basestring):
+            return "'%s'" % datum
+        try:
+            return datum.strftime("TO_DATE('%Y-%m-%d %H:%M:%S', 'YYYY-MM-DD HH24:MI:SS')")
+        except AttributeError:
+            return str(datum)
+              
     def output(self, outformat, rowlimit):
         self.tblname = self.tableNameFinder.search(self.querytext).group(1)
         self.colnames = [d[0] for d in self.curs.description]
         if outformat in output_templates:
             self.colnamelen = max(len(colname) for colname in self.colnames)
             self.coltypes = [d[1] for d in self.curs.description]
-            self.formatters = [self.inputStatementFormatters.get(typ, '%s') for typ in self.coltypes]    
-            result = output_templates[outformat].generate(**self.__dict__)        
+            result = output_templates[outformat].generate(formattedForSql=self.formattedForSql, **self.__dict__)        
         elif outformat == '\\t': # transposed
             rows = [self.colnames]
             rows.extend(list(self.rows))
