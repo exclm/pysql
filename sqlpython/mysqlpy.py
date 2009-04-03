@@ -10,6 +10,7 @@
 
 from sqlpyPlus import *
 import sys, tempfile, optparse, unittest
+import sqlalchemy
 
 class mysqlpy(sqlpyPlus):
     '''
@@ -200,16 +201,24 @@ def run():
     except IndexError:
         pass
     my.cmdloop()
-
+    
 class TestCase(Cmd2TestCase):
     CmdApp = mysqlpy
-    transcriptFileName = 'exampleSession.txt'
+    def setUp(self):
+        Cmd2TestCase.setUp(self)
+        try:
+            sqlalchemy.create_engine('oracle://testschema:testschema@orcl'
+                                 ).connect().connection.cursor().execute(
+                                     'DROP TABLE play')
+        except:
+            pass   
 
 if __name__ == '__main__':
     parser = optparse.OptionParser()
     parser.add_option('-t', '--test', dest='unittests', action='store_true', default=False, help='Run unit test suite')
     (callopts, callargs) = parser.parse_args()
     if callopts.unittests:
+        mysqlpy.testfiles = callargs
         sys.argv = [sys.argv[0]]  # the --test argument upsets unittest.main()
         unittest.main()
     else:

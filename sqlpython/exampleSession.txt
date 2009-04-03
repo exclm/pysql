@@ -1,3 +1,9 @@
+Transcript file for testing of sqlpython; run tests with 
+`python mysqlpy.py --test exampleSession.txt`.
+The database `orcl` must be running and must include 
+user testschema, password testschema, with the RESOURCE
+privilege (`GRANT RESOURCE TO testschema`).
+
 SQL.No_Connection> connect testschema/testschema@orcl
 0:testschema@orcl> CREATE TABLE play (
 >   title   VARCHAR2(40) CONSTRAINT xpk_play PRIMARY KEY,
