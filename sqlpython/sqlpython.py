@@ -1,7 +1,7 @@
 #
-# SqlPython V1.7.0
+# SqlPython V1.6.4
 # Author: Luca.Canali@cern.ch, Apr 2006
-# Rev 30-Mar-09
+# Rev 03-Apr-09
 #
 # A python module to reproduce Oracle's command line 'sqlplus-like' within python
 # Intended to allow easy customizations and extentions 
@@ -10,7 +10,7 @@
 
 import cmd2,getpass,binascii,cx_Oracle,re,os
 import sqlpyPlus, sqlalchemy
-__version__ = '1.7.0'    
+__version__ = '1.6.4'    
 
 class sqlpython(cmd2.Cmd):
     '''A python module to reproduce Oracle's command line with focus on customization and extention'''

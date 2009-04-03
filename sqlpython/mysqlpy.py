@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# MySqlPy V1.6.3
+# MySqlPy V1.6.4
 # Author: Luca.Canali@cern.ch
 # 
 #
@@ -14,9 +14,9 @@ import sqlalchemy
 
 class mysqlpy(sqlpyPlus):
     '''
-MySqlPy V1.6.3 - 'sqlplus in python'
+MySqlPy V1.6.4 - 'sqlplus in python'
 Author: Luca.Canali@cern.ch
-Rev: 1.6.3, 30-Mar-09
+Rev: 1.6.4, 03-Apr-09
 
 Companion of SqlPython, a python module that reproduces Oracle's command line within python
 and sqlpyPlus. Major contributions by Catherine Devlin, http://catherinedevlin.blogspot.com
@@ -204,14 +204,6 @@ def run():
     
 class TestCase(Cmd2TestCase):
     CmdApp = mysqlpy
-    def setUp(self):
-        Cmd2TestCase.setUp(self)
-        try:
-            sqlalchemy.create_engine('oracle://testschema:testschema@orcl'
-                                 ).connect().connection.cursor().execute(
-                                     'DROP TABLE play')
-        except:
-            pass   
 
 if __name__ == '__main__':
     parser = optparse.OptionParser()

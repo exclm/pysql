@@ -5,11 +5,13 @@ user testschema, password testschema, with the RESOURCE
 privilege (`GRANT RESOURCE TO testschema`).
 
 SQL.No_Connection> connect testschema/testschema@orcl
+0:testschema@orcl> drop table play;
+/.*/
 0:testschema@orcl> CREATE TABLE play (
 >   title   VARCHAR2(40) CONSTRAINT xpk_play PRIMARY KEY,
 >   author  VARCHAR2(40));
 
-Executed (1 rows)
+Executed
 
 0:testschema@orcl> INSERT INTO play VALUES ('Twelfth Night', 'Shakespeare');
 
@@ -46,6 +48,15 @@ NAME
 --------------
 INDEX/XPK_PLAY
 TABLE/PLAY    
+
+2 rows selected.
+
+0:testschema@orcl> ls -l
+
+NAME           STATUS LAST_DDL_TIME
+-------------- ------ -------------------
+INDEX/XPK_PLAY VALID  /[\\d\\- :]*/
+TABLE/PLAY     VALID  /[\\d\\- :]*/
 
 2 rows selected.
 
