@@ -111,3 +111,36 @@ AND    index_name = :object_name\\t""",)
 
 metaqueries['desc']['oracle']['VIEW'] = metaqueries['desc']['oracle']['TABLE']['short']
 metaqueries['desc']['oracle']['FUNCTION'] = metaqueries['desc']['oracle']['PROCEDURE']
+
+metaqueries['ls']['oracle'] = """
+SELECT owner, 
+       object_name,  
+       object_type,
+       status,
+       last_ddl_time,
+       user as current_username
+FROM   all_objects"""
+
+metaqueries['ls']['information_schema'] = """
+SELECT table_schema as owner,
+       table_name as object_name,
+       table_type as object_type,
+       null as status,
+       null as last_ddl_time,
+       current_user as current_username
+FROM   information_schema.tables"""
+
+metaqueries['ls']['postgres'] = metaqueries['ls']['information_schema']
+metaqueries['ls']['mysql'] = metaqueries['ls']['information_schema']
+metaqueries['ls']['mssql'] = metaqueries['ls']['information_schema']
+
+metaqueries['ls']['sqlite'] = """
+SELECT '' as owner,
+       tbl_name as object_name,
+       type as object_type,
+       null as status,
+       null as last_ddl_time,
+       '' as current_username
+FROM   sqlite_master"""
+
+'''oof, metadata is hard.  \d information_schema.tables, http://www.alberton.info/postgresql_meta_info.html'''

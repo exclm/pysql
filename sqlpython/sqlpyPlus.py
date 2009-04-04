@@ -689,7 +689,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         self.querytext = 'select ' + selecttext
         self.curs.execute(self.querytext, self.varsUsed)
         self.rows = self.curs.fetchmany(min(self.maxfetch, (rowlimit or self.maxfetch)))
-        self.rc = self.curs.rowcount
+        self.rc = len(self.rows)
         if self.rc != 0:
             resultset = ResultSet()
             resultset.colnames = [d[0].lower() for d in self.curs.description]
@@ -1267,44 +1267,24 @@ class sqlpyPlus(sqlpython.sqlpython):
     def do_declare(self, arg):
         self.anon_plsql('declare ' + arg)
         
-    def _ls_statement(self, arg, opts):
+    def ls_where_clause(self, arg, opts):
+        where = ['WHERE (1=1) ']
         if arg:
             target = arg.upper().replace('*','%')
             if target in self.object_types:
                 target += '/%'
-            where = """\nWHERE object_type || '/' || object_name LIKE '%s'
-                       OR object_name LIKE '%s'""" % (target, target)
-        else:
-            where = ''
-        if opts.all:
-            whose = 'all'
-            objname = "owner || '.' || object_name"            
-        else:
-            whose = 'user'
-            objname = 'object_name'            
-        if hasattr(opts, 'long') and opts.long:
-            moreColumns = ', status, last_ddl_time'
-        else:
-            moreColumns = ''
-            
-        # 'Normal' sort order is DATE DESC (maybe), object type ASC, object name ASC
-        sortdirection = (hasattr(opts, 'reverse') and opts.reverse and 'DESC') or 'ASC'
-        orderby = 'object_type %s, object_name %s' % (sortdirection, sortdirection)
-        if hasattr(opts, 'timesort') and opts.timesort:
-            orderby = 'last_ddl_time %s, %s' % (('ASC' if hasattr(opts, 'reverse') and opts.reverse else 'DESC'), orderby)
-        return {'objname': objname, 'moreColumns': moreColumns,
-                'whose': whose, 'where': where, 'orderby': orderby}        
+            where.append("""
+                AND(   object_type || '/' || object_name LIKE '%s'
+                       OR object_name LIKE '%s')""" % (target, target))
+        if not opts.all:
+            where.append("AND owner = current_username")
+        return '\n'.join(where)
         
     def resolve_many(self, arg, opts):
-        opts.long = False
-        clauses = self._ls_statement(arg, opts)
-        if opts.all:
-            clauses['owner'] = 'owner'
-        else:
-            clauses['owner'] = 'user'
-        statement = '''SELECT %(owner)s, object_type, object_name 
-                  FROM   %(whose)s_objects %(where)s
-                  ORDER BY object_type, object_name''' % clauses
+        statement = '''
+            SELECT owner, object_type, object_name 
+            FROM   all_objects %s
+            ORDER BY object_type, object_name''' % self.ls_where_clause(arg, opts)
         self._execute(statement)
         return self.curs.fetchall()
 
@@ -1355,10 +1335,29 @@ class sqlpyPlus(sqlpython.sqlpython):
         Lists objects as through they were in an {object_type}/{object_name} UNIX
         directory structure.  `*` and `%` may be used as wildcards.
         '''
-        statement = '''SELECT object_type || '/' || %(objname)s AS name %(moreColumns)s 
-                  FROM   %(whose)s_objects %(where)s
-                  ORDER BY %(orderby)s;''' % self._ls_statement(arg, opts)
-        self.do_select(self.parsed(statement, terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix))
+        clauses = {'owner': '', 'moreColumns': '',
+                   'source': metaqueries['ls'][self.rdbms],
+                   'where': self.ls_where_clause(arg, opts)}
+        if opts.long:
+            clauses['moreColumns'] = ', status, last_ddl_time'
+        if opts.all:
+            clauses['owner'] = "owner || '.' ||"
+
+        # 'Normal' sort order is DATE DESC (maybe), object type ASC, object name ASC
+        sortdirection = (hasattr(opts, 'reverse') and opts.reverse and 'DESC') or 'ASC'
+        orderby = 'object_type %s, object_name %s' % (sortdirection, sortdirection)
+        if hasattr(opts, 'timesort') and opts.timesort:
+            orderby = 'last_ddl_time %s, %s' % (
+                ('ASC' if hasattr(opts, 'reverse') and opts.reverse else 'DESC'), orderby)
+        clauses['orderby'] = orderby    
+        statement = '''
+            SELECT object_type || '/' || %(owner)s object_name AS name %(moreColumns)s 
+            FROM   (%(source)s) source
+            %(where)s
+            ORDER BY %(orderby)s;''' % clauses
+        self.do_select(self.parsed(statement, 
+                                   terminator=arg.parsed.terminator or ';', 
+                                   suffix=arg.parsed.suffix))
         
     @options([make_option('-i', '--ignore-case', dest='ignorecase', action='store_true', help='Case-insensitive search')])        
     def do_grep(self, arg, opts):
