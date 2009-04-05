@@ -316,7 +316,7 @@ class sqlpyPlus(sqlpython.sqlpython):
     def __init__(self):
         sqlpython.sqlpython.__init__(self)
         self.binds = CaselessDict()
-        self.settable += 'autobind commit_on_exit maxfetch maxtselctrows rows_remembered scan serveroutput sql_echo store_results timeout heading wildsql'.split()
+        self.settable += 'autobind commit_on_exit maxfetch maxtselctrows rows_remembered scan serveroutput sql_echo timeout heading wildsql'.split()
         self.settable.remove('case_insensitive')
         self.settable.sort()
         self.stdoutBeforeSpool = sys.stdout
@@ -330,7 +330,6 @@ class sqlpyPlus(sqlpython.sqlpython):
         self.nonpythoncommand = 'sql'
         self.substvars = {}
         self.result_history = []
-        self.store_results = True
         self.rows_remembered = 10
         
         self.pystate = {'r': [], 'binds': self.binds, 'substs': self.substvars}
@@ -666,12 +665,12 @@ class sqlpyPlus(sqlpython.sqlpython):
         
     def age_out_resultsets(self):
         total_len = sum(len(rs) for rs in self.pystate['r'])
-        while (self.rows_remembered and (total_len >= self.rows_remembered)):
-            for (i, rset) in enumerate(self.pystate['r'][:-1]):
-                if rset:
-                    self.pystate['r'][i] = []
-                    break
-            total_len = sum(len(rs) for rs in self.pystate['r'])
+        for (i, rset) in enumerate(self.pystate['r'][:-1]):
+            if total_len <= self.rows_remembered:
+                return
+            total_len -= len(rset)
+            self.pystate['r'][i] = []
+            
     def do_select(self, arg, bindVarsIn=None, terminator=None):
         """Fetch rows from a table.
 
