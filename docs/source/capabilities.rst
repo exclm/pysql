@@ -104,9 +104,10 @@ terminator format                   Useful for
 \\h        HTML table               web reports
 \\i        INSERT statements        copying to other instances
 \\j        JSON
+\\r        ReStructured Text        inclusion in documentation
 \\s        CSV (with headings)
 \\S        CSV (no headings)
-\\t        transposed               "narrow" tables like v$database
+\\t        transposed               "wide" tables like v$database
 \\x        XML
 \\l        line plot, with markers
 \\L        scatter plot (no lines)
@@ -115,7 +116,7 @@ terminator format                   Useful for
 ========== ======================== ================================
 
 Most of these output formats are even more useful when combined with special output
-destinations.  For example, `SELECT * FROM party\h > /var/www/party_report.html`
+destinations.  For example, `SELECT * FROM party\\h > /var/www/party_report.html`
 could create an HTML report in the webserver's documents directory, ready to serve.
 
 UNIX-like commands
