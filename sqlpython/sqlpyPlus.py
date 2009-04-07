@@ -732,7 +732,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         if opts.dump:
             statekeeper = Statekeeper(self, ('stdout',))                        
         try:
-            for (owner, object_type, object_name) in self.resolve_many(arg, opts):  
+            for (owner, object_name, object_type) in self.resolve_many(arg, opts):  
                 if object_type in self.supported_ddl_types:
                     object_type = {'DATABASE LINK': 'DB_LINK', 'JAVA CLASS': 'JAVA_SOURCE'
                                    }.get(object_type) or object_type
@@ -1295,10 +1295,8 @@ class sqlpyPlus(sqlpython.sqlpython):
         return '\n'.join(where)
         
     def resolve_many(self, arg, opts):
-        statement = '''
-            SELECT owner, object_type, object_name 
-            FROM   all_objects %s
-            ORDER BY object_type, object_name''' % self.ls_where_clause(arg, opts)
+        statement = """SELECT owner, object_name, object_type FROM (%s)
+            %s""" % (metaqueries['ls'][self.rdbms], self.ls_where_clause(arg, opts))
         self._execute(statement)
         return self.curs.fetchall()
 
