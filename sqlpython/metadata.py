@@ -143,4 +143,9 @@ SELECT '' as owner,
        '' as current_username
 FROM   sqlite_master"""
 
+metaqueries['resolve_many']['oracle'] = """
+SELECT owner, object_type, object_name, user as current_username 
+FROM   all_objects"""
+            
+
 '''oof, metadata is hard.  \d information_schema.tables, http://www.alberton.info/postgresql_meta_info.html'''
