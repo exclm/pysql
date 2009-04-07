@@ -443,7 +443,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         try:
             return datum.strftime("TO_DATE('%Y-%m-%d %H:%M:%S', 'YYYY-MM-DD HH24:MI:SS')")
         except AttributeError:
-            return str(datum)
+            return str(datum).replace("'","''")
               
     def output(self, outformat, rowlimit):
         self.tblname = self.tableNameFinder.search(self.querytext).group(1)
