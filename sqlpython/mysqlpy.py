@@ -105,16 +105,13 @@ WHERE  created > SYSDATE - 7;''')
 Do not confuse with `GET myfile.sql` and `@myfile.sql`,
 which get and run SQL scripts from disk.'''
         self.onecmd(self.query_load10g)
-
-    def do_hello(self, arg):
-        print 'Hello, World!'
                 
     def do_db(self,args,filepath='pass.txt'): 
         '''Exec do_connect to db_alias in args (credentials form the file pass.txt) '''
         try:
             f = open(filepath,'r')
         except IOError:
-            print 'Need a file %s containing username/password' % filepath
+            self.perror('Need a file %s containing username/password' % filepath)
             raise
         connectstr = f.readline().strip()
         if args:
@@ -135,20 +132,20 @@ which get and run SQL scripts from disk.'''
         try:
             self.curs.execute(self.query)
             row = self.curs.fetchone()
-            print "\nSQL statement from cache"
-            print "------------------------\n"
+            self.poutput("\nSQL statement from cache")
+            self.poutput("------------------------\n")
             while row:
-                print "\nINST_ID = "+str(row[0])+" - SQL TEXT:\n", row[1].read()
+                self.poutput("\nINST_ID = "+str(row[0])+" - SQL TEXT:\n" + row[1].read())
                 row = self.curs.next()
         except Exception, e:
-            print e
+            self.perror(e)
 
     def do_explain(self,args):
         '''prints the plan of a given statement from the sql cache. 1 parameter: sql_id, see also do_sql '''
         words = args.split()
         if len(words) > 2 and words[0].lower() == 'plan' and words[1].lower() == 'for':
             self.curs.execute('explain %s' % args)
-            print 'Explained.  (see plan table)'
+            self.pfeedback('Explained.  (see plan table)')
             return 
         self.query = "select * from table(dbms_xplan.display_cursor('"+args+"'))"
         try:
@@ -157,9 +154,9 @@ which get and run SQL scripts from disk.'''
             desc = self.curs.description
             self.rc = self.curs.rowcount
             if self.rc > 0:
-                print '\n' + sqlpython.pmatrix(rows,desc,200)
+                self.poutput('\n' + sqlpython.pmatrix(rows,desc,200))
         except Exception, e:
-            print e
+            self.perror(e)
 
     def do_sessinfo(self,args):
         '''Reports session info for the given sid, extended to RAC with gv$'''
@@ -170,7 +167,7 @@ which get and run SQL scripts from disk.'''
             self.onecmd('SELECT * from gv$session where sid=%s\\t' % args)
         except cx_Oracle.DatabaseError, e:
             if 'table or view does not exist' in str(e):
-                print 'This account has not been granted SELECT privileges to v$mystat or gv$session.'
+                self.perror('This account has not been granted SELECT privileges to v$mystat or gv$session.')
             else:
                 raise 
 

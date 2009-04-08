@@ -345,7 +345,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         if cmd in ('select', 'sleect', 'insert', 'update', 'delete', 'describe',
                    'desc', 'comments', 'pull', 'refs', 'desc', 'triggers', 'find') \
            and not hasattr(self, 'curs'):
-            print 'Not connected.'
+            self.perror('Not connected.')
             return '', '', ''
         return cmd, arg, line
 
@@ -432,7 +432,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         """Lists available first-character shortcuts
         (i.e. '!dir' is equivalent to 'shell dir')"""
         for (scchar, scto) in self.shortcuts:
-            print '%s: %s' % (scchar, scto)
+            self.poutput('%s: %s' % (scchar, scto))
 
     tableNameFinder = re.compile(r'from\s+([\w$#_"]+)', re.IGNORECASE | re.MULTILINE | re.DOTALL)          
     def formattedForSql(self, datum):
@@ -577,7 +577,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                     idx -= 1                
                 colnames = [columns_available[idx]]
             if not colnames:
-                print 'No columns found matching criteria.'
+                self.pfeedback('No columns found matching criteria.')
                 return 'null from dual'
             for colname in colnames:
                 if col.exclude:
@@ -602,12 +602,11 @@ class sqlpyPlus(sqlpython.sqlpython):
         result = self.deadStarterCommaRegex.sub('', result)
         result = self.deadEnderCommaRegex.sub('', result)
         if not result.strip():
-            print 'No columns found matching criteria.'
+            self.pfeedback('No columns found matching criteria.')
             return 'null from dual'        
         return result + ' ' + columnlist.remainder
 
-    def do_prompt(self, args):
-        print args
+    do_prompt = Cmd.poutput
         
     def do_accept(self, args):
         try:
@@ -621,8 +620,8 @@ class sqlpyPlus(sqlpython.sqlpython):
         subst = regexpr.search(raw)
         while subst:
             fullexpr, var = subst.group(1), subst.group(2)
-            print 'Substitution variable %s found in:' % fullexpr
-            print raw[max(subst.start()-20, 0):subst.end()+20]
+            self.pfeedback('Substitution variable %s found in:' % fullexpr)
+            self.pfeedback(raw[max(subst.start()-20, 0):subst.end()+20])
             if var in self.substvars:
                 val = self.substvars[var]
             else:
@@ -633,7 +632,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                 if isglobal:
                     self.substvars[var] = val                
             raw = raw.replace(fullexpr, val)
-            print 'Substituted %s for %s' % (val, fullexpr)
+            self.pfeedback('Substituted %s for %s' % (val, fullexpr))
             subst = regexpr.search(raw) # do not FINDALL b/c we don't want to ask twice
         return raw
 
@@ -664,7 +663,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         try:
             self.pystate['r'][-1][opts.row].bind()
         except IndexError:
-            print self.do_bind.__doc__
+            self.poutput(self.do_bind.__doc__)
         
     def age_out_resultsets(self):
         total_len = sum(len(rs) for rs in self.pystate['r'])
@@ -689,7 +688,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             rowlimit = int(arg.parsed.suffix or 0)
         except ValueError:
             rowlimit = 0
-            print "Specify desired number of rows after terminator (not '%s')" % arg.parsed.suffix
+            self.perror("Specify desired number of rows after terminator (not '%s')" % arg.parsed.suffix)
         if arg.parsed.terminator == '\\t':
             rowlimit = rowlimit or self.maxtselctrows
         self.varsUsed = findBinds(arg, self.binds, bindVarsIn)
@@ -717,15 +716,15 @@ class sqlpyPlus(sqlpython.sqlpython):
             self.age_out_resultsets()
             self.stdout.write('\n%s\n' % (self.output(arg.parsed.terminator, rowlimit)))
         if self.rc == 0:
-            print '\nNo rows Selected.\n'
+            self.pfeedback('\nNo rows Selected.\n')
         elif self.rc == 1: 
-            print '\n1 row selected.\n'
+            self.pfeedback('\n1 row selected.\n')
             if self.autobind:
                 self.do_bind('')
         elif (self.rc < self.maxfetch and self.rc > 0):
-            print '\n%d rows selected.\n' % self.rc
+            self.pfeedback('\n%d rows selected.\n' % self.rc)
         else:
-            print '\nSelected Max Num rows (%d)' % self.rc
+            self.pfeedback('\nSelected Max Num rows (%d)' % self.rc)
         
     def do_cat(self, arg):
         '''Shortcut for SELECT * FROM'''
@@ -772,7 +771,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                             self.stdout.write('REMARK BEGIN %s\n%s\nREMARK END\n\n' % (object_name, code))
                         except cx_Oracle.DatabaseError, errmsg:
                             if object_type == 'JOB':
-                                print '%s: DBMS_METADATA.GET_DDL does not support JOBs (MetaLink DocID 567504.1)' % object_name
+                                self.pfeedback('%s: DBMS_METADATA.GET_DDL does not support JOBs (MetaLink DocID 567504.1)' % object_name)
                             elif 'ORA-31603' in str(errmsg): # not found, as in package w/o package body
                                 pass
                             else:
@@ -1025,7 +1024,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         try:
             return self._resolve(identifier)
         except (TypeError, IndexError):
-            print 'Could not resolve object %s.' % identifier
+            self.pfeedback('Could not resolve object %s.' % identifier)
             return '', '', ''
 
     def resolve_with_column(self, identifier):
@@ -1046,7 +1045,7 @@ class sqlpyPlus(sqlpython.sqlpython):
     def spoolstop(self):
         if self.spoolFile:
             self.stdout = self.stdoutBeforeSpool
-            print 'Finished spooling to ', self.spoolFile.name
+            self.pfeedback('Finished spooling to ', self.spoolFile.name)
             self.spoolFile.close()
             self.spoolFile = None
 
@@ -1059,13 +1058,17 @@ class sqlpyPlus(sqlpython.sqlpython):
         if arg.lower() != 'off':
             if '.' not in arg:
                 arg = '%s.lst' % arg
-            print 'Sending output to %s (until SPOOL OFF received)' % (arg)
+            self.pfeedback('Sending output to %s (until SPOOL OFF received)' % (arg))
             self.spoolFile = open(arg, 'w')
             self.stdout = self.spoolFile
 
+    def sqlfeedback(self, arg):
+        if self.sql_echo:
+            self.pfeedback(arg)
+            
     def do_write(self, args):
         'Obsolete command.  Use (query) > outfilename instead.'
-        print self.do_write.__doc__
+        self.poutput(self.do_write.__doc__)
         return
 
     def do_compare(self, args):
@@ -1078,7 +1081,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         fnames = []
         args2 = args.split(' to ')
         if len(args2) < 2:
-            print self.do_compare.__doc__
+            self.pfeedback(self.do_compare.__doc__)
             return
         for n in range(len(args2)):
             query = args2[n]
@@ -1128,7 +1131,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         try:
             return self.onecmd('%s %s%s%s' % (commands[abbrev], args, arg.parsed.terminator, arg.parsed.suffix))
         except KeyError:
-            print 'psql command \%s not yet supported.' % abbrev
+            self.perror('psql command \%s not yet supported.' % abbrev)
 
     @options([all_users_option])
     def do__dir_tables(self, arg, opts):
@@ -1137,8 +1140,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         '''        
         sql = """SELECT table_name, 'TABLE' as type%s FROM %s_tables WHERE table_name LIKE '%%%s%%';""" % \
                        (opts.scope['col'], opts.scope['view'], arg.upper())
-        if self.sql_echo:
-            print sql
+        self.sqlfeedback(sql)
         self.do_select(self.parsed(sql, terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix))
         
     @options([all_users_option])
@@ -1148,8 +1150,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         '''
         sql = """SELECT view_name, 'VIEW' as type%s FROM %s_views WHERE view_name LIKE '%%%s%%';""" % \
                        (opts.scope['col'], opts.scope['view'], arg.upper())
-        if self.sql_echo:
-            print sql
+        self.sqlfeedback(sql)
         self.do_select(self.parsed(sql, terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix))
         
     def do__dir_indexes(self, arg):
@@ -1173,8 +1174,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         Lists all tablespaces.
         '''
         sql = """SELECT tablespace_name, file_name from dba_data_files;"""
-        if self.sql_echo:
-            print sql
+        self.sqlfeedback(sql)
         self.do_select(self.parsed(sql, terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix))
 
     def do__dir_schemas(self, arg):
@@ -1182,8 +1182,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         Lists all object owners, together with the number of objects they own.
         '''
         sql = """SELECT owner, count(*) AS objects FROM all_objects GROUP BY owner ORDER BY owner;"""
-        if self.sql_echo:
-            print sql
+        self.sqlfeedback(sql)
         self.do_select(self.parsed(sql, terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix))
 
     def do_head(self, arg):
@@ -1205,7 +1204,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                 self.stdout.write('No bind variable %s\n' % arg)
         else:
             for (var, val) in sorted(self.binds.items()):
-                print ':%s = %s' % (var, val)
+                self.poutput(':%s = %s' % (var, val))
 
     def split_on_parser(self, parser, arg):
         try:
@@ -1258,13 +1257,13 @@ class sqlpyPlus(sqlpython.sqlpython):
         '''Sets or shows values of substitution (`&`) variables.'''
         if not arg:
             for (substvar, val) in sorted(self.substvars.items()):
-                print 'DEFINE %s = "%s" (%s)' % (substvar, val, type(val))
+                self.poutput('DEFINE %s = "%s" (%s)' % (substvar, val, type(val)))
         assigned, var, val = self.interpret_variable_assignment(arg)
         if assigned:
             self.substvars[var] = val
         else:
             if var in self.substvars:
-                print 'DEFINE %s = "%s" (%s)' % (var, self.substvars[var], type(self.substvars[var]))
+                self.poutput('DEFINE %s = "%s" (%s)' % (var, self.substvars[var], type(self.substvars[var])))
     
     def do_exec(self, arg):
         if arg.startswith(':'):
@@ -1274,7 +1273,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             try:
                 self.curs.execute('begin\n%s;end;' % arg, varsUsed)
             except Exception, e:
-                print e
+                self.perror(e)
 
     '''
     Fails:
@@ -1291,7 +1290,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                 try:
                     self.curs.execute('\n'.join(lines))
                 except Exception, e:
-                    print e
+                    self.perror(e)
                 return
             lines.append(line)
 
@@ -1426,7 +1425,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                 sql = self.parsed('SELECT * FROM %s WHERE %s;' % (target, sql), terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix)
                 self.do_select(sql)
             except Exception, e:
-                print e
+                self.perror(e)
                 import traceback
                 traceback.print_exc(file=sys.stdout)                
 
@@ -1436,8 +1435,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         return converter % {'colname': colname, 'typ': typ}
     
     def _execute(self, sql, bindvars={}):
-        if self.sql_echo:
-            print sql
+        self.sqlfeedback(sql)
         self.curs.execute(sql, bindvars)
 
     #@options([make_option('-l', '--long', action='store_true', 
@@ -1446,7 +1444,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         '''Lists referential integrity (foreign key constraints) on an object or referring to it.'''
         
         if not arg.strip():
-            print 'Usage: refs (table name)'
+            self.perror('Usage: refs (table name)')
         result = []
         (type, owner, table_name) = self.resolve(arg.upper())        
         sql = """SELECT constraint_name, r_owner, r_constraint_name 
