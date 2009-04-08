@@ -158,6 +158,8 @@ class sqlpython(cmd2.Cmd):
         self.curs = self.conn.cursor()
         if (self.rdbms == 'oracle') and self.serveroutput:
             self.curs.callproc('dbms_output.enable', [])
+        if (self.rdbms == 'mysql'):
+            self.curs.execute('SET SQL_MODE=ANSI')
     def postparsing_precmd(self, statement):
         stop = 0
         self.saved_connection_number = None
@@ -165,7 +167,8 @@ class sqlpython(cmd2.Cmd):
             saved_connection_number = self.connection_number
             try:
                 if self.successful_connection_to_number(statement.parsed.connection_number):
-                    self.saved_connection_number = saved_connection_number
+                    if statement.parsed.command:
+                        self.saved_connection_number = saved_connection_number
             except KeyError:
                 self.list_connections()
                 raise KeyError, 'No connection #%s' % statement.parsed.connection_number

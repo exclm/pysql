@@ -118,7 +118,7 @@ SELECT owner,
        object_type,
        status,
        last_ddl_time,
-       user as current_username
+       user as my_own
 FROM   all_objects"""
 
 metaqueries['ls']['information_schema'] = """
@@ -127,12 +127,35 @@ SELECT table_schema as owner,
        table_type as object_type,
        null as status,
        null as last_ddl_time,
-       current_user as current_username
-FROM   information_schema.tables"""
+       %(my_own)s as my_own
+FROM   information_schema.tables
+UNION ALL
+SELECT trigger_schema as owner,
+       trigger_name as object_name,
+       'TRIGGER' as object_type,
+       null as status,
+       created as last_ddl_time,
+       %(my_own)s as my_own
+FROM   information_schema.triggers
+UNION ALL
+SELECT routine_schema as owner,
+       routine_name as object_name,
+       routine_type as object_type,
+       null as status,
+       last_altered as last_ddl_time,
+       %(my_own)s as my_own
+FROM   information_schema.routines
+"""
 
-metaqueries['ls']['postgres'] = metaqueries['ls']['information_schema']
-metaqueries['ls']['mysql'] = metaqueries['ls']['information_schema']
-metaqueries['ls']['mssql'] = metaqueries['ls']['information_schema']
+metaqueries['ls']['postgres'] = (metaqueries['ls']['information_schema'] + """UNION ALL
+SELECT sequence_schema as owner,
+       sequence_name as object_name,
+       'SEQUENCE' as object_type,
+       null as status,
+       null as last_ddl_time,
+       %(my_own)s as my_own
+FROM   information_schema.sequences""") % {'my_own': "text('public')"}
+metaqueries['ls']['mysql'] = metaqueries['ls']['information_schema'] % {'my_own':"database()"}
 
 metaqueries['ls']['sqlite'] = """
 SELECT '' as owner,
@@ -142,10 +165,3 @@ SELECT '' as owner,
        null as last_ddl_time,
        '' as current_username
 FROM   sqlite_master"""
-
-metaqueries['resolve_many']['oracle'] = """
-SELECT owner, object_type, object_name, user as current_username 
-FROM   all_objects"""
-            
-
-'''oof, metadata is hard.  \d information_schema.tables, http://www.alberton.info/postgresql_meta_info.html'''

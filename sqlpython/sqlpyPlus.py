@@ -36,7 +36,7 @@ except (RuntimeError, ImportError):
 queries = {
 'resolve': """
 SELECT object_type, object_name, owner FROM (
-SELECT object_type, object_name, user owner, 1 priority
+SELECT object_type, object_name, user AS owner, 1 priority
 FROM   user_objects
 WHERE object_name = :objName
 UNION ALL
@@ -431,7 +431,7 @@ class sqlpyPlus(sqlpython.sqlpython):
     def do_shortcuts(self,arg):
         """Lists available first-character shortcuts
         (i.e. '!dir' is equivalent to 'shell dir')"""
-        for (scchar, scto) in self.shortcuts.items():
+        for (scchar, scto) in self.shortcuts:
             self.poutput('%s: %s' % (scchar, scto))
 
     tableNameFinder = re.compile(r'from\s+([\w$#_"]+)', re.IGNORECASE | re.MULTILINE | re.DOTALL)          
@@ -439,14 +439,17 @@ class sqlpyPlus(sqlpython.sqlpython):
         if datum is None:
             return 'NULL'
         elif isinstance(datum, basestring):
-            return "'%s'" % datum
+            return "'%s'" % datum.replace("'","''")
         try:
             return datum.strftime("TO_DATE('%Y-%m-%d %H:%M:%S', 'YYYY-MM-DD HH24:MI:SS')")
         except AttributeError:
-            return str(datum).replace("'","''")
+            return str(datum)
               
     def output(self, outformat, rowlimit):
-        self.tblname = self.tableNameFinder.search(self.querytext).group(1)
+        try:
+            self.tblname = self.tableNameFinder.search(self.querytext).group(1)
+        except AttributeError:
+            self.tblname = ''
         self.colnames = [d[0] for d in self.curs.description]
         if outformat in output_templates:
             self.colnamelen = max(len(colname) for colname in self.colnames)
@@ -694,7 +697,10 @@ class sqlpyPlus(sqlpython.sqlpython):
         else:
             selecttext = arg
         self.querytext = 'select ' + selecttext
-        self.curs.execute(self.querytext, self.varsUsed)
+        if self.varsUsed:
+            self.curs.execute(self.querytext, self.varsUsed)
+        else: # this is an ugly workaround for the evil paramstyle curse upon DB-API2
+            self.curs.execute(self.querytext)
         self.rows = self.curs.fetchmany(min(self.maxfetch, (rowlimit or self.maxfetch)))
         self.rc = len(self.rows)
         if self.rc != 0:
@@ -786,6 +792,18 @@ class sqlpyPlus(sqlpython.sqlpython):
         if opts.dump:
             statekeeper.restore()    
 
+    def _show_shortcut(self, shortcut, argpieces):
+        try:
+            newarg = argpieces[1]
+            if newarg == 'on':
+                try:
+                    newarg = argpieces[2]
+                except IndexError:
+                    pass
+        except IndexError:
+            newarg = ''
+        return self.onecmd(shortcut + ' ' + newarg)
+    
     def do_show(self, arg):
         '''
         show                  - display value of all sqlpython parameters
@@ -793,6 +811,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         show parameter (parameter name) - display value of an ORACLE parameter
         show err (object type/name)     - errors from latest PL/SQL object compilation.
         show all err (type/name)        - all compilation errors from the user's PL/SQL objects.
+        show index on (table)
         '''
         if arg.startswith('param'):
             try:
@@ -809,6 +828,10 @@ class sqlpyPlus(sqlpython.sqlpython):
                            value FROM v$parameter WHERE name LIKE '%%%s%%';""" % paramname)
         else:
             argpieces = arg.lower().split()
+            for (kwd, shortcut) in (('index', '\\di'), ('schema', '\\dn'), ('tablespace', '\\db'), 
+                                    ('table', '\\dt'), ('view', '\\dv')):
+                if arg.lower().startswith(kwd):
+                    return self._show_shortcut(shortcut, argpieces)
             try:
                 if argpieces[0][:3] == 'err':
                     return self._show_errors(all_users=False, limit=1, targets=argpieces[1:])
@@ -1287,10 +1310,10 @@ class sqlpyPlus(sqlpython.sqlpython):
             if target in self.object_types:
                 target += '/%'
             where.append("""
-                AND(   object_type || '/' || object_name LIKE '%s'
-                       OR object_name LIKE '%s')""" % (target, target))
+                AND(   UPPER(object_type) || '/' || UPPER(object_name) LIKE '%s'
+                       OR UPPER(object_name) LIKE '%s')""" % (target, target))
         if not opts.all:
-            where.append("AND owner = current_username")
+            where.append("AND owner = my_own")
         return '\n'.join(where)
         
     def resolve_many(self, arg, opts):
@@ -1300,6 +1323,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         return self.curs.fetchall()
 
     object_types = (
+        'BASE TABLE',
         'CLUSTER',              
         'CONSUMER GROUP',       
         'CONTEXT',              
@@ -1392,11 +1416,12 @@ class sqlpyPlus(sqlpython.sqlpython):
             self.stdout.write('%s\n' % target)
             target = target.rstrip(';')
             try:
-                self._execute('select * from %s where 1=0' % target) # just to fill description
+                self._execute('select * from %s where 1=0' % target) # first pass fills description
                 if opts.ignorecase:
-                    sql = ' or '.join("LOWER(%s) LIKE '%%%s%%'" % (d[0], pattern.lower()) for d in self.curs.description)                                        
+                    colnames = ['LOWER(%s)' % self._cast(d[0], 'CHAR') for d in self.curs.description]
                 else:
-                    sql = ' or '.join("%s LIKE '%%%s%%'" % (d[0], pattern) for d in self.curs.description)
+                    colnames = ['LOWER(%s)' % self._cast(d[0], 'CHAR') for d in self.curs.description]
+                sql = ' or '.join("%s LIKE '%%%s%%'" % (cn, pattern.lower()) for cn in colnames)
                 sql = self.parsed('SELECT * FROM %s WHERE %s;' % (target, sql), terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix)
                 self.do_select(sql)
             except Exception, e:
@@ -1404,6 +1429,11 @@ class sqlpyPlus(sqlpython.sqlpython):
                 import traceback
                 traceback.print_exc(file=sys.stdout)                
 
+    def _cast(self, colname, typ='CHAR'):
+        'self._cast(colname, typ) => Returns the RDBMS-equivalent "CAST (colname AS typ) expression.' 
+        converter = {'oracle': 'TO_%(typ)s(%(colname)s)'}.get(self.rdbms, 'CAST(%(colname)s AS %(typ)s)')
+        return converter % {'colname': colname, 'typ': typ}
+    
     def _execute(self, sql, bindvars={}):
         self.sqlfeedback(sql)
         self.curs.execute(sql, bindvars)
