@@ -228,14 +228,16 @@ continuation_prompt: >
 default_file_name: afiedt.buf
 echo: False
 editor: gedit
+feedback_to_output: False
 heading: True
 maxfetch: 1000
 maxtselctrows: 10
 prompt: 0:testschema@orcl> 
+quiet: False
+rows_remembered: 10000
 scan: True
 serveroutput: True
 sql_echo: False
-store_results: True
 timeout: 30
 timing: False
 wildsql: False

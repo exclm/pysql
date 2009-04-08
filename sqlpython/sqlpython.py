@@ -91,7 +91,7 @@ class sqlpython(cmd2.Cmd):
             try:
                 oraserv = os.environ['ORACLE_SID']
             except KeyError:
-                print 'instance not specified and environment variable ORACLE_SID not set'
+                self.perror('instance not specified and environment variable ORACLE_SID not set')
                 return
             orauser = arg
         sid = oraserv
@@ -110,7 +110,7 @@ class sqlpython(cmd2.Cmd):
         except ValueError:
             orapass = getpass.getpass('Password: ')
         if orauser.upper() == 'SYS' and not modeval:
-            print 'Privilege not specified for SYS, assuming SYSOPER'
+            self.pfeedback('Privilege not specified for SYS, assuming SYSOPER')
             modeval = cx_Oracle.SYSOPER
         result = self.url_connect('oracle://%s:%s@%s/?mode=%d' % (orauser, orapass, oraserv, modeval))
         result['dbname'] = oraserv
@@ -212,11 +212,11 @@ class sqlpython(cmd2.Cmd):
         for err in errors:
             if (mintime is not None) and (err[8] < mintime):
                 break
-            print '%s at line %d of %s %s.%s:' % (err[5], err[4], err[2], err[0], err[1])
-            print err[7]
-            print (' ' * (err[3]-1)) + '^'
-            print err[6]
-            print '\n'
+            self.poutput('%s at line %d of %s %s.%s:' % (err[5], err[4], err[2], err[0], err[1]))
+            self.poutput(err[7])
+            self.poutput((' ' * (err[3]-1)) + '^')
+            self.poutput(err[6])
+            self.poutput('\n')
             
     def current_database_time(self):
         self.curs.execute('select sysdate from dual')
@@ -240,7 +240,7 @@ class sqlpython(cmd2.Cmd):
 \\L   scatter plot (no lines)
 \\b   bar graph
 \\p   pie chart"""
-        print self.do_terminators.__doc__
+        self.poutput(self.do_terminators.__doc__)
     
     terminatorSearchString = '|'.join('\\' + d.split()[0] for d in do_terminators.__doc__.splitlines())
         
@@ -257,7 +257,7 @@ class sqlpython(cmd2.Cmd):
         executionmessage = '\nExecuted%s\n' % ((self.curs.rowcount > 0) and ' (%d rows)' % self.curs.rowcount or '')
         if self.rdbms == 'oracle':
             self._show_errors(all_users=True, limit=1, mintime=current_time)
-        print executionmessage
+        self.pfeedback(executionmessage)
             
     def do_commit(self, arg=''):
         self.default(self.parsed('commit %s;' % (arg)))
