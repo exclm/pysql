@@ -439,11 +439,11 @@ class sqlpyPlus(sqlpython.sqlpython):
         if datum is None:
             return 'NULL'
         elif isinstance(datum, basestring):
-            return "'%s'" % datum
+            return "'%s'" % datum.replace("'","''")
         try:
             return datum.strftime("TO_DATE('%Y-%m-%d %H:%M:%S', 'YYYY-MM-DD HH24:MI:SS')")
         except AttributeError:
-            return str(datum).replace("'","''")
+            return str(datum)
               
     def output(self, outformat, rowlimit):
         self.tblname = self.tableNameFinder.search(self.querytext).group(1)
