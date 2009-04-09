@@ -272,58 +272,78 @@ class sqlpython(cmd2.Cmd):
         return cmd2.Cmd.do_quit(self, None)
     do_exit = do_quit
     do_q = do_quit
-    
-def pmatrix(rows,desc,maxlen=30,heading=True,restructuredtext=False):
-    '''prints a matrix, used by sqlpython to print queries' result sets'''
-    names = []
-    maxen = []
-    toprint = []
-    for d in desc:
-        n = d[0]
-        names.append(n)      # list col names
-        maxen.append(len(n)) # col length
-    rcols = range(len(desc))
-    rrows = range(len(rows))
-    for i in rrows:          # loops for all rows
-        rowsi = map(str, rows[i]) # current row to process
-        split = []                # service var is row split is needed
-        mustsplit = 0             # flag 
-        for j in rcols:
-            if str(desc[j][1]) == "<type 'cx_Oracle.BINARY'>":  # handles RAW columns
-                rowsi[j] = binascii.b2a_hex(rowsi[j])
-            maxen[j] = max(maxen[j], len(rowsi[j]))    # computes max field length
-            if maxen[j] <= maxlen:
-                split.append('')
-            else:                    # split the line is 2 because field is too long
-                mustsplit = 1   
-                maxen[j] = maxlen
-                split.append(rowsi[j][maxlen-1:2*maxlen-1])
-                rowsi[j] = rowsi[j][0:maxlen-1] # this implem. truncates after maxlen*2
-        toprint.append(rowsi)        # 'toprint' is a printable copy of rows
-        if mustsplit != 0:
-            toprint.append(split)
-    sepcols = []
-    for i in rcols:
-        maxcol = maxen[i]
-        name = names[i]
-        sepcols.append("-" * maxcol)  # formats column names (header)
-        names[i] = name + (" " * (maxcol-len(name))) # formats separ line with --
-        rrows2 = range(len(toprint))
+    colorcodes = {'bold':{True:'\x1b[1m',False:'\x1b[22m'},
+                  'red':{True:'\x1b[36m',False:'\x1b[39m'},
+                  'cyan':{True:'\x1b[31m',False:'\x1b[39m'},
+                  'underline':{True:'\x1b[4m',False:'\x1b[24m'}}
+    colors = True
+    def colorize(self, val, color):
+        if self.colors and (self.stdout == self.initial_stdout):
+            if color not in self.colorcodes:
+                if (color % 2):
+                    color = 'red'
+                else:
+                    color = 'cyan'
+            return self.colorcodes[color][True] + val + self.colorcodes[color][False]        
+        return val
+    def pmatrix(self,rows,desc,maxlen=30,heading=True,restructuredtext=False):
+        '''prints a matrix, used by sqlpython to print queries' result sets'''
+        names = []
+        maxen = []
+        toprint = []
+        for d in desc:
+            n = d[0]
+            names.append(n)      # list col names
+            maxen.append(len(n)) # col length
+        rcols = range(len(desc))
+        rrows = range(len(rows))
+        for i in rrows:          # loops for all rows
+            rowsi = map(str, rows[i]) # current row to process
+            split = []                # service var is row split is needed
+            mustsplit = 0             # flag 
+            for j in rcols:
+                if str(desc[j][1]) == "<type 'cx_Oracle.BINARY'>":  # handles RAW columns
+                    rowsi[j] = binascii.b2a_hex(rowsi[j])
+                maxen[j] = max(maxen[j], len(rowsi[j]))    # computes max field length
+                if maxen[j] <= maxlen:
+                    split.append('')
+                else:                    # split the line is 2 because field is too long
+                    mustsplit = 1   
+                    maxen[j] = maxlen
+                    split.append(rowsi[j][maxlen-1:2*maxlen-1])
+                    rowsi[j] = rowsi[j][0:maxlen-1] # this implem. truncates after maxlen*2
+            toprint.append(rowsi)        # 'toprint' is a printable copy of rows
+            if mustsplit != 0:
+                toprint.append(split)
+        sepcols = []
+        for i in rcols:
+            maxcol = maxen[i]
+            name = names[i]
+            sepcols.append("-" * maxcol)  # formats column names (header)
+            names[i] = name + (" " * (maxcol-len(name))) # formats separ line with --
+            rrows2 = range(len(toprint))
+            for j in rrows2:
+                val = toprint[j][i]
+                if str(desc[i][1]) == "<type 'cx_Oracle.NUMBER'>":  # right align numbers
+                    toprint[j][i] = (" " * (maxcol-len(val))) + val
+                else:
+                    toprint[j][i] = val + (" " * (maxcol-len(val)))
+                toprint[j][i] = self.colorize(toprint[j][i], i)
         for j in rrows2:
-            val = toprint[j][i]
-            if str(desc[i][1]) == "<type 'cx_Oracle.NUMBER'>":  # right align numbers
-                toprint[j][i] = (" " * (maxcol-len(val))) + val
-            else:
-                toprint[j][i] = val + (" " * (maxcol-len(val)))
-    for j in rrows2:
-        toprint[j] = ' '.join(toprint[j])
-    names = ' '.join(names)
-    sepcols = ' '.join(sepcols)
-    if heading or restructuredtext:
-        toprint.insert(0, sepcols)
-        toprint.insert(0, names)
-    if restructuredtext:
-        toprint.insert(0, sepcols)
-        toprint.append(sepcols)
-    return '\n'.join(toprint)
+            toprint[j] = ' '.join(toprint[j])
+        names = [self.colorize(name, n) for (n, name) in enumerate(names)]
+        names = ' '.join(names)
+        names = self.colorize(names, 'bold')
+        sepcols = ' '.join(sepcols)
+        if heading or restructuredtext:
+            toprint.insert(0, sepcols)
+            toprint.insert(0, names)
+        if restructuredtext:
+            toprint.insert(0, sepcols)
+            toprint.append(sepcols)
+        return '\n'.join(toprint)
+    
+    
+    
+    
 
