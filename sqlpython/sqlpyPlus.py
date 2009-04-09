@@ -316,7 +316,7 @@ class sqlpyPlus(sqlpython.sqlpython):
     def __init__(self):
         sqlpython.sqlpython.__init__(self)
         self.binds = CaselessDict()
-        self.settable += 'autobind commit_on_exit maxfetch maxtselctrows rows_remembered scan serveroutput sql_echo timeout heading wildsql'.split()
+        self.settable += 'autobind colors commit_on_exit maxfetch maxtselctrows rows_remembered scan serveroutput sql_echo timeout heading wildsql'.split()
         self.settable.remove('case_insensitive')
         self.settable.sort()
         self.stdoutBeforeSpool = sys.stdout
@@ -331,7 +331,6 @@ class sqlpyPlus(sqlpython.sqlpython):
         self.substvars = {}
         self.result_history = []
         self.rows_remembered = 10000
-        
         self.pystate = {'r': [], 'binds': self.binds, 'substs': self.substvars}
         
     # overrides cmd's parseline
@@ -463,7 +462,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                     transpr[x] = map(binascii.b2a_hex, transpr[x])
                     transpr[x][0] = rname
             newdesc[0][0] = 'COLUMN NAME'
-            result = '\n' + sqlpython.pmatrix(transpr,newdesc)            
+            result = '\n' + self.pmatrix(transpr,newdesc)            
         elif outformat in ('\\l', '\\L', '\\p', '\\b'):
             plot = Plot()
             plot.build(self, outformat)
@@ -471,9 +470,9 @@ class sqlpyPlus(sqlpython.sqlpython):
             plot.draw()
             return ''
         else:
-            result = sqlpython.pmatrix(self.rows, self.curs.description, 
-                                       self.maxfetch, heading=self.heading, 
-                                       restructuredtext = (outformat == '\\r'))
+            result = self.pmatrix(self.rows, self.curs.description, 
+                                  self.maxfetch, heading=self.heading, 
+                                  restructuredtext = (outformat == '\\r'))
         return result
         
     legalOracle = re.compile('[a-zA-Z_$#]')

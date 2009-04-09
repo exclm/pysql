@@ -154,7 +154,7 @@ which get and run SQL scripts from disk.'''
             desc = self.curs.description
             self.rc = self.curs.rowcount
             if self.rc > 0:
-                self.poutput('\n' + sqlpython.pmatrix(rows,desc,200))
+                self.poutput('\n' + self.pmatrix(rows,desc,200))
         except Exception, e:
             self.perror(e)
 
