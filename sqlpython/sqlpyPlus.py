@@ -655,7 +655,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             self.perror("Specify desired number of rows after terminator (not '%s')" % arg.parsed.suffix)
         if arg.parsed.terminator == '\\t':
             rowlimit = rowlimit or self.maxtselctrows
-        self.varsUsed = self.findBinds(arg, self.binds, bindVarsIn)
+        self.varsUsed = self.findBinds(arg, bindVarsIn)
         if self.wildsql:
             selecttext = self.expandWildSql(arg)
         else:
@@ -1233,7 +1233,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         if arg.startswith(':'):
             self.do_setbind(arg[1:])
         else:
-            varsUsed = self.findBinds(arg, self.binds, {})
+            varsUsed = self.findBinds(arg, {})
             try:
                 self.curs.execute('begin\n%s;end;' % arg, varsUsed)
             except Exception, e:
