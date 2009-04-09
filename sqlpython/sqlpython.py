@@ -274,20 +274,20 @@ class sqlpython(cmd2.Cmd):
     bindScanner = {'oracle': Parser(pyparsing.Literal(':') + pyparsing.Word( pyparsing.alphanums + "_$#" )),
                    'postgres': Parser(pyparsing.Literal('%(') + 
                                       pyparsing.Word(pyparsing.alphanums + "_$#") + ')s')}
-    def findBinds(self, target, existingBinds, givenBindVars = {}):
+    def findBinds(self, target, givenBindVars = {}):
         result = givenBindVars
         if self.rdbms in self.bindScanner:
             for finding, startat, endat in self.bindScanner[self.rdbms].scanner.scanString(target):
                 varname = finding[1]
                 try:
-                    result[varname] = existingBinds[varname]
+                    result[varname] = self.binds[varname]
                 except KeyError:
                     if not givenBindVars.has_key(varname):
                         print 'Bind variable %s not defined.' % (varname)
         return result
 
     def default(self, arg):
-        self.varsUsed = self.findBinds(arg, self.binds, givenBindVars={})
+        self.varsUsed = self.findBinds(arg, givenBindVars={})
         ending_args = arg.lower().split()[-2:]
         if 'end' in ending_args:
             command = '%s %s;'
