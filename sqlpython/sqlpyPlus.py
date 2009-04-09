@@ -28,6 +28,7 @@ from cmd2 import Cmd, make_option, options, Statekeeper, Cmd2TestCase
 from output_templates import output_templates
 from metadata import metaqueries
 from plothandler import Plot
+from sqlpython import Parser
 try:
     import pylab
 except (RuntimeError, ImportError):
@@ -226,42 +227,6 @@ class CaselessDict(dict):
         return d
     def pop(self, key, def_val=None):
         return dict.pop(self, key.lower(), def_val)
-
-class Parser(object):
-    comment_def = "--" + ~ ('-' + pyparsing.CaselessKeyword('begin')) + pyparsing.ZeroOrMore(pyparsing.CharsNotIn("\n"))    
-    def __init__(self, scanner, retainSeparator=True):
-        self.scanner = scanner
-        self.scanner.ignore(pyparsing.sglQuotedString)
-        self.scanner.ignore(pyparsing.dblQuotedString)
-        self.scanner.ignore(self.comment_def)
-        self.scanner.ignore(pyparsing.cStyleComment)
-        self.retainSeparator = retainSeparator
-    def separate(self, txt):
-        itms = []
-        for (sqlcommand, start, end) in self.scanner.scanString(txt):
-            if sqlcommand:
-                if type(sqlcommand[0]) == pyparsing.ParseResults:
-                    if self.retainSeparator:
-                        itms.append("".join(sqlcommand[0]))
-                    else:
-                        itms.append(sqlcommand[0][0])
-                else:
-                    if sqlcommand[0]:
-                        itms.append(sqlcommand[0])
-        return itms
-
-bindScanner = Parser(pyparsing.Literal(':') + pyparsing.Word( pyparsing.alphanums + "_$#" ))   
-    
-def findBinds(target, existingBinds, givenBindVars = {}):
-    result = givenBindVars
-    for finding, startat, endat in bindScanner.scanner.scanString(target):
-        varname = finding[1]
-        try:
-            result[varname] = existingBinds[varname]
-        except KeyError:
-            if not givenBindVars.has_key(varname):
-                print 'Bind variable %s not defined.' % (varname)                
-    return result
 
 class ResultSet(list):
     pass
@@ -690,7 +655,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             self.perror("Specify desired number of rows after terminator (not '%s')" % arg.parsed.suffix)
         if arg.parsed.terminator == '\\t':
             rowlimit = rowlimit or self.maxtselctrows
-        self.varsUsed = findBinds(arg, self.binds, bindVarsIn)
+        self.varsUsed = self.findBinds(arg, self.binds, bindVarsIn)
         if self.wildsql:
             selecttext = self.expandWildSql(arg)
         else:
@@ -1268,7 +1233,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         if arg.startswith(':'):
             self.do_setbind(arg[1:])
         else:
-            varsUsed = findBinds(arg, self.binds, {})
+            varsUsed = self.findBinds(arg, self.binds, {})
             try:
                 self.curs.execute('begin\n%s;end;' % arg, varsUsed)
             except Exception, e:
