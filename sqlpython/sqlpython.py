@@ -9,9 +9,33 @@
 # See also http://twiki.cern.ch/twiki/bin/view/PSSGroup/SqlPython
 
 import cmd2,getpass,binascii,cx_Oracle,re,os
-import sqlpyPlus, sqlalchemy
+import sqlpyPlus, sqlalchemy, pyparsing
 __version__ = '1.6.4'    
 
+class Parser(object):
+    comment_def = "--" + ~ ('-' + pyparsing.CaselessKeyword('begin')) + pyparsing.ZeroOrMore(pyparsing.CharsNotIn("\n"))    
+    def __init__(self, scanner, retainSeparator=True):
+        self.scanner = scanner
+        self.scanner.ignore(pyparsing.sglQuotedString)
+        self.scanner.ignore(pyparsing.dblQuotedString)
+        self.scanner.ignore(self.comment_def)
+        self.scanner.ignore(pyparsing.cStyleComment)
+        self.retainSeparator = retainSeparator
+    def separate(self, txt):
+        itms = []
+        for (sqlcommand, start, end) in self.scanner.scanString(txt):
+            if sqlcommand:
+                if type(sqlcommand[0]) == pyparsing.ParseResults:
+                    if self.retainSeparator:
+                        itms.append("".join(sqlcommand[0]))
+                    else:
+                        itms.append(sqlcommand[0][0])
+                else:
+                    if sqlcommand[0]:
+                        itms.append(sqlcommand[0])
+        return itms
+
+    
 class sqlpython(cmd2.Cmd):
     '''A python module to reproduce Oracle's command line with focus on customization and extention'''
 
@@ -247,8 +271,23 @@ class sqlpython(cmd2.Cmd):
     
     terminatorSearchString = '|'.join('\\' + d.split()[0] for d in do_terminators.__doc__.splitlines())
         
+    bindScanner = {'oracle': Parser(pyparsing.Literal(':') + pyparsing.Word( pyparsing.alphanums + "_$#" )),
+                   'postgres': Parser(pyparsing.Literal('%(') + 
+                                      pyparsing.Word(pyparsing.alphanums + "_$#") + ')s')}
+    def findBinds(self, target, existingBinds, givenBindVars = {}):
+        result = givenBindVars
+        if self.rdbms in self.bindScanner:
+            for finding, startat, endat in self.bindScanner[self.rdbms].scanner.scanString(target):
+                varname = finding[1]
+                try:
+                    result[varname] = existingBinds[varname]
+                except KeyError:
+                    if not givenBindVars.has_key(varname):
+                        print 'Bind variable %s not defined.' % (varname)
+        return result
+
     def default(self, arg):
-        self.varsUsed = sqlpyPlus.findBinds(arg, self.binds, givenBindVars={})
+        self.varsUsed = self.findBinds(arg, self.binds, givenBindVars={})
         ending_args = arg.lower().split()[-2:]
         if 'end' in ending_args:
             command = '%s %s;'
