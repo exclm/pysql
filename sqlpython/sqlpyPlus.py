@@ -1178,19 +1178,17 @@ class sqlpyPlus(sqlpython.sqlpython):
             return ''.join(arg.split()[:1]), ''
         
     assignmentScanner = Parser(pyparsing.Literal(':=') ^ '=')
+    assignmentSplitter = re.compile(':?=')
     def interpret_variable_assignment(self, arg):
         '''
         Accepts strings like `foo = 'bar'` or `baz := 22`, returning Python
         variables as appropriate
         '''
         try:
-            assigner, startat, endat = self.assignmentScanner.scanner.scanString(arg).next()
-            (var, val) =  (arg[:startat].strip(), arg[endat:].strip())
-        except StopIteration:
-            if arg.split()[:1]:
-                return False, arg.split()[0], None
-            else:
-                return False, None, None
+            var, val = self.assignmentSplitter.split(arg.parsed.expanded, maxsplit=1)
+        except ValueError:
+            return False, arg.parsed.expanded.split()[0] or None, None 
+        var = var.split()[-1]
         if (len(val) > 1) and ((val[0] == val[-1] == "'") or (val[0] == val[-1] == '"')):
             return True, var, val[1:-1]
         try:
@@ -1202,9 +1200,13 @@ class sqlpyPlus(sqlpython.sqlpython):
                 # use the conversions implicit in cx_Oracle's select to 
                 # cast the value into an appropriate type (dates, for instance)
                 try:
-                    self.curs.execute('SELECT %s FROM dual' % val)
+                    if self.rdbms == 'oracle':
+                        sql = 'SELECT %s FROM dual'
+                    else:
+                        sql = 'SELECT %s'
+                    self.curs.execute(sql % val)
                     return True, var, self.curs.fetchone()[0]
-                except cx_Oracle.DatabaseError:
+                except:   # should not be bare - should catch cx_Oracle.DatabaseError, etc.
                     return True, var, val  # we give up and assume it's a string
             
     def do_setbind(self, arg):
