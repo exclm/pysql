@@ -320,8 +320,8 @@ class sqlpyPlus(sqlpython.sqlpython):
             status = self.curs.var(cx_Oracle.NUMBER)
             self.curs.callproc('dbms_output.get_line', [line, status])
             while not status.getvalue():
-                self.stdout.write(line.getvalue())
-                self.stdout.write('\n')
+                self.poutput(line.getvalue())
+                self.poutput('\n')
                 self.curs.callproc('dbms_output.get_line', [line, status])
         except AttributeError:
             pass
@@ -678,7 +678,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                 row.resultset = resultset
             self.pystate['r'].append(resultset)
             self.age_out_resultsets()
-            self.stdout.write('\n%s\n' % (self.output(arg.parsed.terminator, rowlimit)))
+            self.poutput('\n%s\n' % (self.output(arg.parsed.terminator, rowlimit)))
         if self.rc == 0:
             self.pfeedback('\nNo rows Selected.\n')
         elif self.rc == 1: 
@@ -732,7 +732,9 @@ class sqlpyPlus(sqlpython.sqlpython):
                                 code = code.splitlines()
                                 code = centeredSlice(code, center=opts.num+1, width=opts.width)
                                 code = '\n'.join(code)
-                            self.stdout.write('REMARK BEGIN %s\n%s\nREMARK END\n\n' % (object_name, code))
+                                self.poutput(code)
+                            else:
+                                self.poutput('REMARK BEGIN %s\n%s\nREMARK END\n' % (object_name, code))
                         except cx_Oracle.DatabaseError, errmsg:
                             if object_type == 'JOB':
                                 self.pfeedback('%s: DBMS_METADATA.GET_DDL does not support JOBs (MetaLink DocID 567504.1)' % object_name)
@@ -743,7 +745,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                     if opts.full:
                         for dependent_type in ('OBJECT_GRANT', 'CONSTRAINT', 'TRIGGER'):        
                             try:
-                                self.stdout.write('REMARK BEGIN\n%s\nREMARK END\n\n' % str(self.curs.callfunc('DBMS_METADATA.GET_DEPENDENT_DDL', cx_Oracle.CLOB,
+                                self.poutput('REMARK BEGIN\n%s\nREMARK END\n\n' % str(self.curs.callfunc('DBMS_METADATA.GET_DEPENDENT_DDL', cx_Oracle.CLOB,
                                                                          [dependent_type, object_name, owner])))
                             except cx_Oracle.DatabaseError:
                                 pass
@@ -775,7 +777,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         show parameter (parameter name) - display value of an ORACLE parameter
         show err (object type/name)     - errors from latest PL/SQL object compilation.
         show all err (type/name)        - all compilation errors from the user's PL/SQL objects.
-        show index on (table)
+        show (index/schema/tablespace/trigger/view/constraint/comment) on (table)
         '''
         if arg.startswith('param'):
             try:
@@ -792,9 +794,11 @@ class sqlpyPlus(sqlpython.sqlpython):
                            value FROM v$parameter WHERE name LIKE '%%%s%%';""" % paramname)
         else:
             argpieces = arg.lower().split()
-            for (kwd, shortcut) in (('index', '\\di'), ('schema', '\\dn'), ('tablespace', '\\db'), 
-                                    ('table', '\\dt'), ('view', '\\dv')):
-                if arg.lower().startswith(kwd):
+            flagless_argpieces = [a for a in argpieces if not a.startswith('-')]
+            for (kwd, shortcut) in (('ind', '\\di'), ('schema', '\\dn'), ('tablesp', '\\db'), 
+                                    ('trig', '\\dt'), ('view', '\\dv'), ('cons', '\\dc'),
+                                    ('comm', '\\dm'), ('ref', 'ref')):
+                if flagless_argpieces[0].lower().startswith(kwd):
                     return self._show_shortcut(shortcut, argpieces)
             try:
                 if argpieces[0][:3] == 'err':
@@ -912,12 +916,12 @@ class sqlpyPlus(sqlpython.sqlpython):
                             (opts.scope['col'], opts.scope['view'], objnameclause)                                                                             
             return self.do_select(self.parsed(query, terminator=arg.parsed.terminator or ';', 
                                   suffix=arg.parsed.suffix))
-        self.stdout.write("%s %s.%s\n" % (object_type, owner, object_name))
+        self.poutput("%s %s.%s\n" % (object_type, owner, object_name))
         try:
             if object_type == 'TABLE':
                 if opts.long:
                     self._execute(queries['tabComments'], {'table_name':object_name, 'owner':owner})
-                    self.stdout.write(self.curs.fetchone()[0])
+                    self.poutput(self.curs.fetchone()[0])
                 descQ = metaqueries['desc'][self.rdbms][object_type][(opts.long and 'long') or 'short']
             else:
                 descQ = metaqueries['desc'][self.rdbms][object_type]
@@ -928,7 +932,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             if object_type == 'PACKAGE':
                 packageContents = self.select_scalar_list(descQueries['PackageObjects'][0], {'package_name':object_name, 'owner':owner})
                 for packageObj_name in packageContents:
-                    self.stdout.write('Arguments to %s\n' % (packageObj_name))
+                    self.poutput('Arguments to %s\n' % (packageObj_name))
                     sql = self.parsed(descQueries['PackageObjArgs'][0], terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix)
                     self.do_select(sql, bindVarsIn={'package_name':object_name, 'owner':owner, 'object_name':packageObj_name})
 
@@ -959,7 +963,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         object_type, owner, object_name, colName = self.resolve_with_column(target)
         if object_type:
             self._execute(queries['tabComments'], {'table_name':object_name, 'owner':owner})
-            self.stdout.write("%s %s.%s: %s\n" % (object_type, owner, object_name, self.curs.fetchone()[0]))
+            self.poutput("%s %s.%s: %s\n" % (object_type, owner, object_name, self.curs.fetchone()[0]))
             if colName:
                 sql = queries['oneColComments']
                 bindVarsIn={'owner':owner, 'object_name': object_name, 'column_name': colName}
@@ -1004,7 +1008,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         
     def do_resolve(self, arg):
         target = arg.upper()
-        self.stdout.write(','.join(self.resolve(target))+'\n')
+        self.poutput(','.join(self.resolve(target))+'\n')
 
     def spoolstop(self):
         if self.spoolFile:
@@ -1163,9 +1167,9 @@ class sqlpyPlus(sqlpython.sqlpython):
             if arg[0] == ':':
                 arg = arg[1:]
             try:
-                self.stdout.write(str(self.binds[arg])+'\n')
+                self.poutput(str(self.binds[arg])+'\n')
             except KeyError:
-                self.stdout.write('No bind variable %s\n' % arg)
+                self.poutput('No bind variable %s\n' % arg)
         else:
             for (var, val) in sorted(self.binds.items()):
                 self.poutput(':%s = %s' % (var, val))
@@ -1177,7 +1181,6 @@ class sqlpyPlus(sqlpython.sqlpython):
         except StopIteration:
             return ''.join(arg.split()[:1]), ''
         
-    assignmentScanner = Parser(pyparsing.Literal(':=') ^ '=')
     assignmentSplitter = re.compile(':?=')
     def interpret_variable_assignment(self, arg):
         '''
@@ -1379,7 +1382,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             else:
                 targets.append(target)
         for target in targets:
-            self.stdout.write('%s\n' % target)
+            self.pfeedback('%s\n' % target)
             target = target.rstrip(';')
             try:
                 self._execute('select * from %s where 1=0' % target) # first pass fills description
@@ -1454,7 +1457,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             self._execute("SELECT column_name FROM all_cons_columns WHERE owner = :remote_owner AND constraint_name = :remote_constraint_name ORDER BY position",
                               {'remote_constraint_name': remote_constraint_name, 'remote_owner': remote_owner})
             result.append('    (%s)\n' % (",".join(col[0] for col in self.curs.fetchall())))
-        self.stdout.write('\n'.join(result) + "\n")
+        self.poutputs('\n'.join(result) + "\n")
     
 def _test():
     import doctest
