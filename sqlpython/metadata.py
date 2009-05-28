@@ -1,4 +1,4 @@
-from collections import defaultdict
+from defaultdict import defaultdict
 
 metaqueries = defaultdict(defaultdict)
 
