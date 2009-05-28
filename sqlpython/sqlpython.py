@@ -1,5 +1,5 @@
 #
-# SqlPython V1.6.5.1
+# SqlPython V1.6.6
 # Author: Luca.Canali@cern.ch, Apr 2006
 # Rev 1-May-09
 #
@@ -10,7 +10,7 @@
 
 import cmd2,getpass,binascii,cx_Oracle,re,os
 import sqlpyPlus, sqlalchemy, pyparsing
-__version__ = '1.6.5.1'    
+__version__ = '1.6.6'    
 
 class Parser(object):
     comment_def = "--" + ~ ('-' + pyparsing.CaselessKeyword('begin')) + pyparsing.ZeroOrMore(pyparsing.CharsNotIn("\n"))    

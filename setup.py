@@ -9,7 +9,7 @@ Topic :: Database :: Front-Ends
 Operating System :: OS Independent""".splitlines()
 
 setup(name="sqlpython",
-      version="1.6.5.1",
+      version="1.6.6",
       description="Command-line interface to Oracle",
       long_description="Customizable alternative to Oracle's SQL*PLUS command-line interface",
       author="Luca Canali",
@@ -17,7 +17,8 @@ setup(name="sqlpython",
       url="http://packages.python.org/sqlpython",
       packages=find_packages(),
       include_package_data=True,    
-      install_requires=['pyparsing','cmd2>=0.5.3','cx_Oracle','genshi>=0.5','sqlalchemy'],
+      install_requires=['pyparsing','cmd2>=0.5.4','cx_Oracle>=5.0.1'
+                        'genshi>=0.5','sqlalchemy'],
       keywords = 'client oracle database',
       license = 'MIT',
       platforms = ['any'],
