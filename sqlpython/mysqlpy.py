@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# MySqlPy V1.6.5
+# MySqlPy V1.6.5.1
 # Author: Luca.Canali@cern.ch
 # 
 #
@@ -14,9 +14,9 @@ import sqlalchemy
 
 class mysqlpy(sqlpyPlus):
     '''
-MySqlPy V1.6.5 - 'sqlplus in python'
+MySqlPy V1.6.5.1 - 'sqlplus in python'
 Author: Luca.Canali@cern.ch
-Rev: 1.6.5, 29-Apr-09
+Rev: 1.6.5.1, 1-May-09
 
 Companion of SqlPython, a python module that reproduces Oracle's command line within python
 and sqlpyPlus. Major contributions by Catherine Devlin, http://catherinedevlin.blogspot.com
@@ -48,6 +48,11 @@ Example:
  SQL> connect username@dbalias or username/pass@dbalias
  SQL> select sysdate from dual;
  SQL> exit
+    '''
+
+    '''
+    def do_greet(self, arg):
+        print 'Hello, ' + arg
     '''
 
     def __init__(self):
@@ -183,14 +188,9 @@ def run():
     try:
         if sys.argv[1][0] != '@':
             connectstring = sys.argv.pop(1)
-            try:   # attach AS SYSDBA or AS SYSOPER if present
-                for connectmode in my.connection_modes.keys():
-                    if connectmode.search(' %s %s' % tuple(sys.argv[1:3])):
-                        for i in (1,2):
-                            connectstring += ' ' + sys.argv.pop(1)
-                        break
-            except TypeError:
-                pass
+            if len(sys.argv) >= 3 and sys.argv[1].lower() == 'as': # attach AS SYSDBA or AS SYSOPER if present
+                for i in (1,2):
+                    connectstring += ' ' + sys.argv.pop(1)
             my.do_connect(connectstring)
         for arg in sys.argv[1:]:
             if my.onecmd(arg + '\n') == my._STOP_AND_EXIT:

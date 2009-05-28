@@ -68,7 +68,8 @@ ${','.join(colnames)}{% for row in rows %}
 ${','.join('"%s"' % val for val in row)}{% end %}"""),
 
 '\\C': genshi.template.NewTextTemplate("""
-{% for row in rows %}${','.join('"%s"' % val for val in row)}{% end %}""")
+{% for row in rows %}
+${','.join('"%s"' % val for val in row)}{% end %}""")
 
 }
 

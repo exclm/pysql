@@ -86,7 +86,7 @@ try:
 except ImportError:
     class Plot(object):
         def __init__(self, *args, **kwargs):
-            raise ImportError, 'Must install python-matplotlib and pytyon-numpy to draw plots'
+            raise ImportError, 'Must install python-tk, python-matplotlib, and python-numpy to draw plots'
 
 except Exception, e:
     class Plot(object):

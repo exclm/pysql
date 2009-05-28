@@ -797,7 +797,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             flagless_argpieces = [a for a in argpieces if not a.startswith('-')]
             for (kwd, shortcut) in (('ind', '\\di'), ('schema', '\\dn'), ('tablesp', '\\db'), 
                                     ('trig', '\\dt'), ('view', '\\dv'), ('cons', '\\dc'),
-                                    ('comm', '\\dm'), ('ref', 'ref')):
+                                    ('comm', '\\dd'), ('ref', 'ref')):
                 if flagless_argpieces[0].lower().startswith(kwd):
                     return self._show_shortcut(shortcut, argpieces)
             try:
@@ -1351,8 +1351,11 @@ class sqlpyPlus(sqlpython.sqlpython):
         sortdirection = (hasattr(opts, 'reverse') and opts.reverse and 'DESC') or 'ASC'
         orderby = 'object_type %s, object_name %s' % (sortdirection, sortdirection)
         if hasattr(opts, 'timesort') and opts.timesort:
-            orderby = 'last_ddl_time %s, %s' % (
-                ('ASC' if hasattr(opts, 'reverse') and opts.reverse else 'DESC'), orderby)
+            if hasattr(opts, 'reverse') and opts.reverse:
+                direction = 'DESC'
+            else:
+                direction = 'ASC'
+            orderby = 'last_ddl_time %s, %s' % (direction, orderby)
         clauses['orderby'] = orderby    
         statement = '''
             SELECT object_type || '/' || %(owner)s object_name AS name %(moreColumns)s 
@@ -1457,7 +1460,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             self._execute("SELECT column_name FROM all_cons_columns WHERE owner = :remote_owner AND constraint_name = :remote_constraint_name ORDER BY position",
                               {'remote_constraint_name': remote_constraint_name, 'remote_owner': remote_owner})
             result.append('    (%s)\n' % (",".join(col[0] for col in self.curs.fetchall())))
-        self.poutputs('\n'.join(result) + "\n")
+        self.poutput('\n'.join(result) + "\n")
     
 def _test():
     import doctest
