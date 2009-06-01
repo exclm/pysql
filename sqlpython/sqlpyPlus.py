@@ -29,6 +29,8 @@ from output_templates import output_templates
 from metadata import metaqueries
 from plothandler import Plot
 from sqlpython import Parser
+import warnings
+warnings.filterwarnings('ignore', 'BaseException.message', DeprecationWarning)
 try:
     import pylab
 except (RuntimeError, ImportError):
@@ -313,6 +315,14 @@ class sqlpyPlus(sqlpython.sqlpython):
             return '', '', ''
         return cmd, arg, line
 
+    def perror(self, err, statement=None):
+        try:
+            linenum = statement.parsed.raw[:err.message.offset].count('\n')
+            print statement.parsed.raw.splitlines()[linenum]
+            print '%s^' % (' ' * (err.message.offset + len(self.prompt)))
+        except AttributeError:
+            pass
+        print str(err)
     def dbms_output(self):
         "Dumps contents of Oracle's DBMS_OUTPUT buffer (where PUT_LINE goes)"
         try:

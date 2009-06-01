@@ -17,7 +17,7 @@ setup(name="sqlpython",
       url="http://packages.python.org/sqlpython",
       packages=find_packages(),
       include_package_data=True,    
-      install_requires=['pyparsing','cmd2>=0.5.4','cx_Oracle>=5.0.1'
+      install_requires=['pyparsing','cmd2>=0.5.4','cx_Oracle>=5.0.1',
                         'genshi>=0.5','sqlalchemy'],
       keywords = 'client oracle database',
       license = 'MIT',
