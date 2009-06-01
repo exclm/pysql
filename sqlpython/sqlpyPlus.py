@@ -261,6 +261,27 @@ def centeredSlice(lst, center=0, width=1):
     else:
         return lst[max(center-width,0):center+width+1] 
     
+
+def offset_to_line(instring, offset):
+    r"""
+    >>> offset_to_line('abcdefghijkl', 5)
+    (0, 'abcdefghijkl', 5)
+    >>> offset_to_line('ab\ncd\nefg', 6)
+    (2, 'efg', 0)
+    >>> offset_to_line('ab\ncd\nefg', 5)
+    (1, 'cd\n', 2)
+    >>> offset_to_line('abcdefghi\njkl', 5)
+    (0, 'abcdefghi\n', 5)
+    >>> offset_to_line('abcdefghi\njkl', 700)
+    
+    """
+    lineNum = 0
+    for line in instring.splitlines(True):
+        if offset < len(line):
+            return lineNum, line, offset
+        lineNum += 1
+        offset -= len(line)
+        
 class sqlpyPlus(sqlpython.sqlpython):
     defaultExtension = 'sql'
     abbrev = True    
@@ -317,9 +338,10 @@ class sqlpyPlus(sqlpython.sqlpython):
 
     def perror(self, err, statement=None):
         try:
-            linenum = statement.parsed.raw[:err.message.offset].count('\n')
-            print statement.parsed.raw.splitlines()[linenum]
-            print '%s^' % (' ' * (err.message.offset + len(self.prompt)))
+            linenum, line, offset = offset_to_line(statement.parsed.raw, err.message.offset)
+            print line.strip()
+            print '%s*' % (' ' * offset)
+            print 'ERROR at line %d:' % (linenum + 1)
         except AttributeError:
             pass
         print str(err)
