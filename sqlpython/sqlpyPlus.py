@@ -723,10 +723,12 @@ class sqlpyPlus(sqlpython.sqlpython):
             self.pfeedback('\nSelected Max Num rows (%d)' % self.rc)
         
     def do_cat(self, arg):
-        '''Shortcut for SELECT * FROM'''
+        '''Shortcut for SELECT * FROM
         return self.do_select(self.parsed('SELECT * FROM %s;' % arg, 
                                           terminator = arg.parsed.terminator or ';', 
-                                          suffix = arg.parsed.suffix))
+                                          suffix = arg.parsed.suffix))'''
+        return self.onecmd('SELECT * FROM %s%s%s' % (arg, arg.parsed.terminator or ';',
+                                                     arg.parsed.suffix or ''))
 
     def _pull(self, arg, opts, vc=None):
         """Displays source code."""
