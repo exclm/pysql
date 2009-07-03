@@ -23,12 +23,13 @@ or with a python-like shorthand
 
 - catherinedevlin.blogspot.com  May 31, 2006
 """
-import sys, os, re, sqlpython, cx_Oracle, pyparsing, re, completion, datetime, pickle, binascii, subprocess
+import sys, os, re, sqlpython, cx_Oracle, pyparsing, re, completion, datetime, pickle, binascii, subprocess, time, itertools
 from cmd2 import Cmd, make_option, options, Statekeeper, Cmd2TestCase
 from output_templates import output_templates
 from metadata import metaqueries
 from plothandler import Plot
 from sqlpython import Parser
+import imagedetect
 import warnings
 warnings.filterwarnings('ignore', 'BaseException.message', DeprecationWarning)
 try:
@@ -281,6 +282,41 @@ def offset_to_line(instring, offset):
             return lineNum, line, offset
         lineNum += 1
         offset -= len(line)
+
+class BlobDisplayer(object):
+    start_timestamp = int(time.time())
+    folder_name = 'sqlpython_blob_store_%d' % start_timestamp
+    file_index = itertools.count()
+    def folder_ok(self):
+        if not os.access(self.folder_name, os.F_OK):
+            try:
+                os.mkdir(self.folder_name)
+                readme = open(os.path.join(self.folder_name, 'README.txt'),'w')
+                readme.write('''
+                                Temporary files for display of BLOBs from within
+                                sqlpython.  Delete when sqlpython is closed.''')
+                readme.close()
+            except:
+                return False
+        return True
+    def __init__(self, blob):
+        self.url = ''
+        self.timestamp = time.time()
+        self.blob = blob.read()
+        self.extension = imagedetect.extension_from_data(self.blob)
+        if self.folder_ok():
+            self.file_name = '%s/blob%d%s' % (
+                os.path.join(os.getcwd(), self.folder_name), 
+                self.file_index.next(), self.extension)
+            self.url = 'file://%s' % self.file_name
+            outfile = open(self.file_name, 'wb')
+            outfile.write(self.blob)
+            outfile.close()
+    def __str__(self):
+        return '(BLOB at %s)' % self.url
+    def html(self):
+        return '<a href="%s"><img src="%s" width="200" /></a>' % (
+            self.url, self.url)
         
 class sqlpyPlus(sqlpython.sqlpython):
     defaultExtension = 'sql'
@@ -449,7 +485,6 @@ class sqlpyPlus(sqlpython.sqlpython):
         self.colnames = [d[0] for d in self.curs.description]
         if outformat in output_templates:
             self.colnamelen = max(len(colname) for colname in self.colnames)
-            self.coltypes = [d[1] for d in self.curs.description]
             result = output_templates[outformat].generate(formattedForSql=self.formattedForSql, **self.__dict__)        
         elif outformat == '\\t': # transposed
             rows = [self.colnames]
@@ -668,7 +703,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                 return
             total_len -= len(rset)
             self.pystate['r'][i] = []
-            
+        
     def do_select(self, arg, bindVarsIn=None, terminator=None):
         """Fetch rows from a table.
 
@@ -698,6 +733,12 @@ class sqlpyPlus(sqlpython.sqlpython):
         else: # this is an ugly workaround for the evil paramstyle curse upon DB-API2
             self.curs.execute(self.querytext)
         self.rows = self.curs.fetchmany(min(self.maxfetch, (rowlimit or self.maxfetch)))
+        self.coltypes = [d[1] for d in self.curs.description]
+        if cx_Oracle.BLOB in self.coltypes:
+            self.rows = [
+                [((coltype == cx_Oracle.BLOB) and BlobDisplayer(datum)) or datum
+                 for (datum, coltype) in zip(row, self.coltypes)]
+                for row in self.rows]
         self.rc = len(self.rows)
         if self.rc != 0:
             resultset = ResultSet()
