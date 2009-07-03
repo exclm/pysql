@@ -23,7 +23,7 @@ or with a python-like shorthand
 
 - catherinedevlin.blogspot.com  May 31, 2006
 """
-import sys, os, re, sqlpython, cx_Oracle, pyparsing, re, completion, datetime, pickle, binascii, subprocess, time, itertools
+import sys, os, re, sqlpython, cx_Oracle, pyparsing, re, completion, datetime, pickle, binascii, subprocess, time, itertools, hashlib
 from cmd2 import Cmd, make_option, options, Statekeeper, Cmd2TestCase
 from output_templates import output_templates
 from metadata import metaqueries
@@ -284,9 +284,7 @@ def offset_to_line(instring, offset):
         offset -= len(line)
 
 class BlobDisplayer(object):
-    start_timestamp = int(time.time())
-    folder_name = 'sqlpython_blob_store_%d' % start_timestamp
-    file_index = itertools.count()
+    folder_name = 'sqlpython_blob_store'
     def folder_ok(self):
         if not os.access(self.folder_name, os.F_OK):
             try:
@@ -301,17 +299,18 @@ class BlobDisplayer(object):
         return True
     def __init__(self, blob):
         self.url = ''
-        self.timestamp = time.time()
         self.blob = blob.read()
+        self.hashed = hashlib.md5(self.blob).hexdigest()
         self.extension = imagedetect.extension_from_data(self.blob)
         if self.folder_ok():
-            self.file_name = '%s/blob%d%s' % (
+            self.file_name = '%s/%s%s' % (
                 os.path.join(os.getcwd(), self.folder_name), 
-                self.file_index.next(), self.extension)
+                self.hashed, self.extension)
             self.url = 'file://%s' % self.file_name
-            outfile = open(self.file_name, 'wb')
-            outfile.write(self.blob)
-            outfile.close()
+            if not os.access(self.file_name, os.F_OK):
+                outfile = open(self.file_name, 'wb')
+                outfile.write(self.blob)
+                outfile.close()
     def __str__(self):
         return '(BLOB at %s)' % self.url
     def html(self):
