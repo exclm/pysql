@@ -5,6 +5,8 @@
 Welcome to SQLPython's documentation!
 =====================================
 
+Dayton *Dynamic* Languages Group is **awesome**
+
 Contents:
 
 .. toctree::
