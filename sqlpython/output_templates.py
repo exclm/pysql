@@ -41,7 +41,7 @@ ${',\\n'.join('        {%s}' % ', '.join('"%s": %s' % (colname,
       </tr>
       <tr py:for="row in rows">
         <td py:for="(colname, itm) in zip(colnames, row)" py:attrs="{'headers':'header_' + colname.lower()}">
-          <span py:replace="(hasattr(itm, 'html') and itm.html()) or str(itm)">Value</span>
+          <span py:replace="(hasattr(itm, 'html') and Markup(itm.html())) or str(itm)">Value</span>
         </td>
       </tr>
     </table>
