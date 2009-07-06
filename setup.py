@@ -9,7 +9,7 @@ Topic :: Database :: Front-Ends
 Operating System :: OS Independent""".splitlines()
 
 setup(name="sqlpython",
-      version="1.6.6",
+      version="1.6.7",
       description="Command-line interface to Oracle",
       long_description="Customizable alternative to Oracle's SQL*PLUS command-line interface",
       author="Luca Canali",
