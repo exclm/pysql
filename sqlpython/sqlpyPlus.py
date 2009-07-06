@@ -285,6 +285,7 @@ def offset_to_line(instring, offset):
 
 class BlobDisplayer(object):
     folder_name = 'sqlpython_blob_store'
+    imgwidth = 400
     def folder_ok(self):
         if not os.access(self.folder_name, os.F_OK):
             try:
@@ -297,25 +298,32 @@ class BlobDisplayer(object):
             except:
                 return False
         return True
-    def __init__(self, blob):
+    def __init__(self, blob, under_limit):
         self.url = ''
-        self.blob = blob.read()
-        self.hashed = hashlib.md5(self.blob).hexdigest()
-        self.extension = imagedetect.extension_from_data(self.blob)
-        if self.folder_ok():
-            self.file_name = '%s/%s%s' % (
-                os.path.join(os.getcwd(), self.folder_name), 
-                self.hashed, self.extension)
-            self.url = 'file://%s' % self.file_name
-            if not os.access(self.file_name, os.F_OK):
-                outfile = open(self.file_name, 'wb')
-                outfile.write(self.blob)
-                outfile.close()
+        if under_limit:
+            self.blob = blob.read()
+            self.hashed = hashlib.md5(self.blob).hexdigest()
+            self.extension = imagedetect.extension_from_data(self.blob)
+            if self.folder_ok():
+                self.file_name = '%s/%s%s' % (
+                    os.path.join(os.getcwd(), self.folder_name), 
+                    self.hashed, self.extension)
+                self.url = 'file://%s' % self.file_name
+                if not os.access(self.file_name, os.F_OK):
+                    outfile = open(self.file_name, 'wb')
+                    outfile.write(self.blob)
+                    outfile.close()
     def __str__(self):
-        return '(BLOB at %s)' % self.url
+        if self.url:
+            return '(BLOB at %s)' % self.url
+        else:
+            return '(BLOB)'
     def html(self):
-        return '<a href="%s"><img src="%s" width="200" /></a>' % (
-            self.url, self.url)
+        if self.url:
+            return '<a href="%s"><img src="%s" width="%d" /></a>' % (
+                self.url, self.url, self.imgwidth)
+        else:
+            return '(BLOB not saved, check bloblimit)'
         
 class sqlpyPlus(sqlpython.sqlpython):
     defaultExtension = 'sql'
@@ -339,7 +347,7 @@ class sqlpyPlus(sqlpython.sqlpython):
     def __init__(self):
         sqlpython.sqlpython.__init__(self)
         self.binds = CaselessDict()
-        self.settable += 'autobind colors commit_on_exit maxfetch maxtselctrows rows_remembered scan serveroutput sql_echo timeout heading wildsql'.split()
+        self.settable += 'autobind bloblimit colors commit_on_exit maxfetch maxtselctrows rows_remembered scan serveroutput sql_echo timeout heading wildsql'.split()
         self.settable.remove('case_insensitive')
         self.settable.sort()
         self.stdoutBeforeSpool = sys.stdout
@@ -354,6 +362,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         self.substvars = {}
         self.result_history = []
         self.rows_remembered = 10000
+        self.bloblimit = 5
         self.pystate = {'r': [], 'binds': self.binds, 'substs': self.substvars}
         
     # overrides cmd's parseline
@@ -735,9 +744,11 @@ class sqlpyPlus(sqlpython.sqlpython):
         self.coltypes = [d[1] for d in self.curs.description]
         if cx_Oracle.BLOB in self.coltypes:
             self.rows = [
-                [((coltype == cx_Oracle.BLOB) and BlobDisplayer(datum)) or datum
-                 for (datum, coltype) in zip(row, self.coltypes)]
-                for row in self.rows]
+                 [(    (coltype == cx_Oracle.BLOB) 
+                   and BlobDisplayer(datum, (rownum < self.bloblimit)))
+                   or datum
+                   for (datum, coltype) in zip(row, self.coltypes)]
+                 for (rownum, row) in enumerate(self.rows)]
         self.rc = len(self.rows)
         if self.rc != 0:
             resultset = ResultSet()
