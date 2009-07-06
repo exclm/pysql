@@ -347,7 +347,7 @@ class sqlpyPlus(sqlpython.sqlpython):
     def __init__(self):
         sqlpython.sqlpython.__init__(self)
         self.binds = CaselessDict()
-        self.settable += 'autobind bloblimit colors commit_on_exit maxfetch maxtselctrows rows_remembered scan serveroutput sql_echo timeout heading wildsql'.split()
+        self.settable += 'autobind bloblimit colors commit_on_exit maxfetch maxtselctrows rows_remembered scan serveroutput sql_echo timeout heading wildsql version'.split()
         self.settable.remove('case_insensitive')
         self.settable.sort()
         self.stdoutBeforeSpool = sys.stdout
@@ -363,6 +363,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         self.result_history = []
         self.rows_remembered = 10000
         self.bloblimit = 5
+        self.version = 'SQLPython %s' % sqlpython.__version__
         self.pystate = {'r': [], 'binds': self.binds, 'substs': self.substvars}
         
     # overrides cmd's parseline
@@ -879,13 +880,15 @@ class sqlpyPlus(sqlpython.sqlpython):
                            value FROM v$parameter WHERE name LIKE '%%%s%%';""" % paramname)
         else:
             argpieces = arg.lower().split()
-            flagless_argpieces = [a for a in argpieces if not a.startswith('-')]
-            for (kwd, shortcut) in (('ind', '\\di'), ('schema', '\\dn'), ('tablesp', '\\db'), 
-                                    ('trig', '\\dt'), ('view', '\\dv'), ('cons', '\\dc'),
-                                    ('comm', '\\dd'), ('ref', 'ref')):
-                if flagless_argpieces[0].lower().startswith(kwd):
-                    return self._show_shortcut(shortcut, argpieces)
+            argpieces = [a for a in argpieces if not a.startswith('-')]
             try:
+                for (kwd, shortcut) in (
+                        ('ind', '\\di'), ('schema', '\\dn'), 
+                        ('tablesp', '\\db'), ('trig', '\\dt'), 
+                        ('view', '\\dv'), ('cons', '\\dc'),
+                        ('comm', '\\dd'), ('ref', 'ref')):
+                    if argpieces[0].lower().startswith(kwd):
+                        return self._show_shortcut(shortcut, argpieces)
                 if argpieces[0][:3] == 'err':
                     return self._show_errors(all_users=False, limit=1, targets=argpieces[1:])
                 elif (argpieces[0], argpieces[1][:3]) == ('all','err'):

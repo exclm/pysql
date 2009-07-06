@@ -10,7 +10,7 @@
 
 import cmd2,getpass,binascii,cx_Oracle,re,os
 import sqlpyPlus, sqlalchemy, pyparsing
-__version__ = '1.6.6'    
+__version__ = '1.6.7'    
 
 class Parser(object):
     comment_def = "--" + ~ ('-' + pyparsing.CaselessKeyword('begin')) + pyparsing.ZeroOrMore(pyparsing.CharsNotIn("\n"))    
