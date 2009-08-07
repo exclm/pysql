@@ -82,7 +82,7 @@ WHERE atc.table_name = :object_name
 AND      atc.owner = :owner
 ORDER BY atc.column_id;""",
 'oneColComments': """
-SELECTatc.column_name,
+SELECT atc.column_name,
 acc.comments             
 FROM all_tab_columns atc
 JOIN all_col_comments acc ON (atc.owner = acc.owner and atc.table_name = acc.table_name and atc.column_name = acc.column_name)
@@ -405,7 +405,9 @@ class sqlpyPlus(sqlpython.sqlpython):
         
     def postcmd(self, stop, line):
         """Hook method executed just after a command dispatch is finished."""        
-        if (self.rdbms == 'oracle') and self.serveroutput:
+        if (    hasattr(self, 'rdbms') 
+            and (self.rdbms == 'oracle') 
+            and self.serveroutput):
             self.dbms_output()
         return stop
     
