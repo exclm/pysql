@@ -477,6 +477,21 @@ sessinfo
 top, top9i
   Displays active sessions
 
+BLOB display
+============
+
+(Oracle only, for now)
+
+When a SELECT query returns BLOB columns, most SQL tools simply cannot 
+display the results.  Sqlpython, however, will create
+a local file for each BLOB returned (up to the parameter `bloblimit`),
+and return the filepaths of the new files in the query results.  In a 
+tool like the GNOME terminal, these filepaths work as right-clickable
+links that can open the files.
+
+When the \\h terminator is used to generate HTML table output, if the 
+BLOBs are images, they will be embedded as images in the generated
+table.
 
   
   
