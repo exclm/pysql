@@ -1274,14 +1274,24 @@ class sqlpyPlus(sqlpython.sqlpython):
     assignmentSplitter = re.compile(':?=')
     def interpret_variable_assignment(self, arg):
         '''
-        Accepts strings like `foo = 'bar'` or `baz := 22`, returning Python
-        variables as appropriate
+        Accepts strings like `foo = 'bar'` or `baz := 22`, 
+        returns (assigned? (T/F), variable, new-value)
+
+        >>> s = sqlpyPlus()
+        >>> s.interpret_variable_assignment(s.parsed("foo = 'bar'"))
+        (True, 'foo', 'bar')
+        >>> s.interpret_variable_assignment(s.parsed("baz := 22"))
+        (True, 'baz', 22)
+        >>> s.interpret_variable_assignment(s.parsed("foo"))
+        (False, 'foo', None)    
         '''
+        arg = self.parsed(arg)
         try:
             var, val = self.assignmentSplitter.split(arg.parsed.expanded, maxsplit=1)
         except ValueError:
-            return False, arg.parsed.expanded.split()[0] or None, None 
+            return False, arg.parsed.expanded.split()[-1] or None, None 
         var = var.split()[-1]
+        val = val.strip()
         if (len(val) > 1) and ((val[0] == val[-1] == "'") or (val[0] == val[-1] == '"')):
             return True, var, val[1:-1]
         try:
@@ -1326,7 +1336,7 @@ class sqlpyPlus(sqlpython.sqlpython):
     
     def do_exec(self, arg):
         if arg.startswith(':'):
-            self.do_setbind(arg[1:])
+            self.do_setbind(arg.parsed.expanded.split(':',1)[1])
         else:
             varsUsed = self.findBinds(arg, {})
             try:
@@ -1556,9 +1566,6 @@ def _test():
     import doctest
     doctest.testmod()
     
-if __name__ == "__main__":
-    "Silent return implies that all unit tests succeeded.  Use -v to see details."
-    _test()
 if __name__ == "__main__":
     "Silent return implies that all unit tests succeeded.  Use -v to see details."
     _test()
