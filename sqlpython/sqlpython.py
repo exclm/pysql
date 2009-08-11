@@ -9,7 +9,7 @@
 # See also http://twiki.cern.ch/twiki/bin/view/PSSGroup/SqlPython
 
 import cmd2,getpass,binascii,cx_Oracle,re,os
-import sqlpyPlus, sqlalchemy, pyparsing
+import sqlalchemy, pyparsing
 __version__ = '1.6.7'    
 
 class Parser(object):
