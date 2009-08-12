@@ -101,6 +101,16 @@ class sqlpython(cmd2.Cmd):
         conn  = {'conn': self.conn, 'prompt': self.prompt, 'dbname': eng.url.database,
                  'rdbms': eng.url.drivername, 'user': eng.url.username or '', 
                  'eng': eng}
+        if eng.url.drivername == 'oracle':
+            conn['gerald'] = gerald.OracleSchema(eng.url.username, 
+                                    arg.split('/?mode=')[0].replace('//','/'))
+        elif eng.url.drivername == 'mysql':
+            conn['gerald'] = gerald.MySQLSchema(eng.url.username, 
+                                                arg.replace('//','/'))
+        elif eng.url.drivername == 'postgres':
+            conn['gerald'] = gerald.PostgresSchema('public', 
+                                                   arg.replace('//','/'))
+            
         return conn
     def ora_connect(self, arg):
         modeval = 0
@@ -138,10 +148,6 @@ class sqlpython(cmd2.Cmd):
             modeval = cx_Oracle.SYSOPER
         result = self.url_connect('oracle://%s:%s@%s/?mode=%d' % (orauser, orapass, oraserv, modeval))
         result['dbname'] = oraserv
-        result['gerald'] = gerald.OracleSchema('schema', 
-                                               'oracle:/%s:%s@%s' % (orauser,
-                                                                     orapass,
-                                                                     oraserv))
         return result
     
     connection_modes = {re.compile(' AS SYSDBA', re.IGNORECASE): cx_Oracle.SYSDBA, 
