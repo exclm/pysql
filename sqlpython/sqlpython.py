@@ -9,8 +9,8 @@
 # See also http://twiki.cern.ch/twiki/bin/view/PSSGroup/SqlPython
 
 import cmd2,getpass,binascii,cx_Oracle,re,os
-import sqlalchemy, pyparsing
-__version__ = '1.6.7'    
+import sqlalchemy, pyparsing, gerald
+__version__ = '1.7.0'    
 
 class Parser(object):
     comment_def = "--" + ~ ('-' + pyparsing.CaselessKeyword('begin')) + pyparsing.ZeroOrMore(pyparsing.CharsNotIn("\n"))    
@@ -138,6 +138,10 @@ class sqlpython(cmd2.Cmd):
             modeval = cx_Oracle.SYSOPER
         result = self.url_connect('oracle://%s:%s@%s/?mode=%d' % (orauser, orapass, oraserv, modeval))
         result['dbname'] = oraserv
+        result['gerald'] = gerald.OracleSchema('schema', 
+                                               'oracle:/%s:%s@%s' % (orauser,
+                                                                     orapass,
+                                                                     oraserv))
         return result
     
     connection_modes = {re.compile(' AS SYSDBA', re.IGNORECASE): cx_Oracle.SYSDBA, 

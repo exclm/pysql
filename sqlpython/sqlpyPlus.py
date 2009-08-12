@@ -1465,6 +1465,26 @@ class sqlpyPlus(sqlpython.sqlpython):
         self.do_select(self.parsed(statement, 
                                    terminator=arg.parsed.terminator or ';', 
                                    suffix=arg.parsed.suffix))
+
+        
+    @options([make_option('-l', '--long', action='store_true', help='long descriptions'),
+              make_option('-a', '--all', action='store_true', help="all schemas' objects"),
+              make_option('-t', '--timesort', action='store_true', help="Sort by last_ddl_time"),              
+              make_option('-r', '--reverse', action='store_true', help="Reverse order while sorting")])            
+    def do_ls(self, arg, opts):
+        seek = '^%s$' % (arg.replace('*', '.*').replace('?','.'). \
+                         replace('%', '.*'))
+        gerald = self.connections[self.connection_number]['gerald']
+        for (name, obj) in gerald.schema.items():
+            dbtype = str(type(obj)).rstrip("'>").split('.')[-1]
+            if dbtype == 'CodeObject':
+                dbtype = obj.type
+            descriptor = '%s/%s' % (dbtype, name)
+            if (not arg) or \
+               re.search(seek, descriptor, re.IGNORECASE) or \
+               re.search(seek, name, re.IGNORECASE) or \
+               re.search(seek, dbtype, re.IGNORECASE):
+                self.poutput(descriptor)
         
     @options([make_option('-i', '--ignore-case', dest='ignorecase', action='store_true', help='Case-insensitive search')])        
     def do_grep(self, arg, opts):
