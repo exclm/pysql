@@ -8,7 +8,7 @@
 # Best used with the companion modules sqlpyPlus and mysqlpy 
 # See also http://twiki.cern.ch/twiki/bin/view/PSSGroup/SqlPython
 
-import cmd2,getpass,binascii,cx_Oracle,re,os
+import cmd2,getpass,binascii,cx_Oracle,re,os,platform
 import sqlalchemy, pyparsing
 __version__ = '1.6.7'    
 
@@ -315,7 +315,7 @@ class sqlpython(cmd2.Cmd):
                   'red':{True:'\x1b[36m',False:'\x1b[39m'},
                   'cyan':{True:'\x1b[31m',False:'\x1b[39m'},
                   'underline':{True:'\x1b[4m',False:'\x1b[24m'}}
-    colors = True
+    colors = (platform.system() != 'Windows')
     def colorize(self, val, color):
         if self.colors and (self.stdout == self.initial_stdout):
             if color not in self.colorcodes:
