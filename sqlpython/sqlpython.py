@@ -100,7 +100,7 @@ class sqlpython(cmd2.Cmd):
         self.conn = eng.connect().connection
         conn  = {'conn': self.conn, 'prompt': self.prompt, 'dbname': eng.url.database,
                  'rdbms': eng.url.drivername, 'user': eng.url.username or '', 
-                 'eng': eng}
+                 'eng': eng, 'connect_string': arg}
         return conn
     def ora_connect(self, arg):
         modeval = 0
