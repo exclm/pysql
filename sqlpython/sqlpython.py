@@ -8,9 +8,9 @@
 # Best used with the companion modules sqlpyPlus and mysqlpy 
 # See also http://twiki.cern.ch/twiki/bin/view/PSSGroup/SqlPython
 
-import cmd2,getpass,binascii,cx_Oracle,re,os,platform
-import sqlalchemy, pyparsing
-__version__ = '1.6.7'    
+import cmd2,getpass,binascii,cx_Oracle,re,os
+import sqlalchemy, pyparsing, schemagroup
+__version__ = '1.7.0'    
 
 class Parser(object):
     comment_def = "--" + ~ ('-' + pyparsing.CaselessKeyword('begin')) + pyparsing.ZeroOrMore(pyparsing.CharsNotIn("\n"))    
@@ -98,9 +98,14 @@ class sqlpython(cmd2.Cmd):
     def url_connect(self, arg):
         eng = sqlalchemy.create_engine(arg) 
         self.conn = eng.connect().connection
+        user = eng.url.username or ''
+        rdbms = eng.url.drivername
         conn  = {'conn': self.conn, 'prompt': self.prompt, 'dbname': eng.url.database,
-                 'rdbms': eng.url.drivername, 'user': eng.url.username or '', 
-                 'eng': eng}
+                 'rdbms': rdbms, 'user': user, 'eng': eng, 
+                 'schemas': schemagroup.schemagroup(rdbms, arg,
+                                                    self.conn, user)}
+        s = conn['schemas']
+        s.refresh()
         return conn
     def ora_connect(self, arg):
         modeval = 0

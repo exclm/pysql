@@ -1429,7 +1429,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         'WINDOW',               
         'WINDOW GROUP',         
         'XML SCHEMA')
-    
+        
     @options([make_option('-l', '--long', action='store_true', help='long descriptions'),
               make_option('-a', '--all', action='store_true', help="all schemas' objects"),
               make_option('-t', '--timesort', action='store_true', help="Sort by last_ddl_time"),              
@@ -1439,32 +1439,25 @@ class sqlpyPlus(sqlpython.sqlpython):
         Lists objects as through they were in an {object_type}/{object_name} UNIX
         directory structure.  `*` and `%` may be used as wildcards.
         '''
-        clauses = {'owner': '', 'moreColumns': '',
-                   'source': metaqueries['ls'][self.rdbms],
-                   'where': self.ls_where_clause(arg, opts)}
-        if opts.long:
-            clauses['moreColumns'] = ', status, last_ddl_time'
-        if opts.all:
-            clauses['owner'] = "owner || '.' ||"
-
-        # 'Normal' sort order is DATE DESC (maybe), object type ASC, object name ASC
-        sortdirection = (hasattr(opts, 'reverse') and opts.reverse and 'DESC') or 'ASC'
-        orderby = 'object_type %s, object_name %s' % (sortdirection, sortdirection)
-        if hasattr(opts, 'timesort') and opts.timesort:
-            if hasattr(opts, 'reverse') and opts.reverse:
-                direction = 'DESC'
+        seek = '^%s$' % (arg.replace('*', '.*').replace('?','.'). \
+                         replace('%', '.*'))
+        gerald = self.connections[self.connection_number]['gerald']
+        result = []
+        for (name, obj) in gerald.schema.items():
+            if hasattr(obj, 'type'):
+                dbtype = obj.type
             else:
-                direction = 'ASC'
-            orderby = 'last_ddl_time %s, %s' % (direction, orderby)
-        clauses['orderby'] = orderby    
-        statement = '''
-            SELECT object_type || '/' || %(owner)s object_name AS name %(moreColumns)s 
-            FROM   (%(source)s) source
-            %(where)s
-            ORDER BY %(orderby)s;''' % clauses
-        self.do_select(self.parsed(statement, 
-                                   terminator=arg.parsed.terminator or ';', 
-                                   suffix=arg.parsed.suffix))
+                dbtype = str(type(obj)).rstrip("'>").split('.')[-1]
+            descriptor = '%s/%s' % (dbtype, name)
+            descriptor = descriptor.upper()
+            if (not arg) or \
+               re.search(seek, descriptor, re.IGNORECASE) or \
+               re.search(seek, name, re.IGNORECASE) or \
+               re.search(seek, dbtype, re.IGNORECASE):
+                result.append(descriptor)
+                # if opts.long: status, last_ddl_time
+        result.sort(reverse=bool(opts.reverse))
+        self.poutput('\n'.join(result))
         
     @options([make_option('-i', '--ignore-case', dest='ignorecase', action='store_true', help='Case-insensitive search')])        
     def do_grep(self, arg, opts):
