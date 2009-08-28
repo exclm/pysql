@@ -9,7 +9,7 @@
 # See also http://twiki.cern.ch/twiki/bin/view/PSSGroup/SqlPython
 
 import cmd2,getpass,binascii,cx_Oracle,re,os
-import sqlalchemy, pyparsing, gerald
+import sqlalchemy, pyparsing, schemagroup
 __version__ = '1.7.0'    
 
 class Parser(object):
@@ -98,19 +98,14 @@ class sqlpython(cmd2.Cmd):
     def url_connect(self, arg):
         eng = sqlalchemy.create_engine(arg) 
         self.conn = eng.connect().connection
+        user = eng.url.username or ''
+        rdbms = eng.url.drivername
         conn  = {'conn': self.conn, 'prompt': self.prompt, 'dbname': eng.url.database,
-                 'rdbms': eng.url.drivername, 'user': eng.url.username or '', 
-                 'eng': eng}
-        if eng.url.drivername == 'oracle':
-            conn['gerald'] = gerald.OracleSchema(eng.url.username, 
-                                    arg.split('/?mode=')[0].replace('//','/'))
-        elif eng.url.drivername == 'mysql':
-            conn['gerald'] = gerald.MySQLSchema(eng.url.username, 
-                                                arg.replace('//','/'))
-        elif eng.url.drivername == 'postgres':
-            conn['gerald'] = gerald.PostgresSchema('public', 
-                                                   arg.replace('//','/'))
-            
+                 'rdbms': rdbms, 'user': user, 'eng': eng, 
+                 'schemas': schemagroup.schemagroup(rdbms, arg,
+                                                    self.conn, user)}
+        s = conn['schemas']
+        s.refresh()
         return conn
     def ora_connect(self, arg):
         modeval = 0
