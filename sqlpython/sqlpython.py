@@ -320,7 +320,7 @@ class sqlpython(cmd2.Cmd):
                   'red':{True:'\x1b[36m',False:'\x1b[39m'},
                   'cyan':{True:'\x1b[31m',False:'\x1b[39m'},
                   'underline':{True:'\x1b[4m',False:'\x1b[24m'}}
-    colors = True
+    colors = (platform.system() != 'Windows')
     def colorize(self, val, color):
         if self.colors and (self.stdout == self.initial_stdout):
             if color not in self.colorcodes:
