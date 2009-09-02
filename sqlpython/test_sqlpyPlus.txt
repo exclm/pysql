@@ -1,0 +1,92 @@
+0:testdata@eqdev> CREATE TABLE species (
+> ID     NUMBER(8,0) CONSTRAINT xnn1_species NOT NULL
+>                    CONSTRAINT xpk_species PRIMARY KEY,
+> NAME   VARCHAR2(12) CONSTRAINT xnn2_species NOT NULL
+>                     CONSTRAINT xuk1_species UNIQUE );
+
+Executed
+
+0:testdata@eqdev> :id = 0
+0:testdata@eqdev> :name = 'turtle'
+0:testdata@eqdev> INSERT INTO species VALUES (:id, :name);
+
+Executed (1 rows)
+
+0:testdata@eqdev> :id = 1
+0:testdata@eqdev> :name = 'python'
+0:testdata@eqdev> INSERT INTO species VALUES (:id, :name);
+
+Executed (1 rows)
+
+0:testdata@eqdev> :id = 2
+0:testdata@eqdev> :name = 'parrot'
+0:testdata@eqdev> INSERT INTO species VALUES (:id, :name);
+
+Executed (1 rows)
+
+0:testdata@eqdev> commit;
+
+Executed
+
+0:testdata@eqdev> select * from species;
+
+ID NAME  
+-- ------
+ 0 turtle
+ 1 python
+ 2 parrot
+
+3 rows selected.
+
+0:testdata@eqdev> select *
+> from species;
+
+ID NAME  
+-- ------
+ 0 turtle
+ 1 python
+ 2 parrot
+
+3 rows selected.
+
+0:testdata@eqdev> select * from species\h
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+  <head>
+    <title>species</title>
+    <meta http-equiv="content-type" content="text/html;charset=utf-8"/>
+  </head>
+  <body>
+    <table id="species" summary="Result set from query on table species">
+      <tr>
+        <th id="header_id">
+          id
+        </th><th id="header_name">
+          name
+        </th>
+      </tr>
+      <tr>
+        <td headers="header_id">
+          0
+        </td><td headers="header_id">
+          turtle
+        </td>
+      </tr><tr>
+        <td headers="header_name">
+          1
+        </td><td headers="header_name">
+          python
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
+
+3 rows selected.
+
+0:testdata@eqdev> DROP TABLE species;
+
+Executed
+
+0:testdata@eqdev> 

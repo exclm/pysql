@@ -1,0 +1,1 @@
+ipython -pylab -c "import sqlpython.plothandler; sqlpython.plothandler.Plot().unshelve()"
