@@ -1,16 +1,16 @@
 #
 # SqlPython V1.6.7
 # Author: Luca.Canali@cern.ch, Apr 2006
-# Rev 7-Jul-09
+# Rev 2-Sep-09
 
 # A python module to reproduce Oracle's command line 'sqlplus-like' within python
 # Intended to allow easy customizations and extentions 
 # Best used with the companion modules sqlpyPlus and mysqlpy 
 # See also http://twiki.cern.ch/twiki/bin/view/PSSGroup/SqlPython
 
-import cmd2, getpass, binascii, cx_Oracle, re, os, platform
-import sqlalchemy, pyparsing, schemagroup
-__version__ = '1.7.0'    
+import cmd2,getpass,binascii,cx_Oracle,re,os,platform
+import sqlalchemy, pyparsing
+__version__ = '1.6.8'    
 
 class Parser(object):
     comment_def = "--" + ~ ('-' + pyparsing.CaselessKeyword('begin')) + pyparsing.ZeroOrMore(pyparsing.CharsNotIn("\n"))    

@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# MySqlPy V1.6.7
+# MySqlPy V1.6.8
 # Author: Luca.Canali@cern.ch
 # 
 #
@@ -14,9 +14,9 @@ import sqlalchemy
 
 class mysqlpy(sqlpyPlus):
     '''
-MySqlPy V1.6.7 - 'sqlplus in python'
+MySqlPy V1.6.8 - 'sqlplus in python'
 Author: Luca.Canali@cern.ch
-Rev: 1.6.7, 07-Jul-09
+Rev: 1.6.8, 02-Sep-09
 
 Companion of SqlPython, a python module that reproduces Oracle's command line within python
 and sqlpyPlus. Major contributions by Catherine Devlin, http://catherinedevlin.blogspot.com
