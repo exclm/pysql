@@ -21,6 +21,7 @@ class SchemaGroup(object):
                 ):
                 self.schemas[schemaname] = self.childtype(schemaname,
                                                           self)
+'SELECT owner, max(last_ddl_time) FROM all_objects GROUP BY owner'
 
 
 class OracleSchema(gerald.OracleSchema):
