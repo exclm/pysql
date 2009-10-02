@@ -102,7 +102,7 @@ class sqlpython(cmd2.Cmd):
         rdbms = eng.url.drivername
         conn  = {'conn': self.conn, 'prompt': self.prompt, 'dbname': eng.url.database,
                  'rdbms': rdbms, 'user': user, 'eng': eng, 
-                 'schemas': schemagroup.schemagroup(rdbms, arg,
+                 'schemas': schemagroup.get_schemagroup(rdbms, arg,
                                                     self.conn, user)}
         s = conn['schemas']
         s.refresh()
