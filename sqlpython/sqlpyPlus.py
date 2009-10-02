@@ -1441,9 +1441,11 @@ class sqlpyPlus(sqlpython.sqlpython):
         '''
         seek = '^%s$' % (arg.replace('*', '.*').replace('?','.'). \
                          replace('%', '.*'))
-        gerald = self.connections[self.connection_number]['gerald']
+#        import pdb; pdb.set_trace()
+        schemas = self.connections[self.connection_number]['schemas'].schemas
+        schema = schemas[self.connections[self.connection_number]['user']].schema
         result = []
-        for (name, obj) in gerald.schema.items():
+        for (name, obj) in schema.items():
             if hasattr(obj, 'type'):
                 dbtype = obj.type
             else:
