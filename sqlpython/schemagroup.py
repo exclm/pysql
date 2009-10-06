@@ -1,12 +1,5 @@
 import gerald, re, datetime, threading
 
-def get_schemagroup(rdbms, connstr, connection, user):
-    gerald_connstring = connstr.split('/?mode=')[0].replace('//','/')
-    if rdbms == 'oracle':
-        childtype = OracleSchemaGroup            
-    grp = childtype(gerald_connstring, connection, user)
-    return grp
-
 def gerald_connection_string(sqlalchemy_connection_string):
     return sqlalchemy_connection_string.split('/?mode=')[0].replace('//','/')
     
@@ -42,6 +35,8 @@ class SchemaDict(dict):
         self.refresh_thread = RefreshGroupThread(self)
         self.complete = False
         # do we need a second thread for a second run?
+    def refresh_asynch(self):
+        self.refresh_thread.start()
     def refresh(self):
         curs = self.connection.cursor()
         curs.execute('SELECT sysdate FROM dual')

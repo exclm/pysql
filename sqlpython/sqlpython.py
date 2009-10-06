@@ -105,7 +105,7 @@ class sqlpython(cmd2.Cmd):
                  'schemas': schemagroup.SchemaDict({}, 
                     rdbms=rdbms, user=user, connection=self.conn, connection_string=arg)}
         s = conn['schemas']
-        s.refresh()
+        s.refresh_asynch()
         return conn
     def ora_connect(self, arg):
         modeval = 0
