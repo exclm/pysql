@@ -102,8 +102,8 @@ class sqlpython(cmd2.Cmd):
         rdbms = eng.url.drivername
         conn  = {'conn': self.conn, 'prompt': self.prompt, 'dbname': eng.url.database,
                  'rdbms': rdbms, 'user': user, 'eng': eng, 
-                 'schemas': schemagroup.get_schemagroup(rdbms, arg,
-                                                    self.conn, user)}
+                 'schemas': schemagroup.SchemaDict({}, 
+                    rdbms=rdbms, user=user, connection=self.conn, connection_string=arg)}
         s = conn['schemas']
         s.refresh()
         return conn
