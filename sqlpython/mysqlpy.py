@@ -211,4 +211,7 @@ if __name__ == '__main__':
         sys.argv = [sys.argv[0]]  # the --test argument upsets unittest.main()
         unittest.main()
     else:
+        #import cProfile, pstats
+        #cProfile.run('run()', 'stats.txt')
         run()
+        
