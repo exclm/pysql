@@ -1441,25 +1441,35 @@ class sqlpyPlus(sqlpython.sqlpython):
         '''
         seek = '^%s$' % (arg.replace('*', '.*').replace('?','.'). \
                          replace('%', '.*'))
-#        import pdb; pdb.set_trace()
-        schemas = self.connections[self.connection_number]['schemas'].schemas
-        schema = schemas[self.connections[self.connection_number]['user']].schema
+        schemas = self.connections[self.connection_number]['schemas']
         result = []
-        for (name, obj) in schema.items():
-            if hasattr(obj, 'type'):
-                dbtype = obj.type
+        username = self.connections[self.connection_number]['user'].upper()
+        for (schema_name, schema) in schemas.items():
+            if opts.all or schema_name == username:
+                for (name, obj) in schema.schema.items():
+                    if hasattr(obj, 'type'):
+                        dbtype = obj.type
+                    else:
+                        dbtype = str(type(obj)).rstrip("'>").split('.')[-1]
+                    if opts.all:
+                        name = '%s.%s' % (schema_name, name)
+                    descriptor = '%s/%s' % (dbtype, name)
+                    descriptor = descriptor.upper()
+                    if (not arg) or \
+                       re.search(seek, descriptor, re.IGNORECASE) or \
+                       re.search(seek, name, re.IGNORECASE) or \
+                       re.search(seek, dbtype, re.IGNORECASE):
+                        result.append(descriptor)
+                        # if opts.long: status, last_ddl_time
+        if not schemas.complete:
+            if opts.all:
+                qualifier = 'may be '
             else:
-                dbtype = str(type(obj)).rstrip("'>").split('.')[-1]
-            descriptor = '%s/%s' % (dbtype, name)
-            descriptor = descriptor.upper()
-            if (not arg) or \
-               re.search(seek, descriptor, re.IGNORECASE) or \
-               re.search(seek, name, re.IGNORECASE) or \
-               re.search(seek, dbtype, re.IGNORECASE):
-                result.append(descriptor)
-                # if opts.long: status, last_ddl_time
-        result.sort(reverse=bool(opts.reverse))
-        self.poutput('\n'.join(result))
+                qualifier = ''
+            self.perror('Metadata discovery still in progress - results %sincomplete' % qualifier)        
+        if result:
+            result.sort(reverse=bool(opts.reverse))
+            self.poutput('\n'.join(result))
         
     @options([make_option('-i', '--ignore-case', dest='ignorecase', action='store_true', help='Case-insensitive search')])        
     def do_grep(self, arg, opts):
