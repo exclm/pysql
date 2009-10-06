@@ -347,7 +347,9 @@ class sqlpyPlus(sqlpython.sqlpython):
     def __init__(self):
         sqlpython.sqlpython.__init__(self)
         self.binds = CaselessDict()
-        self.settable += 'autobind bloblimit colors commit_on_exit maxfetch maxtselctrows rows_remembered scan serveroutput sql_echo timeout heading wildsql version'.split()
+        self.settable += '''autobind bloblimit colors commit_on_exit maxfetch maxtselctrows 
+                            minutes_between_refreshes rows_remembered scan serveroutput 
+                            sql_echo timeout heading wildsql version'''.split()
         self.settable.remove('case_insensitive')
         self.settable.sort()
         self.stdoutBeforeSpool = sys.stdout
@@ -363,6 +365,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         self.result_history = []
         self.rows_remembered = 10000
         self.bloblimit = 5
+        self.minutes_between_refreshes = 1
         self.version = 'SQLPython %s' % sqlpython.__version__
         self.pystate = {'r': [], 'binds': self.binds, 'substs': self.substvars}
         
@@ -1430,9 +1433,10 @@ class sqlpyPlus(sqlpython.sqlpython):
         'WINDOW GROUP',         
         'XML SCHEMA')
         
-    @options([make_option('-l', '--long', action='store_true', help='long descriptions'),
+    @options([#make_option('-l', '--long', action='store_true', help='long descriptions'),
               make_option('-a', '--all', action='store_true', help="all schemas' objects"),
-              make_option('-t', '--timesort', action='store_true', help="Sort by last_ddl_time"),              
+              make_option('-i', '--immediate', action='store_true', help="force immediate refresh of metadata"),
+              #make_option('-t', '--timesort', action='store_true', help="Sort by last_ddl_time"),              
               make_option('-r', '--reverse', action='store_true', help="Reverse order while sorting")])            
     def do_ls(self, arg, opts):
         '''
@@ -1442,8 +1446,13 @@ class sqlpyPlus(sqlpython.sqlpython):
         seek = '^%s$' % (arg.replace('*', '.*').replace('?','.'). \
                          replace('%', '.*'))
         schemas = self.connections[self.connection_number]['schemas']
-        result = []
         username = self.connections[self.connection_number]['user'].upper()
+        if opts.immediate:
+            if opts.all:
+                self.perror('Cannot combine --all with --immediate - operation takes too long')
+            else:
+                schemas.refresh_one(username)
+        result = []
         for (schema_name, schema) in schemas.items():
             if opts.all or schema_name == username:
                 for (name, obj) in schema.schema.items():

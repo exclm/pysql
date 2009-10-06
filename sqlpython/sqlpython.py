@@ -103,7 +103,8 @@ class sqlpython(cmd2.Cmd):
         conn  = {'conn': self.conn, 'prompt': self.prompt, 'dbname': eng.url.database,
                  'rdbms': rdbms, 'user': user, 'eng': eng, 
                  'schemas': schemagroup.SchemaDict({}, 
-                    rdbms=rdbms, user=user, connection=self.conn, connection_string=arg)}
+                    rdbms=rdbms, user=user, connection=self.conn, connection_string=arg, 
+                    minutes_between_refreshes = self.minutes_between_refreshes)}
         s = conn['schemas']
         s.refresh_asynch()
         return conn
