@@ -26,6 +26,7 @@ or with a python-like shorthand
 import sys, os, re, sqlpython, cx_Oracle, pyparsing, re, completion, datetime, pickle, binascii, subprocess, time, itertools, hashlib
 from cmd2 import Cmd, make_option, options, Statekeeper, Cmd2TestCase
 from output_templates import output_templates
+from schemagroup import MetaData
 from metadata import metaqueries
 from plothandler import Plot
 from sqlpython import Parser
@@ -190,7 +191,8 @@ editSearcher = SoftwareSearcher(softwareLists['text editor'], 'text editor')
 editor = os.environ.get('EDITOR')
 if editor:
     editSearcher.find = lambda: (editor, "%s %s")
-
+   
+    
 class CaselessDict(dict):
     """dict with case-insensitive keys.
 
@@ -1483,26 +1485,32 @@ class sqlpyPlus(sqlpython.sqlpython):
     def _matching_database_objects(self, arg, opts):
         # jrrt.p* should work even if not --all
         # doesn't get java$options
-        seek = r'^[/\\]?%s[/\\]?$' % (
-            arg.replace('*', '.*').replace('?','.').replace('%', '.*'))        
-            # TODO: can't find ``table/``
+        if hasattr(opts, 'immediate') and opts.immediate:
+            if hasattr(opts, 'all') and opts.all:
+                self.perror('Cannot combine --all with --immediate - operation takes too long')
+                return []
+            else:
+                self.pfeedback('Refreshing metadata for %s...' % username)
+                schemas.refresh_one(username)
         (username, schemas) = self.metadata()
+        
+        seek = r'[/\\]?%s[/\\]?' % (
+            arg.replace('*', '.*').replace('?','.').replace('%', '.*'))        
+        seek = re.compile(seek)
+        if hasattr(opts, 'exact') and opts.exact:
+            find = seek.match
+        else:
+            find = seek.search               
         for (schema_name, schema) in schemas.items():
-            if opts.all or schema_name == username:
-                for (name, obj) in schema.schema.items():                
-                    if hasattr(obj, 'type'):
-                        dbtype = obj.type
-                    else:
-                        dbtype = str(type(obj)).rstrip("'>").split('.')[-1]
-                    qualified_name = '%s.%s' % (schema_name, name)
-                    descriptor = '%s/%s' % (dbtype, name)
-                    qualified_descriptor = '%s/%s' % (dbtype, qualified_name)
-                    descriptor = descriptor.upper()
+            if schema_name == username or (hasattr(opts, 'all') and opts.all):
+                for (name, dbobj) in schema.schema.items():                
+                    metadata = MetaData(object_name=name, schema_name=schema_name, db_object=dbobj)
+                    q = hasattr(opts, 'all') and opts.all
                     if (not arg) or (
-                           re.search(seek, descriptor, re.IGNORECASE) or 
-                           re.search(seek, name, re.IGNORECASE) or 
-                           re.search(seek, dbtype, re.IGNORECASE)):
-                        yield (name, obj, dbtype, descriptor)
+                           find(metadata.descriptor(q), re.IGNORECASE) or 
+                           find(metadata.name(q), re.IGNORECASE) or 
+                           find(metadata.db_type, re.IGNORECASE)):
+                        yield metadata
 
     @options([#make_option('-l', '--long', action='store_true', help='long descriptions'),
               make_option('-a', '--all', action='store_true', help="all schemas' objects"),
@@ -1515,15 +1523,13 @@ class sqlpyPlus(sqlpython.sqlpython):
         directory structure.  `*` and `%` may be used as wildcards.
         '''
         (username, schemas) = self.metadata()
-        if opts.immediate:
-        do opts.all:
-                self.perror('Cannot combine --all with --immediate - operation takes too long')
-            else:
-                schemas.refresh_one(username)
         result = []
-        for (name, obj, dbtype, descrip) in self._matching_database_objects(arg, opts):
-            result.append(descrip)
-            # if opts.long: status, last_ddl_time
+        for obj in self._matching_database_objects(arg, opts):
+            if opts.long:
+                result.append('%s' % (obj.descriptor(qualified=True)))
+                # if opts.long: status, last_ddl_time
+            else:
+                result.append(obj.descriptor(qualified=opts.all))
         if not schemas.complete:
             if opts.all:
                 qualifier = 'may be '
@@ -1555,19 +1561,19 @@ class sqlpyPlus(sqlpython.sqlpython):
         re_pattern = re.compile(self._to_re_wildcards(pattern), 
                                 (opts.ignorecase and re.IGNORECASE) or 0)
         for target in targets:
-            for (name, obj, dbtype, descrip) in self._matching_database_objects(target, opts):
-                self.pfeedback(descrip)
-                if hasattr(obj, 'columns'):
+            for m in self._matching_database_objects(target, opts):
+                self.pfeedback(m.description(qualified=opts.all()))
+                if hasattr(m.db_object, 'columns'):
                     clauses = []
-                    for col in obj.columns:
+                    for col in m.db_object.columns:
                         clauses.append(comparitor % (col, sql_pattern))
                     sql = "SELECT * FROM %s WHERE 1=0\n%s;" % (name, ' '.join(clauses))
                     sql = self.parsed(sql, 
                                           terminator=arg.parsed.terminator or ';',
                                           suffix=arg.parsed.suffix)
                     self.do_select(sql)
-                elif hasattr(obj, 'source'):
-                    for (line_num, line) in obj.source:
+                elif hasattr(m.db_object, 'source'):
+                    for (line_num, line) in m.db_object.source:
                         if re_pattern.search(line):
                             self.poutput('%4d: %s' % (line_num, line))
                 
