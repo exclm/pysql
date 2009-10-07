@@ -791,6 +791,28 @@ class sqlpyPlus(sqlpython.sqlpython):
         """Displays source code."""
         if opts.dump:
             statekeeper = Statekeeper(self, ('stdout',))                        
+        (username, schemas) = self.metadata()
+        for (name, obj, dbtype, descrip) in self._matching_database_objects(arg, opts):
+            self.poutput(descrip)
+            txt = obj.get_ddl()
+            if hasattr(opts, 'lines') and opts.lines:
+                txt = self._with_line_numbers(txt)
+
+            if opts.dump:
+                try:
+                    os.makedirs(os.path.join(owner.lower(), object_type.lower()))
+                except OSError:
+                    pass
+                filename = os.path.join(owner.lower(), object_type.lower(), '%s.sql' % object_name.lower())
+                self.stdout = open(filename, 'w')
+                if vc:
+                    subprocess.call(vc + [filename])
+                
+                
+                
+            self.poutput(txt)
+            
+            
         try:
             for (owner, object_name, object_type) in self.resolve_many(arg, opts):  
                 if object_type in self.supported_ddl_types:
@@ -848,16 +870,35 @@ class sqlpyPlus(sqlpython.sqlpython):
             raise
         if opts.dump:
             statekeeper.restore()   
-            
-    def _pull(self, arg, opts, vc=None):
+          
+        def _with_line_numbers(self, txt):
+            txt = txt.splitlines()
+            template = "%%-%dd:%%s" % len(str(len(txt)))
+            txt = '\n'.join(template % (n+1, line) for (n, line) in 
+                            enumerate(txt))
+            return txt
+                
+    @options([make_option('-d', '--dump', action='store_true', help='dump results to files'),
+              make_option('-f', '--full', action='store_true', help='get dependent objects as well'),
+              make_option('-l', '--lines', action='store_true', help='print line numbers'),
+              make_option('-n', '--num', type='int', help='only code near line #num'),
+              make_option('-w', '--width', type='int', default=5, 
+                          help='# of lines before and after --lineNo'),
+              make_option('-a', '--all', action='store_true', help="all schemas' objects"),
+              make_option('-x', '--exact', action='store_true', help="match object name exactly")])            
+    def do_pull(self, arg, opts, vc=None):
+        if opts.dump:
+            statekeeper = Statekeeper(self, ('stdout',))
         (username, schemas) = self.metadata()
         for (name, obj, dbtype, descrip) in self._matching_database_objects(arg, opts):
             self.poutput(descrip)
-            self.poutput(obj.get_ddl())
+            txt = obj.get_ddl()
+            if hasattr(opts, 'lines') and opts.lines:
+                txt = self._with_line_numbers(txt)
+            self.poutput(txt)
+        if opts.dump:
+            statekeeper.restore()   
         
-        
-        
-
     def _show_shortcut(self, shortcut, argpieces):
         try:
             newarg = argpieces[1]
@@ -911,22 +952,6 @@ class sqlpyPlus(sqlpython.sqlpython):
                 pass
             return Cmd.do_show(self, arg)
             
-    @options([make_option('-d', '--dump', action='store_true', help='dump results to files'),
-              make_option('-f', '--full', action='store_true', help='get dependent objects as well'),
-              make_option('-l', '--lines', action='store_true', help='print line numbers'),
-              make_option('-n', '--num', type='int', help='only code near line #num'),
-              make_option('-w', '--width', type='int', default=5, 
-                          help='# of lines before and after --lineNo'),              
-              make_option('-a', '--all', action='store_true', help="all schemas' objects"),
-              make_option('-x', '--exact', action='store_true', help="match object name exactly")])
-    def do_pull(self, arg, opts):
-        """Displays source code."""
-        self._pull(arg, opts)
-            
-    supported_ddl_types = 'CLUSTER, CONTEXT, DATABASE LINK, DIRECTORY, FUNCTION, INDEX, JOB, LIBRARY, MATERIALIZED VIEW, PACKAGE, PACKAGE BODY, PACKAGE SPEC, OPERATOR, PACKAGE, PROCEDURE, SEQUENCE, SYNONYM, TABLE, TRIGGER, VIEW, TYPE, TYPE BODY, XML SCHEMA'
-    do_pull.__doc__ += '\n\nSupported DDL types: ' + supported_ddl_types
-    supported_ddl_types = supported_ddl_types.split(', ')    
-
     def _vc(self, arg, opts, program):
         if not os.path.exists('.%s' % program):
             create = raw_input('%s repository not yet in current directory (%s).  Create (y/N)? ' % 
@@ -935,7 +960,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                 return
         subprocess.call([program, 'init'])
         opts.dump = True
-        self._pull(arg, opts, vc=[program, 'add'])
+        self.do_pull(arg, opts, vc=[program, 'add'])
         subprocess.call([program, 'commit', '-m', '"%s"' % opts.message or 'committed from sqlpython'])        
     
     @options([
@@ -1469,9 +1494,9 @@ class sqlpyPlus(sqlpython.sqlpython):
                         dbtype = obj.type
                     else:
                         dbtype = str(type(obj)).rstrip("'>").split('.')[-1]
-                    if opts.all:
-                        name = '%s.%s' % (schema_name, name)
+                    qualified_name = '%s.%s' % (schema_name, name)
                     descriptor = '%s/%s' % (dbtype, name)
+                    qualified_descriptor = '%s/%s' % (dbtype, qualified_name)
                     descriptor = descriptor.upper()
                     if (not arg) or (
                            re.search(seek, descriptor, re.IGNORECASE) or 
@@ -1491,7 +1516,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         '''
         (username, schemas) = self.metadata()
         if opts.immediate:
-            if opts.all:
+        do opts.all:
                 self.perror('Cannot combine --all with --immediate - operation takes too long')
             else:
                 schemas.refresh_one(username)
