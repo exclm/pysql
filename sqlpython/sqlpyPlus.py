@@ -851,7 +851,12 @@ class sqlpyPlus(sqlpython.sqlpython):
             
     def _pull(self, arg, opts, vc=None):
         (username, schemas) = self.metadata()
-            
+        for (name, obj, dbtype, descrip) in self._matching_database_objects(arg, opts):
+            self.poutput(descrip)
+            self.poutput(obj.get_ddl())
+        
+        
+        
 
     def _show_shortcut(self, shortcut, argpieces):
         try:
@@ -1452,6 +1457,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         
     def _matching_database_objects(self, arg, opts):
         # jrrt.p* should work even if not --all
+        # doesn't get java$options
         seek = r'^[/\\]?%s[/\\]?$' % (
             arg.replace('*', '.*').replace('?','.').replace('%', '.*'))        
             # TODO: can't find ``table/``
