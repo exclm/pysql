@@ -64,3 +64,43 @@ class SchemaDict(dict):
         self[owner] = self.child_type(owner, self.gerald_connection_string)
         self[owner].refreshed = current_database_time        
         
+
+class PlainObject(object):
+    '''Simply a dumb container for attributes.'''
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
+    def transform(self, transformation):
+        '''Attempts to apply a transformation function to all the 
+           user-defined attributes; fails silently on errors'''
+        for (k, v) in self.__dict__.items():
+            try:
+                self.__dict__[k] = transformation(v)
+            except:
+                pass
+        return self
+    def __repr__(self):
+        return '%s(%s)' % (self.__class__.__name__, 
+                           ','.join('%s=%s' % (k, 
+                                               (isinstance(v, basestring) and "'%s'" % v) or v)
+                           for (k, v) in sorted(self.__dict__.items())))
+
+    
+class MetaData(PlainObject):
+    def __init__(self, object_name, schema_name, db_object):
+        self.object_name = object_name
+        self.schema_name = schema_name
+        self.db_object = db_object
+        if hasattr(db_object, 'type'):
+            self.db_type = db_object.type
+        else:
+            self.db_type = str(type(db_object)).rstrip("'>").split('.')[-1]
+    def qualified_name(self):
+        return '%s.%s' % (self.schema_name, self.object_name)
+    def name(self, qualified=False):
+        if qualified:
+            return self.qualified_name()
+        else:
+            return self.object_name   
+    def descriptor(self, qualified=False):
+        return '%s/%s' % (self.db_type, name(qualified))
+        
