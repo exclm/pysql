@@ -1488,7 +1488,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         if hasattr(opts, 'immediate') and opts.immediate:
             if hasattr(opts, 'all') and opts.all:
                 self.perror('Cannot combine --all with --immediate - operation takes too long')
-                return []
+                raise StopIteration
             else:
                 self.pfeedback('Refreshing metadata for %s...' % username)
                 schemas.refresh_one(username)
