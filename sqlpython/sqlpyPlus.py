@@ -787,7 +787,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         return self.onecmd('SELECT * FROM %s%s%s' % (arg, arg.parsed.terminator or ';',
                                                      arg.parsed.suffix or ''))
 
-    def _pull(self, arg, opts, vc=None):
+    def _pull(self, arg, opts, vc=None):        
         """Displays source code."""
         if opts.dump:
             statekeeper = Statekeeper(self, ('stdout',))                        
@@ -847,7 +847,11 @@ class sqlpyPlus(sqlpython.sqlpython):
                 statekeeper.restore()
             raise
         if opts.dump:
-            statekeeper.restore()    
+            statekeeper.restore()   
+            
+    def _pull(self, arg, opts, vc=None):
+        (username, schemas) = self.metadata()
+            
 
     def _show_shortcut(self, shortcut, argpieces):
         try:
@@ -1433,29 +1437,28 @@ class sqlpyPlus(sqlpython.sqlpython):
         'WINDOW GROUP',         
         'XML SCHEMA')
         
-    @options([#make_option('-l', '--long', action='store_true', help='long descriptions'),
-              make_option('-a', '--all', action='store_true', help="all schemas' objects"),
-              make_option('-i', '--immediate', action='store_true', help="force immediate refresh of metadata"),
-              #make_option('-t', '--timesort', action='store_true', help="Sort by last_ddl_time"),              
-              make_option('-r', '--reverse', action='store_true', help="Reverse order while sorting")])            
-    def do_ls(self, arg, opts):
-        '''
-        Lists objects as through they were in an {object_type}/{object_name} UNIX
-        directory structure.  `*` and `%` may be used as wildcards.
-        '''
-        seek = '^%s$' % (arg.replace('*', '.*').replace('?','.'). \
-                         replace('%', '.*'))
+    def metadata(self):
         schemas = self.connections[self.connection_number]['schemas']
         username = self.connections[self.connection_number]['user'].upper()
-        if opts.immediate:
-            if opts.all:
-                self.perror('Cannot combine --all with --immediate - operation takes too long')
-            else:
-                schemas.refresh_one(username)
-        result = []
+        return (username, schemas)
+        
+    def _to_sql_wildcards(self, original):
+        return original.replace('*','%').replace('?','_')
+        #hmm... but these should be escape-able?
+        
+    def _to_re_wildcards(self, original):
+        result = re.escape(original)
+        return result.replace('\\*','.*').replace('\\?','.')
+        
+    def _matching_database_objects(self, arg, opts):
+        # jrrt.p* should work even if not --all
+        seek = r'^[/\\]?%s[/\\]?$' % (
+            arg.replace('*', '.*').replace('?','.').replace('%', '.*'))        
+            # TODO: can't find ``table/``
+        (username, schemas) = self.metadata()
         for (schema_name, schema) in schemas.items():
             if opts.all or schema_name == username:
-                for (name, obj) in schema.schema.items():
+                for (name, obj) in schema.schema.items():                
                     if hasattr(obj, 'type'):
                         dbtype = obj.type
                     else:
@@ -1464,12 +1467,32 @@ class sqlpyPlus(sqlpython.sqlpython):
                         name = '%s.%s' % (schema_name, name)
                     descriptor = '%s/%s' % (dbtype, name)
                     descriptor = descriptor.upper()
-                    if (not arg) or \
-                       re.search(seek, descriptor, re.IGNORECASE) or \
-                       re.search(seek, name, re.IGNORECASE) or \
-                       re.search(seek, dbtype, re.IGNORECASE):
-                        result.append(descriptor)
-                        # if opts.long: status, last_ddl_time
+                    if (not arg) or (
+                           re.search(seek, descriptor, re.IGNORECASE) or 
+                           re.search(seek, name, re.IGNORECASE) or 
+                           re.search(seek, dbtype, re.IGNORECASE)):
+                        yield (name, obj, dbtype, descriptor)
+
+    @options([#make_option('-l', '--long', action='store_true', help='long descriptions'),
+              make_option('-a', '--all', action='store_true', help="all schemas' objects"),
+              make_option('-i', '--immediate', action='store_true', help="force immediate refresh of metadata"),
+              #make_option('-t', '--timesort', action='store_true', help="Sort by last_ddl_time"),              
+              make_option('-r', '--reverse', action='store_true', help="Reverse order while sorting")])  
+    def do_ls(self, arg, opts):
+        '''
+        Lists objects as through they were in an {object_type}/{object_name} UNIX
+        directory structure.  `*` and `%` may be used as wildcards.
+        '''
+        (username, schemas) = self.metadata()
+        if opts.immediate:
+            if opts.all:
+                self.perror('Cannot combine --all with --immediate - operation takes too long')
+            else:
+                schemas.refresh_one(username)
+        result = []
+        for (name, obj, dbtype, descrip) in self._matching_database_objects(arg, opts):
+            result.append(descrip)
+            # if opts.long: status, last_ddl_time
         if not schemas.complete:
             if opts.all:
                 qualifier = 'may be '
@@ -1480,40 +1503,43 @@ class sqlpyPlus(sqlpython.sqlpython):
             result.sort(reverse=bool(opts.reverse))
             self.poutput('\n'.join(result))
         
-    @options([make_option('-i', '--ignore-case', dest='ignorecase', action='store_true', help='Case-insensitive search')])        
+    @options([make_option('-i', '--ignore-case', dest='ignorecase', action='store_true', help='Case-insensitive search'),
+              make_option('-a', '--all', action='store_true', help="all schemas' objects")])     
+    
     def do_grep(self, arg, opts):
         """grep {target} {table} [{table2,...}]
         search for {target} in any of {table}'s fields"""    
-
-        targetnames = arg.split()
-        pattern = targetnames.pop(0)
-        targets = [] 
-        for target in targetnames:
-            if '*' in target:
-                self._execute("""SELECT owner, object_name FROM all_objects 
-                                 WHERE object_type IN ('TABLE','VIEW')
-                                 AND object_name LIKE '%s'""" %
-                              target.upper().replace('*','%'))
-                for row in self.curs:
-                    targets.append('%s.%s' % row)
-            else:
-                targets.append(target)
+        arg = self.parsed(arg)
+        args = arg.split()
+        if len(args) < 2:
+            self.perror(self.do_grep.__doc__)
+            return
+        pattern, targets = args[0], args[1:]
+        if opts.ignorecase:
+            pattern = pattern.lower()
+            comparitor = "OR LOWER(to_char(%s)) LIKE '%%%s%%'"
+        else:
+            comparitor = "OR to_char(%s) LIKE '%%%s%%'"
+        sql_pattern = self._to_sql_wildcards(pattern)
+        re_pattern = re.compile(self._to_re_wildcards(pattern), 
+                                (opts.ignorecase and re.IGNORECASE) or 0)
         for target in targets:
-            self.pfeedback('%s\n' % target)
-            target = target.rstrip(';')
-            try:
-                self._execute('select * from %s where 1=0' % target) # first pass fills description
-                if opts.ignorecase:
-                    colnames = ['LOWER(%s)' % self._cast(d[0], 'CHAR') for d in self.curs.description]
-                else:
-                    colnames = ['LOWER(%s)' % self._cast(d[0], 'CHAR') for d in self.curs.description]
-                sql = ' or '.join("%s LIKE '%%%s%%'" % (cn, pattern.lower()) for cn in colnames)
-                sql = self.parsed('SELECT * FROM %s WHERE %s;' % (target, sql), terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix)
-                self.do_select(sql)
-            except Exception, e:
-                self.perror(e)
-                import traceback
-                traceback.print_exc(file=sys.stdout)                
+            for (name, obj, dbtype, descrip) in self._matching_database_objects(target, opts):
+                self.pfeedback(descrip)
+                if hasattr(obj, 'columns'):
+                    clauses = []
+                    for col in obj.columns:
+                        clauses.append(comparitor % (col, sql_pattern))
+                    sql = "SELECT * FROM %s WHERE 1=0\n%s;" % (name, ' '.join(clauses))
+                    sql = self.parsed(sql, 
+                                          terminator=arg.parsed.terminator or ';',
+                                          suffix=arg.parsed.suffix)
+                    self.do_select(sql)
+                elif hasattr(obj, 'source'):
+                    for (line_num, line) in obj.source:
+                        if re_pattern.search(line):
+                            self.poutput('%4d: %s' % (line_num, line))
+                
 
     def _cast(self, colname, typ='CHAR'):
         'self._cast(colname, typ) => Returns the RDBMS-equivalent "CAST (colname AS typ) expression.' 
