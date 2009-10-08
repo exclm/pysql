@@ -12,8 +12,6 @@ import cmd2,getpass,binascii,cx_Oracle,re,os,platform
 import sqlalchemy, pyparsing, schemagroup
 __version__ = '1.6.8'    
 
-cmd2.undefined_options_are_None = True
-
 class Parser(object):
     comment_def = "--" + ~ ('-' + pyparsing.CaselessKeyword('begin')) + pyparsing.ZeroOrMore(pyparsing.CharsNotIn("\n"))    
     def __init__(self, scanner, retainSeparator=True):

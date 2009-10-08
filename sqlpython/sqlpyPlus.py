@@ -23,7 +23,9 @@ or with a python-like shorthand
 
 - catherinedevlin.blogspot.com  May 31, 2006
 """
-import sys, os, re, sqlpython, cx_Oracle, pyparsing, re, completion, datetime, pickle, binascii, subprocess, time, itertools, hashlib
+import sys, os, re, sqlpython, cx_Oracle, pyparsing, re, completion
+import datetime, pickle, binascii, subprocess, time, itertools, hashlib
+import traceback
 from cmd2 import Cmd, make_option, options, Statekeeper, Cmd2TestCase
 from output_templates import output_templates
 from schemagroup import MetaData
@@ -387,13 +389,15 @@ class sqlpyPlus(sqlpython.sqlpython):
         return cmd, arg, line
 
     def perror(self, err, statement=None):
+        if self.debug:
+            traceback.print_exc()            
         try:
             linenum, line, offset = offset_to_line(statement.parsed.raw, err.message.offset)
             print line.strip()
             print '%s*' % (' ' * offset)
             print 'ERROR at line %d:' % (linenum + 1)
         except AttributeError:
-            pass
+            pass        
         print str(err)
     def dbms_output(self):
         "Dumps contents of Oracle's DBMS_OUTPUT buffer (where PUT_LINE goes)"
@@ -789,97 +793,6 @@ class sqlpyPlus(sqlpython.sqlpython):
         return self.onecmd('SELECT * FROM %s%s%s' % (arg, arg.parsed.terminator or ';',
                                                      arg.parsed.suffix or ''))
 
-    def _pull(self, arg, opts, vc=None):        
-        """Displays source code."""
-        if opts.dump:
-            statekeeper = Statekeeper(self, ('stdout',))                        
-        (username, schemas) = self.metadata()
-        for (name, obj, dbtype, descrip) in self._matching_database_objects(arg, opts):
-            self.poutput(descrip)
-            txt = obj.get_ddl()
-            if hasattr(opts, 'lines') and opts.lines:
-                txt = self._with_line_numbers(txt)
-
-            if opts.dump:
-                try:
-                    os.makedirs(os.path.join(owner.lower(), object_type.lower()))
-                except OSError:
-                    pass
-                filename = os.path.join(owner.lower(), object_type.lower(), '%s.sql' % object_name.lower())
-                self.stdout = open(filename, 'w')
-                if vc:
-                    subprocess.call(vc + [filename])
-                
-                
-                
-            self.poutput(txt)
-            
-            
-        try:
-            for (owner, object_name, object_type) in self.resolve_many(arg, opts):  
-                if object_type in self.supported_ddl_types:
-                    object_type = {'DATABASE LINK': 'DB_LINK', 'JAVA CLASS': 'JAVA_SOURCE'
-                                   }.get(object_type) or object_type
-                    object_type = object_type.replace(' ', '_')
-                    if opts.dump:
-                        try:
-                            os.makedirs(os.path.join(owner.lower(), object_type.lower()))
-                        except OSError:
-                            pass
-                        filename = os.path.join(owner.lower(), object_type.lower(), '%s.sql' % object_name.lower())
-                        self.stdout = open(filename, 'w')
-                        if vc:
-                            subprocess.call(vc + [filename])
-                    if object_type == 'PACKAGE':
-                        ddl = [['PACKAGE_SPEC', object_name, owner],['PACKAGE_BODY', object_name, owner]]                            
-                    elif object_type in ['CONTEXT', 'DIRECTORY', 'JOB']:
-                        ddl = [[object_type, object_name]]
-                    else:
-                        ddl = [[object_type, object_name, owner]]
-                    for ddlargs in ddl:
-                        try:
-                            code = str(self.curs.callfunc('DBMS_METADATA.GET_DDL', cx_Oracle.CLOB, ddlargs))
-                            if hasattr(opts, 'lines') and opts.lines:
-                                code = code.splitlines()
-                                template = "%%-%dd:%%s" % len(str(len(code)))
-                                code = '\n'.join(template % (n+1, line) for (n, line) in enumerate(code))
-                            if hasattr(opts, 'num') and (opts.num is not None):
-                                code = code.splitlines()
-                                code = centeredSlice(code, center=opts.num+1, width=opts.width)
-                                code = '\n'.join(code)
-                                self.poutput(code)
-                            else:
-                                self.poutput('REMARK BEGIN %s\n%s\nREMARK END\n' % (object_name, code))
-                        except cx_Oracle.DatabaseError, errmsg:
-                            if object_type == 'JOB':
-                                self.pfeedback('%s: DBMS_METADATA.GET_DDL does not support JOBs (MetaLink DocID 567504.1)' % object_name)
-                            elif 'ORA-31603' in str(errmsg): # not found, as in package w/o package body
-                                pass
-                            else:
-                                raise
-                    if opts.full:
-                        for dependent_type in ('OBJECT_GRANT', 'CONSTRAINT', 'TRIGGER'):        
-                            try:
-                                self.poutput('REMARK BEGIN\n%s\nREMARK END\n\n' % str(self.curs.callfunc('DBMS_METADATA.GET_DEPENDENT_DDL', cx_Oracle.CLOB,
-                                                                         [dependent_type, object_name, owner])))
-                            except cx_Oracle.DatabaseError:
-                                pass
-                    if opts.dump:
-                        self.stdout.close()
-        except:
-            if opts.dump:
-                statekeeper.restore()
-            raise
-        if opts.dump:
-            statekeeper.restore()   
-          
-        def _with_line_numbers(self, txt):
-            txt = txt.splitlines()
-            template = "%%-%dd:%%s" % len(str(len(txt)))
-            txt = '\n'.join(template % (n+1, line) for (n, line) in 
-                            enumerate(txt))
-            return txt
-                
     @options([make_option('-d', '--dump', action='store_true', help='dump results to files'),
               make_option('-f', '--full', action='store_true', help='get dependent objects as well'),
               make_option('-l', '--lines', action='store_true', help='print line numbers'),
@@ -887,20 +800,63 @@ class sqlpyPlus(sqlpython.sqlpython):
               make_option('-w', '--width', type='int', default=5, 
                           help='# of lines before and after --lineNo'),
               make_option('-a', '--all', action='store_true', help="all schemas' objects"),
-              make_option('-x', '--exact', action='store_true', help="match object name exactly")])            
-    def do_pull(self, arg, opts, vc=None):
-        if opts.dump:
-            statekeeper = Statekeeper(self, ('stdout',))
+              #make_option('-x', '--exact', action='store_true', help="match object name exactly")
+              ])                
+    def do_pull(self, arg, opts, vc=None):        
+        """Displays source code."""
+        opts.exact = True
+        statekeeper = Statekeeper(opts.dump and self, ('stdout',))
         (username, schemas) = self.metadata()
-        for (name, obj, dbtype, descrip) in self._matching_database_objects(arg, opts):
-            self.poutput(descrip)
-            txt = obj.get_ddl()
-            if hasattr(opts, 'lines') and opts.lines:
-                txt = self._with_line_numbers(txt)
-            self.poutput(txt)
-        if opts.dump:
-            statekeeper.restore()   
-        
+        try:
+            for metadata in self._matching_database_objects(arg, opts):
+                self.poutput(metadata.descriptor(qualified=True))
+                txt = metadata.db_object.get_ddl()
+                if opts.get('lines'):
+                    txt = self._with_line_numbers(txt)
+    
+                if opts.dump:
+                    path = os.path.join(metadata.schema_name.lower(), metadata.db_type.lower()) \
+                           .replace(' ', '_')
+                    try:
+                        os.makedirs(path)
+                    except OSError:
+                        pass
+                    filename = os.path.join(path, '%s.sql' % object_name.lower())
+                    self.stdout = open(filename, 'w')
+                if opts.get('num') is not None:
+                    txt = code.splitlines()
+                    txt = centeredSlice(txt, center=opts.num+1, width=opts.width)
+                    txt = '\n'.join(txt)
+                else:
+                    txt = 'REMARK BEGIN %s\n%s\nREMARK END\n' % (metadata.descriptor(qualified=True), txt)
+
+                self.poutput(txt)
+                if opts.full:
+                    # Hmm... dependent objects...
+            
+                    if opts.full:
+                        for dependent_type in ('OBJECT_GRANT', 'CONSTRAINT', 'TRIGGER'):        
+                            try:
+                                self.poutput('REMARK BEGIN\n%s\nREMARK END\n\n' % str(self.curs.callfunc('DBMS_METADATA.GET_DEPENDENT_DDL', cx_Oracle.CLOB,
+                                                                         [dependent_type, object_name, owner])))
+                            except cx_Oracle.DatabaseError:
+                                pass
+                if opts.dump:
+                    self.stdout.close()
+                    if vc:
+                        subprocess.call(vc + [filename])                    
+        except:
+            statekeeper.restore()
+            raise
+        statekeeper.restore()   
+          
+    def _with_line_numbers(self, txt):
+        txt = txt.splitlines()
+        template = "%%-%dd:%%s" % len(str(len(txt)))
+        txt = '\n'.join(template % (n+1, line) for (n, line) in 
+                        enumerate(txt))
+        return txt
+                        
     def _show_shortcut(self, shortcut, argpieces):
         try:
             newarg = argpieces[1]
@@ -1485,34 +1441,41 @@ class sqlpyPlus(sqlpython.sqlpython):
     def _matching_database_objects(self, arg, opts):
         # jrrt.p* should work even if not --all
         # doesn't get java$options
-        if hasattr(opts, 'immediate') and opts.immediate:
-            if hasattr(opts, 'all') and opts.all:
+        (username, schemas) = self.metadata()
+        if opts.get('immediate'):
+            if opts.get('all'):
                 self.perror('Cannot combine --all with --immediate - operation takes too long')
                 raise StopIteration
             else:
                 self.pfeedback('Refreshing metadata for %s...' % username)
                 schemas.refresh_one(username)
-        (username, schemas) = self.metadata()
+        if schemas.complete == 0:
+            self.pfeedback('No data available yet - still gathering schema information')
+            raise StopIteration
+        elif (opts.get('all') and (schemas.complete != 'all')):
+            self.pfeedback('Results are incomplete - only %d schemas mapped so far' % schemas.complete)        
         
-        seek = r'[/\\]?%s[/\\]?' % (
+        seekpatt = r'[/\\]?%s[/\\]?' % (
             arg.replace('*', '.*').replace('?','.').replace('%', '.*'))        
-        seek = re.compile(seek)
-        if hasattr(opts, 'exact') and opts.exact:
+        seek = re.compile(seekpatt, re.IGNORECASE)
+        if opts.get('exact'):
             find = seek.match
         else:
-            find = seek.search               
+            find = seek.search
+        import pdb; pdb.set_trace();
+        qualified = opts.get('all')
         for (schema_name, schema) in schemas.items():
-            if schema_name == username or (hasattr(opts, 'all') and opts.all):
+            if schema_name == username or opts.get('all'):
+                #import pdb; pdb.set_trace()        
                 for (name, dbobj) in schema.schema.items():                
                     metadata = MetaData(object_name=name, schema_name=schema_name, db_object=dbobj)
-                    q = hasattr(opts, 'all') and opts.all
                     if (not arg) or (
-                           find(metadata.descriptor(q), re.IGNORECASE) or 
-                           find(metadata.name(q), re.IGNORECASE) or 
-                           find(metadata.db_type, re.IGNORECASE)):
+                           find(metadata.descriptor(qualified)) or 
+                           find(metadata.name(qualified)) or 
+                           find(metadata.db_type)):
                         yield metadata
 
-    @options([#make_option('-l', '--long', action='store_true', help='long descriptions'),
+    @options([make_option('-l', '--long', action='store_true', help='long descriptions'),
               make_option('-a', '--all', action='store_true', help="all schemas' objects"),
               make_option('-i', '--immediate', action='store_true', help="force immediate refresh of metadata"),
               #make_option('-t', '--timesort', action='store_true', help="Sort by last_ddl_time"),              
@@ -1522,6 +1485,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         Lists objects as through they were in an {object_type}/{object_name} UNIX
         directory structure.  `*` and `%` may be used as wildcards.
         '''
+        opts.exact = True
         (username, schemas) = self.metadata()
         result = []
         for obj in self._matching_database_objects(arg, opts):
@@ -1530,12 +1494,6 @@ class sqlpyPlus(sqlpython.sqlpython):
                 # if opts.long: status, last_ddl_time
             else:
                 result.append(obj.descriptor(qualified=opts.all))
-        if not schemas.complete:
-            if opts.all:
-                qualifier = 'may be '
-            else:
-                qualifier = ''
-            self.perror('Metadata discovery still in progress - results %sincomplete' % qualifier)        
         if result:
             result.sort(reverse=bool(opts.reverse))
             self.poutput('\n'.join(result))
@@ -1547,6 +1505,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         """grep {target} {table} [{table2,...}]
         search for {target} in any of {table}'s fields"""    
         arg = self.parsed(arg)
+        opts.exact = True
         args = arg.split()
         if len(args) < 2:
             self.perror(self.do_grep.__doc__)
@@ -1562,15 +1521,16 @@ class sqlpyPlus(sqlpython.sqlpython):
                                 (opts.ignorecase and re.IGNORECASE) or 0)
         for target in targets:
             for m in self._matching_database_objects(target, opts):
-                self.pfeedback(m.description(qualified=opts.all()))
+                self.pfeedback(m.descriptor(qualified=opts.all))
                 if hasattr(m.db_object, 'columns'):
                     clauses = []
                     for col in m.db_object.columns:
                         clauses.append(comparitor % (col, sql_pattern))
-                    sql = "SELECT * FROM %s WHERE 1=0\n%s;" % (name, ' '.join(clauses))
+                    sql = "SELECT * FROM %s WHERE 1=0\n%s;" % (m.object_name, ' '.join(clauses))
                     sql = self.parsed(sql, 
                                           terminator=arg.parsed.terminator or ';',
                                           suffix=arg.parsed.suffix)
+                    import pdb; pdb.set_trace()
                     self.do_select(sql)
                 elif hasattr(m.db_object, 'source'):
                     for (line_num, line) in m.db_object.source:
