@@ -1031,7 +1031,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                 if opts.long:
                     primary_key_columns = self._key_columns(m.db_object, 'Primary')
                     unique_key_columns = self._key_columns(m.db_object, 'Unique')
-                    self.colnames = 'N Name Null? Type Key Default Comments'.split()
+                    self.colnames = 'N Name Nullable Type Key Default Comments'.split()
                     self.rows = [(col['sequence'], col['name'], (col['nullable'] and 'NULL') or 'NOT NULL',
                                   self._col_type_descriptor(col), 
                                   ((col['name'] in primary_key_columns) and 'P') or
@@ -1224,25 +1224,35 @@ class sqlpyPlus(sqlpython.sqlpython):
         except KeyError:
             self.perror('psql command \%s not yet supported.' % abbrev)
 
-    @options([all_users_option])
+    def _do_dir(self, type, arg, opts):
+        self.do_ls("%s/%s%s%s" % (type, str(arg), arg.parsed.terminator, arg.parsed.suffix), opts)
+
+    standard_options = [
+              make_option('-l', '--long', action='store_true', help='long descriptions'),
+              make_option('-a', '--all', action='store_true', help="all schemas' objects"),
+              make_option('-i', '--immediate', action='store_true', help="force immediate refresh of metadata"),
+              #make_option('-t', '--timesort', action='store_true', help="Sort by last_ddl_time"),              
+              make_option('-r', '--reverse', action='store_true', help="Reverse order while sorting")]
+    
+    @options(standard_options)
     def do__dir_tables(self, arg, opts):
-        '''
-        Lists all tables whose names match argument.
-        '''        
-        sql = """SELECT table_name, 'TABLE' as type%s FROM %s_tables WHERE table_name LIKE '%%%s%%';""" % \
-                       (opts.scope['col'], opts.scope['view'], arg.upper())
-        self.sqlfeedback(sql)
-        self.do_select(self.parsed(sql, terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix))
-        
-    @options([all_users_option])
+        'Shortcut for ``ls table/``'
+        self._do_dir('table', arg, opts)
+
+    @options(standard_options)
     def do__dir_views(self, arg, opts):
-        '''
-        Lists all views whose names match argument.
-        '''
-        sql = """SELECT view_name, 'VIEW' as type%s FROM %s_views WHERE view_name LIKE '%%%s%%';""" % \
-                       (opts.scope['col'], opts.scope['view'], arg.upper())
-        self.sqlfeedback(sql)
-        self.do_select(self.parsed(sql, terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix))
+        'Shortcut for ``ls table/``'
+        self._do_dir('view', arg, opts)
+
+    @options(standard_options)
+    def do__dir_(self, arg, opts):
+        'Shortcut for ``ls table/``'
+        self._do_dir('', arg, opts)
+
+    @options(standard_options)
+    def do__dir_(self, arg, opts):
+        'Shortcut for ``ls table/``'
+        self._do_dir('', arg, opts)
         
     def do__dir_indexes(self, arg):
         '''
@@ -1483,6 +1493,18 @@ class sqlpyPlus(sqlpython.sqlpython):
             seekpatt = '^%s$' % seekpatt
         return re.compile(seekpatt, re.IGNORECASE)
         
+    def _flat_schema(self, schema):
+        result = schema.items()
+        for (dependent_type, label) in (('indexes','index'), ('constraints','constraint')):
+            for obj in schema.values():
+                if hasattr(obj, dependent_type):
+                    for dependent in getattr(obj, dependent_type).values():
+                        dependent['db_type'] = label
+                        result.append((dependent['name'], dependent))
+        return result
+            
+    #TODO: triggers do not have ``.code``, bummer
+    
     def _matching_database_objects(self, arg, opts):
         # jrrt.p* should work even if not --all
         # doesn't get java$options
@@ -1504,19 +1526,15 @@ class sqlpyPlus(sqlpython.sqlpython):
         qualified = opts.get('all')
         for (schema_name, schema) in schemas.items():
             if schema_name == username or opts.get('all'):
-                for (name, dbobj) in schema.schema.items():                
+                for (name, dbobj) in self._flat_schema(schema.schema):                
                     metadata = MetaData(object_name=name, schema_name=schema_name, db_object=dbobj)
                     if (not arg) or (
                            seek.search(metadata.descriptor(qualified)) or 
                            seek.search(metadata.name(qualified)) or 
                            seek.search(metadata.db_type)):
                         yield metadata
-
-    @options([make_option('-l', '--long', action='store_true', help='long descriptions'),
-              make_option('-a', '--all', action='store_true', help="all schemas' objects"),
-              make_option('-i', '--immediate', action='store_true', help="force immediate refresh of metadata"),
-              #make_option('-t', '--timesort', action='store_true', help="Sort by last_ddl_time"),              
-              make_option('-r', '--reverse', action='store_true', help="Reverse order while sorting")])  
+   
+    @options(standard_options)
     def do_ls(self, arg, opts):
         '''
         Lists objects as through they were in an {object_type}/{object_name} UNIX
