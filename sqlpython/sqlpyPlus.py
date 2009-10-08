@@ -497,7 +497,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         except AttributeError:
             return str(datum)
               
-    def tabular_output(self, outformat, rowlimit, tblname=None):
+    def tabular_output(self, outformat, tblname=None):
         if tblname:
             self.tblname = tblname
         else:
@@ -518,8 +518,10 @@ class sqlpyPlus(sqlpython.sqlpython):
                     rname = transpr[x][0]
                     transpr[x] = map(binascii.b2a_hex, transpr[x])
                     transpr[x][0] = rname
-            newdesc[0][0] = 'COLUMN NAME'
-            result = '\n' + self.pmatrix(transpr,newdesc)            
+            self.colnames = ['ROW N.%d' % y for y in range(len(rows))]                    
+            self.colnames[0] = 'COLUMN NAME'
+            self.coltypes = [str] * len(self.colnames)
+            result = '\n' + self.pmatrix(transpr)            
         elif outformat in ('\\l', '\\L', '\\p', '\\b'):
             plot = Plot()
             plot.build(self, outformat)
@@ -728,10 +730,9 @@ class sqlpyPlus(sqlpython.sqlpython):
         
     def rowlimit(self, arg):
         try:
-            rowlimit = int(arg.parsed.suffix or 0)
-        except ValueError:
-            rowlimit = 0
-            self.perror("Specify desired number of rows after terminator (not '%s')" % arg.parsed.suffix)
+            rowlimit = int(arg.parsed.suffix)
+        except (TypeError, ValueError):
+            rowlimit = None
         if arg.parsed.terminator == '\\t':
             rowlimit = rowlimit or self.maxtselctrows
         return rowlimit
@@ -780,7 +781,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                 row.resultset = resultset
             self.pystate['r'].append(resultset)
             self.age_out_resultsets()            
-            self.poutput('\n%s\n' % (self.tabular_output(arg.parsed.terminator, rowlimit)))
+            self.poutput('\n%s\n' % (self.tabular_output(arg.parsed.terminator)))
         if self.rc == 0:
             self.pfeedback('\nNo rows Selected.\n')
         elif self.rc == 1: 
@@ -1006,12 +1007,15 @@ class sqlpyPlus(sqlpython.sqlpython):
         columns = [c['columns'] for c in tbl.constraints.values() if c['type'] == type]
         if columns:
             return reduce(list.extend, columns)
+        else:
+            return []
         
     @options([all_users_option,
               make_option('-l', '--long', action='store_true', help='include column #, comments'),
               make_option('-A', '--alpha', action='store_true', help='List columns alphabetically')])
     def do_describe(self, arg, opts):
         opts.exact = True
+        rowlimit = self.rowlimit(arg)
         if opts.alpha:
             sortkey = operator.itemgetter('name')
         else:
@@ -1019,8 +1023,11 @@ class sqlpyPlus(sqlpython.sqlpython):
         for m in self._matching_database_objects(arg, opts):
             self.tblname = m.descriptor(qualified=opts.get('all'))
             self.pfeedback(self.tblname)
+            if opts.long and hasattr(m.db_object, 'comments'):
+                if m.db_object.comments:
+                    self.poutput(m.db_object.comments) 
             if hasattr(m.db_object, 'columns') and not isinstance(m.db_object.columns, list): # drop once gerald returns column dicts for views
-                cols = sorted(m.db_object.columns.values(), key=sortkey)
+                cols = sorted(m.db_object.columns.values(), key=sortkey)[:rowlimit]
                 if opts.long:
                     primary_key_columns = self._key_columns(m.db_object, 'Primary')
                     unique_key_columns = self._key_columns(m.db_object, 'Unique')
@@ -1029,19 +1036,19 @@ class sqlpyPlus(sqlpython.sqlpython):
                                   self._col_type_descriptor(col), 
                                   ((col['name'] in primary_key_columns) and 'P') or
                                   ((col['name'] in unique_key_columns) and 'U') or '',
-                                  col.get('default'), col.get('comment')) 
+                                  col.get('default') or '', col.get('comment') or '')
                                  for col in cols]
                 else:
                     self.colnames = 'Name Nullable Type'.split()
                     self.rows = [(col['name'], (col['nullable'] and 'NULL') or 'NOT NULL', self._col_type_descriptor(col)) 
                                  for col in cols]
                 self.coltypes = [str] * len(self.colnames)
-                self.poutput(self.tabular_output(arg.parsed.terminator, self.rowlimit(arg), self.tblname) + '\n\n')
+                self.poutput(self.tabular_output(arg.parsed.terminator, self.tblname) + '\n\n')
             elif hasattr(m.db_object, 'increment_by'):
                 self.colnames = 'name min_value max_value increment_by'.split()
                 self.coltypes = [str, int, int, int]
                 self.rows = [(getattr(m.db_object, p) for p in self.colnames)]
-                self.poutput(self.tabular_output(arg.parsed.terminator, self.rowlimit(arg), self.tblname) + '\n\n')
+                self.poutput(self.tabular_output(arg.parsed.terminator, self.tblname) + '\n\n')
             elif hasattr(m.db_object, 'source'):
                 end_heading = re.compile(r'\bDECLARE|BEGIN\b', re.IGNORECASE)
                 for (index, (ln, line)) in enumerate(m.db_object.source):
@@ -1052,6 +1059,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             
     def do_deps(self, arg):
         '''Lists all objects that are dependent upon the object.'''
+        #TODO: Can this be Geraldized?
         target = arg.upper()
         object_type, owner, object_name = self.resolve(target)
         if object_type == 'PACKAGE BODY':
@@ -1070,21 +1078,23 @@ class sqlpyPlus(sqlpython.sqlpython):
         self.do_select(self.parsed(q, terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix), 
                        bindVarsIn={'object_name':object_name, 'object_type':object_type, 'owner':owner})
 
-    def do_comments(self, arg):
+    @options([all_users_option])        
+    def do_comments(self, arg, opts):
         'Prints comments on a table and its columns.'
-        target = arg.upper()        
-        object_type, owner, object_name, colName = self.resolve_with_column(target)
-        if object_type:
-            self._execute(queries['tabComments'], {'table_name':object_name, 'owner':owner})
-            self.poutput("%s %s.%s: %s\n" % (object_type, owner, object_name, self.curs.fetchone()[0]))
-            if colName:
-                sql = queries['oneColComments']
-                bindVarsIn={'owner':owner, 'object_name': object_name, 'column_name': colName}
-            else:
-                sql = queries['colComments'] 
-                bindVarsIn={'owner':owner, 'object_name': object_name}
-            self.do_select(self.parsed(sql, terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix), 
-                           bindVarsIn=bindVarsIn)
+        qualified = opts.get('all')
+        for m in self._matching_database_objects(arg, opts):
+            if hasattr(m.db_object, 'comments'):
+                self.poutput(m.descriptor(qualified))
+                self.poutput(m.db_object.comments)
+                if hasattr(m.db_object, 'columns'):
+                    columns = m.db_object.columns.values()
+                    columns.sort(key=operator.itemgetter('sequence'))
+                    for col in columns:
+                        comment = col.get('comment')
+                        if comment:
+                            self.poutput('%s: %s' % (col['name'], comment))
+                        else:
+                            self.poutput(col['name'])
 
     def _resolve(self, identifier):
         parts = identifier.split('.')
