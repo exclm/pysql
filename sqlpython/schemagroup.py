@@ -37,7 +37,7 @@ class SchemaDict(dict):
         self.connection = connection
         self.gerald_connection_string = gerald_connection_string(connection_string)
         self.refresh_thread = RefreshGroupThread(self, minutes_between_refreshes)
-        self.complete = False
+        self.complete = 0
     def refresh_asynch(self):
         self.refresh_thread.start()
     def get_current_database_time(self):
@@ -57,7 +57,9 @@ class SchemaDict(dict):
             if (owner not in self) or (self[owner].refreshed < last_ddl_time):
                 self.refresh_one(owner, current_database_time)
                 # what if a user's last object is deleted?
-        self.complete = True
+            if isinstance(self.complete, int):
+                self.complete += 1
+        self.complete = 'all'
     def refresh_one(self, owner, current_database_time=None):
         if not current_database_time:
             current_database_time = self.get_current_database_time()
@@ -102,5 +104,5 @@ class MetaData(PlainObject):
         else:
             return self.object_name   
     def descriptor(self, qualified=False):
-        return '%s/%s' % (self.db_type, name(qualified))
+        return '%s/%s' % (self.db_type, self.name(qualified))
         
