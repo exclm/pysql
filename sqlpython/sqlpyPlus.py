@@ -963,22 +963,29 @@ class sqlpyPlus(sqlpython.sqlpython):
                                          help='Describe all objects (not just my own)')                
     @options([all_users_option,
               make_option('-c', '--col', action='store_true', help='find column'),
-              make_option('-t', '--table', action='store_true', help='find table')])                    
+             ])                    
     def do_find(self, arg, opts):
         """Finds argument in source code or (with -c) in column definitions."""
-       
-        capArg = arg.upper()
-        
-        if opts.col:
-            sql = "SELECT table_name, column_name %s FROM %s_tab_columns where column_name like '%%%s%%' ORDER BY %s table_name, column_name;" \
-                % (opts.scope['col'], opts.scope['view'], capArg, opts.scope['firstcol'])
-        elif opts.table:
-            sql = "SELECT table_name %s from %s_tables where table_name like '%%%s%%' ORDER BY %s table_name;" \
-                % (opts.scope['col'], opts.scope['view'], capArg, opts.scope['firstcol'])
-        else:
-            sql = "SELECT * from %s_source where UPPER(text) like '%%%s%%';" % (opts.scope['view'], capArg)
-        self.do_select(self.parsed(sql, terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix))
-        
+              
+        seek = self._regex(arg, exact=opts.col)
+        qualified = opts.get('all')
+        for m in self._matching_database_objects('*', opts):
+            if opts.col:
+                if hasattr(m.db_object, 'columns'):
+                    for col in m.db_object.columns:
+                        if isinstance(col, tuple):
+                            col = col[1]  # will become unnecessary once gerald views return dicts of columns
+                        if seek.search(col):
+                            self.poutput('%s.%s' % (m.descriptor(qualified), col))
+            else:
+                if hasattr(m.db_object, 'source'):
+                    name_printed = False
+                    for (line_num, line) in m.db_object.source:
+                        if seek.search(line):
+                            if not name_printed:
+                                self.poutput(m.descriptor(qualified))
+                                name_printed = True
+                            self.poutput('%d: %s' % (line_num, line))
             
     @options([all_users_option,
               make_option('-l', '--long', action='store_true', help='include column #, comments')])
@@ -1441,6 +1448,13 @@ class sqlpyPlus(sqlpython.sqlpython):
         result = re.escape(original)
         return result.replace('\\*','.*').replace('\\?','.')
         
+    def _regex(self, s, exact=False):
+        seekpatt = r'[/\\]?%s[/\\]?' % (
+            s.replace('*', '.*').replace('?','.').replace('%', '.*'))        
+        if exact:
+            seekpatt = '^%s$' % seekpatt
+        return re.compile(seekpatt, re.IGNORECASE)
+        
     def _matching_database_objects(self, arg, opts):
         # jrrt.p* should work even if not --all
         # doesn't get java$options
@@ -1458,11 +1472,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         elif (opts.get('all') and (schemas.complete != 'all')):
             self.pfeedback('Results are incomplete - only %d schemas mapped so far' % schemas.complete)        
         
-        seekpatt = r'[/\\]?%s[/\\]?' % (
-            arg.replace('*', '.*').replace('?','.').replace('%', '.*'))        
-        if opts.get('exact'):
-            seekpatt = '^%s$' % seekpatt
-        seek = re.compile(seekpatt, re.IGNORECASE)
+        seek = self._regex(arg, opts.get('exact'))
         qualified = opts.get('all')
         for (schema_name, schema) in schemas.items():
             if schema_name == username or opts.get('all'):
