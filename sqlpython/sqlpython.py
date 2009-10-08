@@ -331,23 +331,19 @@ class sqlpython(cmd2.Cmd):
                     color = 'cyan'
             return self.colorcodes[color][True] + val + self.colorcodes[color][False]        
         return val
-    def pmatrix(self,rows,desc,maxlen=30,heading=True,restructuredtext=False):
+    def pmatrix(self,rows,maxlen=30,heading=True,restructuredtext=False):
         '''prints a matrix, used by sqlpython to print queries' result sets'''
-        names = []
-        maxen = []
+        names = self.colnames
+        maxen = [len(n) for n in self.colnames]
         toprint = []
-        for d in desc:
-            n = d[0]
-            names.append(n)      # list col names
-            maxen.append(len(n)) # col length
-        rcols = range(len(desc))
+        rcols = range(len(self.colnames))
         rrows = range(len(rows))
         for i in rrows:          # loops for all rows
             rowsi = map(str, rows[i]) # current row to process
             split = []                # service var is row split is needed
             mustsplit = 0             # flag 
             for j in rcols:
-                if str(desc[j][1]) == "<type 'cx_Oracle.BINARY'>":  # handles RAW columns
+                if str(self.coltypes[j]) == "<type 'cx_Oracle.BINARY'>":  # handles RAW columns
                     rowsi[j] = binascii.b2a_hex(rowsi[j])
                 maxen[j] = max(maxen[j], len(rowsi[j]))    # computes max field length
                 if maxen[j] <= maxlen:
@@ -369,7 +365,8 @@ class sqlpython(cmd2.Cmd):
             rrows2 = range(len(toprint))
             for j in rrows2:
                 val = toprint[j][i]
-                if str(desc[i][1]) == "<type 'cx_Oracle.NUMBER'>":  # right align numbers
+                #import pdb; pdb.set_trace()
+                if str(self.coltypes[i]) == "<type 'cx_Oracle.NUMBER'>":  # right align numbers - but must generalize!
                     toprint[j][i] = (" " * (maxcol-len(val))) + val
                 else:
                     toprint[j][i] = val + (" " * (maxcol-len(val)))
