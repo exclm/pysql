@@ -801,9 +801,12 @@ class sqlpyPlus(sqlpython.sqlpython):
                           help='# of lines before and after --lineNo'),
               make_option('-a', '--all', action='store_true', help="all schemas' objects"),
               #make_option('-x', '--exact', action='store_true', help="match object name exactly")
-              ])                
-    def do_pull(self, arg, opts, vc=None):        
+              ])               
+    def do_pull(self, arg, opts):        
         """Displays source code."""
+        self._pull(arg, opts)
+
+    def _pull(self, arg, opts, vc=None):        
         opts.exact = True
         statekeeper = Statekeeper(opts.dump and self, ('stdout',))
         (username, schemas) = self.metadata()
@@ -821,10 +824,10 @@ class sqlpyPlus(sqlpython.sqlpython):
                         os.makedirs(path)
                     except OSError:
                         pass
-                    filename = os.path.join(path, '%s.sql' % object_name.lower())
+                    filename = os.path.join(path, '%s.sql' % metadata.object_name.lower())
                     self.stdout = open(filename, 'w')
                 if opts.get('num') is not None:
-                    txt = code.splitlines()
+                    txt = txt.splitlines()
                     txt = centeredSlice(txt, center=opts.num+1, width=opts.width)
                     txt = '\n'.join(txt)
                 else:
@@ -918,7 +921,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                 return
         subprocess.call([program, 'init'])
         opts.dump = True
-        self.do_pull(arg, opts, vc=[program, 'add'])
+        self._pull(arg, opts, vc=[program, 'add'])
         subprocess.call([program, 'commit', '-m', '"%s"' % opts.message or 'committed from sqlpython'])        
     
     @options([
@@ -1457,22 +1460,18 @@ class sqlpyPlus(sqlpython.sqlpython):
         
         seekpatt = r'[/\\]?%s[/\\]?' % (
             arg.replace('*', '.*').replace('?','.').replace('%', '.*'))        
-        seek = re.compile(seekpatt, re.IGNORECASE)
         if opts.get('exact'):
-            find = seek.match
-        else:
-            find = seek.search
-        import pdb; pdb.set_trace();
+            seekpatt = '^%s$' % seekpatt
+        seek = re.compile(seekpatt, re.IGNORECASE)
         qualified = opts.get('all')
         for (schema_name, schema) in schemas.items():
             if schema_name == username or opts.get('all'):
-                #import pdb; pdb.set_trace()        
                 for (name, dbobj) in schema.schema.items():                
                     metadata = MetaData(object_name=name, schema_name=schema_name, db_object=dbobj)
                     if (not arg) or (
-                           find(metadata.descriptor(qualified)) or 
-                           find(metadata.name(qualified)) or 
-                           find(metadata.db_type)):
+                           seek.search(metadata.descriptor(qualified)) or 
+                           seek.search(metadata.name(qualified)) or 
+                           seek.search(metadata.db_type)):
                         yield metadata
 
     @options([make_option('-l', '--long', action='store_true', help='long descriptions'),
