@@ -92,9 +92,11 @@ class MetaData(PlainObject):
         self.object_name = object_name
         self.schema_name = schema_name
         self.db_object = db_object
-        if hasattr(db_object, 'type'):
+        if isinstance(db_object, dict):
+            self.db_type = db_object['db_type']
+        elif hasattr(db_object, 'type'):
             self.db_type = db_object.type
-        else:
+        elif hasattr(db_object, 'db_type'):            
             self.db_type = str(type(db_object)).rstrip("'>").split('.')[-1]
     def qualified_name(self):
         return '%s.%s' % (self.schema_name, self.object_name)
