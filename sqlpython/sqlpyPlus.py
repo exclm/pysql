@@ -497,12 +497,11 @@ class sqlpyPlus(sqlpython.sqlpython):
         except AttributeError:
             return str(datum)
               
-    def output(self, outformat, rowlimit):
+    def tabular_output(self, outformat, rowlimit):
         try:
             self.tblname = self.tableNameFinder.search(self.querytext).group(1)
         except AttributeError:
             self.tblname = ''
-        self.colnames = [d[0] for d in self.curs.description]
         if outformat in output_templates:
             self.colnamelen = max(len(colname) for colname in self.colnames)
             result = output_templates[outformat].generate(formattedForSql=self.formattedForSql, **self.__dict__)        
@@ -511,8 +510,8 @@ class sqlpyPlus(sqlpython.sqlpython):
             rows.extend(list(self.rows))
             transpr = [[rows[y][x] for y in range(len(rows))]for x in range(len(rows[0]))] # matrix transpose
             newdesc = [['ROW N.'+str(y),10] for y in range(len(rows))]
-            for x in range(len(self.curs.description)):
-                if str(self.curs.description[x][1]) == "<type 'cx_Oracle.BINARY'>":  # handles RAW columns
+            for x in range(len(self.coltypes)):
+                if str(self.coltypes[x]) == "<type 'cx_Oracle.BINARY'>":  # handles RAW columns
                     rname = transpr[x][0]
                     transpr[x] = map(binascii.b2a_hex, transpr[x])
                     transpr[x][0] = rname
@@ -724,6 +723,16 @@ class sqlpyPlus(sqlpython.sqlpython):
             total_len -= len(rset)
             self.pystate['r'][i] = []
         
+    def rowlimit(self, arg):
+        try:
+            rowlimit = int(arg.parsed.suffix or 0)
+        except ValueError:
+            rowlimit = 0
+            self.perror("Specify desired number of rows after terminator (not '%s')" % arg.parsed.suffix)
+        if arg.parsed.terminator == '\\t':
+            rowlimit = rowlimit or self.maxtselctrows
+        return rowlimit
+        
     def do_select(self, arg, bindVarsIn=None, terminator=None):
         """Fetch rows from a table.
 
@@ -735,13 +744,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         ("help terminators" for details)
         """
         bindVarsIn = bindVarsIn or {}
-        try:
-            rowlimit = int(arg.parsed.suffix or 0)
-        except ValueError:
-            rowlimit = 0
-            self.perror("Specify desired number of rows after terminator (not '%s')" % arg.parsed.suffix)
-        if arg.parsed.terminator == '\\t':
-            rowlimit = rowlimit or self.maxtselctrows
+        rowlimit = self.rowlimit(arg)
         self.varsUsed = self.findBinds(arg, bindVarsIn)
         if self.wildsql:
             selecttext = self.expandWildSql(arg)
@@ -753,6 +756,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         else: # this is an ugly workaround for the evil paramstyle curse upon DB-API2
             self.curs.execute(self.querytext)
         self.rows = self.curs.fetchmany(min(self.maxfetch, (rowlimit or self.maxfetch)))
+        self.colnames = [d[0] for d in self.curs.description]
         self.coltypes = [d[1] for d in self.curs.description]
         if cx_Oracle.BLOB in self.coltypes:
             self.rows = [
@@ -772,8 +776,8 @@ class sqlpyPlus(sqlpython.sqlpython):
             for row in resultset:
                 row.resultset = resultset
             self.pystate['r'].append(resultset)
-            self.age_out_resultsets()
-            self.poutput('\n%s\n' % (self.output(arg.parsed.terminator, rowlimit)))
+            self.age_out_resultsets()            
+            self.poutput('\n%s\n' % (self.tabular_output(arg.parsed.terminator, rowlimit)))
         if self.rc == 0:
             self.pfeedback('\nNo rows Selected.\n')
         elif self.rc == 1: 
@@ -990,48 +994,25 @@ class sqlpyPlus(sqlpython.sqlpython):
     @options([all_users_option,
               make_option('-l', '--long', action='store_true', help='include column #, comments')])
     def do_describe(self, arg, opts):
-        "emulates SQL*Plus's DESCRIBE"
-        target = arg.upper()
-        objnameclause = ''
-        if target:
-            objnameclause = "AND    object_name LIKE '%%%s%%' " % target
-            object_type, owner, object_name = self.resolve(target)
-        if (not target) or (not object_type):
-            if opts.long:
-                query =  """SELECT o.object_name, o.object_type, o.owner, c.comments
-                            FROM   all_objects o
-                            LEFT OUTER JOIN all_tab_comments c ON (o.owner = c.owner AND o.object_name = c.table_name AND o.object_type = 'TABLE')
-                            WHERE  object_type IN ('TABLE','VIEW','INDEX') 
-                            %sORDER BY object_name;""" % objnameclause
-            else:
-                query =  """SELECT object_name, object_type%s 
-                            FROM   %s_objects 
-                            WHERE  object_type IN ('TABLE','VIEW','INDEX') 
-                            %sORDER BY object_name;""" % \
-                            (opts.scope['col'], opts.scope['view'], objnameclause)                                                                             
-            return self.do_select(self.parsed(query, terminator=arg.parsed.terminator or ';', 
-                                  suffix=arg.parsed.suffix))
-        self.poutput("%s %s.%s\n" % (object_type, owner, object_name))
-        try:
-            if object_type == 'TABLE':
+        opts.exact = True
+        for m in self._matching_database_objects(arg, opts):
+            self.tblname = m.descriptor(qualified=opts.get('all'))
+            self.pfeedback(self.tblname)
+            if hasattr(m.db_object, 'columns') and not isinstance(m.db_object.columns, tuple): # drop once gerald returns column dicts for views
+                cols = m.db_object.columns.values()                
+                cols.sort() # on column order... or alphabetical with an option
                 if opts.long:
-                    self._execute(queries['tabComments'], {'table_name':object_name, 'owner':owner})
-                    self.poutput(self.curs.fetchone()[0])
-                descQ = metaqueries['desc'][self.rdbms][object_type][(opts.long and 'long') or 'short']
-            else:
-                descQ = metaqueries['desc'][self.rdbms][object_type]
-            for q in descQ:
-                self.do_select(self.parsed(q, terminator=arg.parsed.terminator or ';' , suffix=arg.parsed.suffix), 
-                               bindVarsIn={'object_name':object_name, 'owner':owner})            
-        except KeyError:
-            if object_type == 'PACKAGE':
-                packageContents = self.select_scalar_list(descQueries['PackageObjects'][0], {'package_name':object_name, 'owner':owner})
-                for packageObj_name in packageContents:
-                    self.poutput('Arguments to %s\n' % (packageObj_name))
-                    sql = self.parsed(descQueries['PackageObjArgs'][0], terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix)
-                    self.do_select(sql, bindVarsIn={'package_name':object_name, 'owner':owner, 'object_name':packageObj_name})
-
-
+                    self.colnames = 'N Name Null? Type Default Comments'.split()
+                    self.rows = [(col['sequence'], col['name'], col['nullable'], 
+                                  col['type'], col.get(default), col.get(comment)) 
+                                 for col in cols]
+                else:
+                    self.colnames = 'Name Null? Type'.split()
+                    self.rows = [(col['name'], col['nullable'], col['type']) 
+                                 for col in cols]
+                self.coltypes = [str] * len(self.colnames)
+                self.tabular_output(arg.parsed.terminator, self.rowlimit(arg))
+            
     def do_deps(self, arg):
         '''Lists all objects that are dependent upon the object.'''
         target = arg.upper()
