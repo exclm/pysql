@@ -908,7 +908,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             try:
                 for (kwd, shortcut) in (
                         ('ind', '\\di'), ('schema', '\\dn'), 
-                        ('tablesp', '\\db'), ('trig', '\\dt'), 
+                        ('tablesp', '\\db'), ('trig', '\\dg'), 
                         ('view', '\\dv'), ('cons', '\\dc'),
                         ('comm', '\\dd'), ('ref', 'ref')):
                     if argpieces[0].lower().startswith(kwd):
@@ -1202,6 +1202,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         \db _dir_tablespaces
         \dc _dir_constraints
         \dd comments
+        \dg _dir_triggers
         \dn _dir_schemas
         \dt _dir_tables
         \dv _dir_views
@@ -1263,23 +1264,30 @@ class sqlpyPlus(sqlpython.sqlpython):
         if 'condition' in cons:
             details = '(%s)' % cons['condition']
         elif 'reftable' in cons:
-            details = '(%s) in %s' % (','.join(idx['columns']), cons['reftable'])
+            details = '(%s) in %s' % (','.join(cons['columns']), cons['reftable'])
         elif 'columns' in cons:
             details = '(%s)' % ','.join(cons['columns'])
-        return '%7s %s: %s %s' % (cons['type'], name, details,
-                                  ((not cons['enabled']) and 'DISABLED') or ''))
+        else:
+            details = ''
+        return '%7s %s: %s %s' % (cons['type'], cons['name'], details,
+                                  ((not cons['enabled']) and 'DISABLED') or '')
 
-    def do__dir_(self, arg, opts, singular_name, plural_name, str_function):
+
+    def _str_trigger(self, trig, long=False):
+        result = 'Trigger %s %s %s for each %s' % (trig.name, trig.scope, ','.join(trig.events), trig.level)
+        if long:
+            result = '%s\n\n%s\n\n' % (result, trig.sql)
+        return result
+        
+    def do__dir_(self, arg, opts, plural_name, str_function):
         long = opts.get('long')
         reverse = opts.get('reverse') or False
         for obj in self._matching_database_objects(arg, opts):
             if hasattr(obj.db_object, plural_name):
                 self.pfeedback('%s on %s' % (plural_name.title(), obj.descriptor(opts.get('all'))))
-                result = [str_function(depobj, long) for depobj in getattr(obj.db_object, 'plural_name').values()]
+                result = [str_function(depobj, long) for depobj in getattr(obj.db_object, plural_name).values()]
                 result.sort(reverse=opts.get('reverse') or False)
                 self.poutput('\n'.join(result))
-        
-        self._do_dir('', arg, opts)
         
     @options(standard_options)
     def do__dir_indexes(self, arg, opts):
@@ -1287,16 +1295,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         Called with an exact table name, lists the indexes of that table.
         Otherwise, acts as shortcut for `ls index/*(arg)*`
         '''
-        for obj in self._matching_database_objects(arg, opts):
-            if hasattr(obj.db_object, 'indexes'):
-                self.pfeedback('Indexes on %s' % obj.descriptor(opts.get('all')))
-                result = []
-                for (name, idx) in obj.db_object.indexes.items():
-                    result.append('%s (%s) %s %s' % (name, ','.join(idx['columns']),
-                                                    idx['type'], (idx['unique'] and 'unique') or ''))
-                result.sort(reverse=opts.get('reverse') or False)
-                self.poutput('\n'.join(result))
-                    # TODO: a Long opt
+        self.do__dir_(arg, opts, 'indexes', self._str_index)
 
     @options(standard_options)
     def do__dir_constraints(self, arg, opts):
@@ -1304,24 +1303,16 @@ class sqlpyPlus(sqlpython.sqlpython):
         Called with an exact table name, lists the indexes of that table.
         Otherwise, acts as shortcut for `ls index/*(arg)*`
         '''
-        for obj in self._matching_database_objects(arg, opts):
-            if hasattr(obj.db_object, 'constraints'):
-                self.pfeedback('Constraints on %s' % obj.descriptor(opts.get('all')))      
-                result = []
-                for (name, idx) in obj.db_object.constraints.items():
-                    if 'condition' in idx:
-                        details = '(%s)' % idx['condition']
-                    elif 'reftable' in idx:
-                        details = '(%s) in %s' % (','.join(idx['columns']), idx['reftable'])
-                    elif 'columns' in idx:
-                        details = '(%s)' % ','.join(idx['columns'])
-                    result.append('%7s %s: %s %s' % (idx['type'], name,
-                                                    details,
-                                                    ((not idx['enabled']) and 'DISABLED') or ''))
-                result.sort(reverse=opts.get('reverse') or False)                    
-                self.poutput('\n'.join(result))
-                    
-                    
+        self.do__dir_(arg, opts, 'constraints', self._str_constraint)
+
+    @options(standard_options)
+    def do__dir_triggers(self, arg, opts):
+        '''
+        Called with an exact table name, lists the indexes of that table.
+        Otherwise, acts as shortcut for `ls index/*(arg)*`
+        '''
+        self.do__dir_(arg, opts, 'triggers', self._str_trigger)
+        
     def do__dir_tablespaces(self, arg):
         '''
         Lists all tablespaces.
