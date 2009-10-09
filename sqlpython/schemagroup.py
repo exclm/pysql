@@ -96,7 +96,7 @@ class MetaData(PlainObject):
             self.db_type = db_object['db_type']
         elif hasattr(db_object, 'type'):
             self.db_type = db_object.type
-        elif hasattr(db_object, 'db_type'):            
+        else:   
             self.db_type = str(type(db_object)).rstrip("'>").split('.')[-1]
     def qualified_name(self):
         return '%s.%s' % (self.schema_name, self.object_name)
