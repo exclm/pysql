@@ -352,7 +352,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         sqlpython.sqlpython.__init__(self)
         self.binds = CaselessDict()
         self.settable += '''autobind bloblimit colors commit_on_exit maxfetch maxtselctrows 
-                            minutes_between_refreshes rows_remembered scan serveroutput 
+                            rows_remembered scan serveroutput 
                             sql_echo timeout heading wildsql version'''.split()
         self.settable.remove('case_insensitive')
         self.settable.sort()
@@ -369,7 +369,6 @@ class sqlpyPlus(sqlpython.sqlpython):
         self.result_history = []
         self.rows_remembered = 10000
         self.bloblimit = 5
-        self.minutes_between_refreshes = 1
         self.version = 'SQLPython %s' % sqlpython.__version__
         self.pystate = {'r': [], 'binds': self.binds, 'substs': self.substvars}
         
@@ -544,40 +543,25 @@ class sqlpyPlus(sqlpython.sqlpython):
         r'select\s+(.*)from',
         re.IGNORECASE | re.DOTALL | re.MULTILINE)        
     def completedefault(self, text, line, begidx, endidx):
+        (username, schemas) = self.metadata()
         segment = completion.whichSegment(line)
         text = text.upper()
         completions = []
         if segment == 'select':
-            stmt = "SELECT column_name FROM user_tab_columns WHERE column_name LIKE '%s%%'"
-            completions = self.select_scalar_list(stmt % (text))
-            if not completions:
-                stmt = "SELECT column_name FROM all_tab_columns WHERE column_name LIKE '%s%%'"            
-                completions = self.select_scalar_list(stmt % (text))
-        if segment == 'from':
-            columnNames = self.columnNameRegex.search(line)
-            if columnNames:
-                columnNames = columnNames.group(1)
-                columnNames = [c.strip().upper() for c in columnNames.split(',')]
-                stmt1 = "SELECT table_name FROM all_tab_columns WHERE column_name = '%s' AND table_name LIKE '%s%%'"
-                for columnName in columnNames:
-                    # and if columnName is * ?
-                    completions.extend(self.select_scalar_list(stmt1 % (columnName, text)))                    
-        if segment in ('from', 'update', 'insert into') and (not completions):
-            stmt = "SELECT table_name FROM user_tables WHERE table_name LIKE '%s%%'"
-            completions = self.select_scalar_list(stmt % (text))
-            if not completions:
-                stmt = """SELECT table_name FROM user_tables WHERE table_name LIKE '%s%%'
-                      UNION
-                      SELECT DISTINCT owner FROM all_tables WHERE owner LIKE '%%%s'"""
-                completions = self.select_scalar_list(stmt % (text, text))
-        if segment in ('where', 'group by', 'order by', 'having', 'set'):
-            tableNames = completion.tableNamesFromFromClause(line)
-            if tableNames:
-                stmt = """SELECT column_name FROM all_tab_columns
-                          WHERE table_name IN (%s)""" % \
-                       (','.join("'%s'" % (t) for t in tableNames))
-            stmt = "%s AND column_name LIKE '%s%%'" % (stmt, text)
-            completions = self.select_scalar_list(stmt)
+            completions = [c for c in schemas[username].column_names if c.startswith(text)] \
+                          or [c for c in schemas.qual_column_names if c.startswith(text)]
+                          # TODO: the latter not working
+        if segment in ('from', 'update', 'insert into'):
+            completions = [t for t in schemas[username].table_names if t.startswith(text)]
+            #tableNames = completion.tableNamesFromFromClause(line)
+        if segment == 'where':
+            completions = []
+            for table_name in completion.tableNamesFromFromClause(line):
+                table = schemas[username].schema[table_name]
+                completions.extend(c['name'] for c in table.columns.values())
+                completions.extend('%s.%s' % (table_name, c['name']) for c in table.columns.values())
+                completions = [c for c in completions if c.startswith(text)]
+            
         if not segment:
             stmt = "SELECT object_name FROM all_objects WHERE object_name LIKE '%s%%'"
             completions = self.select_scalar_list(stmt % (text))
@@ -1535,7 +1519,27 @@ class sqlpyPlus(sqlpython.sqlpython):
         if exact:
             seekpatt = '^%s$' % seekpatt
         return re.compile(seekpatt, re.IGNORECASE)
-            
+
+    @options([make_option('-a', '--all', action='store_true', help="all schemas' objects"),
+              make_option('-i', '--immediate', action='store_true', help="Wait until refresh is done"),
+              make_option('-c', '--check', action='store_true', help="Don't refresh, just check refresh status")])
+    def do_refresh(self, arg, opts):
+        '''Refreshes metadata for the specified schema; only required
+           if table structures, etc. have changed. '''
+        (username, schemas) = self.metadata()
+        if opts.check:
+            print schemas.complete
+            return
+        if opts.all:
+            if opts.immediate:
+                self.perror("Don't combine --all and --immediate.  It will take too long.")
+                return
+            schemas.refresh()
+        elif arg:
+            schemas.refresh_one(arg)
+        else:
+            schemas.refresh_one(username)
+        
     def _matching_database_objects(self, arg, opts):
         # jrrt.p* should work even if not --all
         # doesn't get java$options
