@@ -546,27 +546,24 @@ class sqlpyPlus(sqlpython.sqlpython):
         (username, schemas) = self.metadata()
         segment = completion.whichSegment(line)
         text = text.upper()
-        completions = []
-        if segment == 'select':
+        print segment
+        if segment in ('select', 'where', 'having', 'set', 'order by', 'group by'):
             completions = [c for c in schemas[username].column_names if c.startswith(text)] \
                           or [c for c in schemas.qual_column_names if c.startswith(text)]
                           # TODO: the latter not working
-        if segment in ('from', 'update', 'insert into'):
+        elif segment in ('from', 'update', 'insert into'):
             completions = [t for t in schemas[username].table_names if t.startswith(text)]
-            #tableNames = completion.tableNamesFromFromClause(line)
-        if segment == 'where':
-            completions = []
-            for table_name in completion.tableNamesFromFromClause(line):
-                table = schemas[username].schema[table_name]
-                completions.extend(c['name'] for c in table.columns.values())
-                completions.extend('%s.%s' % (table_name, c['name']) for c in table.columns.values())
-                completions = [c for c in completions if c.startswith(text)]
-            
-        if not segment:
-            stmt = "SELECT object_name FROM all_objects WHERE object_name LIKE '%s%%'"
-            completions = self.select_scalar_list(stmt % (text))
+        elif segment == 'beginning':
+            completions = [n for n in self.get_names() if n.startswith('do_')] + [
+                           'insert', 'update', 'delete', 'drop', 'alter', 'begin', 'declare', 'create']
+            print completions
+            completions = [c for c in completions if c.startswith(text)]     
+        else:
+            completions = [r for r in completion.reserved if r.startswith(text)]
+                            
+                           
         return completions
-
+    
     columnlistPattern = pyparsing.SkipTo(pyparsing.CaselessKeyword('from'))('columns') + \
                         pyparsing.SkipTo(pyparsing.stringEnd)('remainder')
 
