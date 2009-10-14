@@ -107,53 +107,85 @@ class sqlpython(cmd2.Cmd):
         s = conn['schemas']
         s.refresh_asynch()
         return conn
-    def ora_connect(self, arg):
-        modeval = 0
-        oraserv = None
-        for modere, modevalue in self.connection_modes.items():
-            if modere.search(arg):
-                arg = modere.sub('', arg)
-                modeval = modevalue
-        try:
-            orauser, oraserv = arg.split('@')
-        except ValueError:
-            try:
-                oraserv = os.environ['ORACLE_SID']
-            except KeyError:
-                self.perror('instance not specified and environment variable ORACLE_SID not set')
-                return
-            orauser = arg
-        sid = oraserv
-        try:
-            host, sid = oraserv.split('/')
-            try:
-                host, port = host.split(':')
-                port = int(port)
-            except ValueError:
-                port = 1521
-            oraserv = cx_Oracle.makedsn(host, port, sid)
-        except ValueError:
-            pass
-        try:
-            orauser, orapass = orauser.split('/')
-        except ValueError:
-            orapass = getpass.getpass('Password: ')
-        if orauser.upper() == 'SYS' and not modeval:
-            self.pfeedback('Privilege not specified for SYS, assuming SYSOPER')
-            modeval = cx_Oracle.SYSOPER
-        result = self.url_connect('oracle://%s:%s@%s/?mode=%d' % (orauser, orapass, oraserv, modeval))
-        result['dbname'] = oraserv
-        return result
     
-    connection_modes = {re.compile(' AS SYSDBA', re.IGNORECASE): cx_Oracle.SYSDBA, 
-                        re.compile(' AS SYSOPER', re.IGNORECASE): cx_Oracle.SYSOPER}
+    legal_sql_word = pyparsing.Word(pyparsing.alphanums + '_$#')
+    legal_hostname = pyparsing.Word(pyparsing.alphanums + '_-.')('host') + pyparsing.Optional(
+        ':' + pyparsing.Word(pyparsing.nums)('port'))
+    oracle_connect_parser = legal_sql_word('username') + (
+                            pyparsing.Optional('/' + pyparsing.CharsNotIn('@')("password")) + 
+                            pyparsing.Optional('@' + pyparsing.Optional(legal_hostname + '/') +
+                                               legal_sql_word('db_name')) + 
+                            pyparsing.Optional(pyparsing.CaselessKeyword('as') + 
+                                               (pyparsing.CaselessKeyword('sysoper') ^ 
+                                                pyparsing.CaselessKeyword('sysdba'))('mode')))
+    postgresql_connect_parser = (legal_sql_word('db_name') + 
+                                 pyparsing.Optional(legal_sql_word('username')))                       
+          
+    def connect_url(self, arg, opts):
+        rdbms = opts.rdbms or self.default_rdbms
+        
+        mode = 0
+        host = None
+        port = None
+        
+        if rdbms == 'oracle':
+            result = self.oracle_connect_parser.parseString(arg)
+            if result.mode == 'sysdba':
+                mode = cx_Oracle.SYSDBA
+            elif result.mode == 'sysoper':
+                mode = cx_Oracle.SYSOPER   
+            else:
+                mode = 0
+        elif rdbms == 'postgres':
+            result = self.postgresql_connect_parser.parseString(arg)
+            port = opts.port or os.environ.get('PGPORT') or 5432            
+            host = opts.host or os.environ.get('PGHOST') or 'localhost'
+       
+        username = result.username or opts.username           
+        if not username and rdbms == 'postgres':
+            username = os.environ.get('PGUSER') or os.environ.get('USER')
+
+        db_name = result.db_name or opts.database
+        if not db_name:
+            if rdbms == 'oracle':
+                db_name = os.environ.get('ORACLE_SID')
+            elif rdbms == 'postgres':
+                db_name = os.environ.get('PGDATABASE') or username
+        
+        password = result.password or getpass.getpass('Password: ')
+               
+        if host:
+            if port:
+                host = '%s:%s' % (host, port)
+            db_name = '%s/%s' % (host, db_name)
+
+        url = '%s://%s:%s@%s' % (rdbms, username, password, db_name)
+        if mode:
+            url = '%s/?mode=%d' % mode
+        return url
+    
     @cmd2.options([cmd2.make_option('-a', '--add', action='store_true', 
                                     help='add connection (keep current connection)'),
                    cmd2.make_option('-c', '--close', action='store_true', 
                                     help='close connection {N} (or current)'),
                    cmd2.make_option('-C', '--closeall', action='store_true', 
-                                    help='close all connections'),])
+                                    help='close all connections'),
+                   cmd2.make_option('--postgres', help='Connect to a postgreSQL database'),
+                   cmd2.make_option('--oracle', help='Connect to an Oracle database'),
+                   cmd2.make_option('--mysql', help='Connect to a MySQL database'),                   
+                   cmd2.make_option('-r', '--rdbms', type='string', 
+                                    help='Type of database to connect to (oracle, postgres, mysql)'),
+                   cmd2.make_option('-H', '--host', type='string', 
+                                    help='Host to connect to (postgresql only)'),                                  
+                   cmd2.make_option('-p', '--port', type='int', 
+                                    help='Port to connect to (postgresql only)'),                                  
+                   cmd2.make_option('-d', '--database', type='string', 
+                                    help='Database name to connect to'),
+                   cmd2.make_option('-U', '--username', type='string', 
+                                    help='Database user name to connect as')
+                   ])
     def do_connect(self, arg, opts):
+ 
         '''Opens the DB connection'''
         if opts.closeall:
             self.closeall()
@@ -175,7 +207,10 @@ class sqlpython(cmd2.Cmd):
         try:
             connect_info = self.url_connect(arg)
         except sqlalchemy.exc.ArgumentError, e:
-            connect_info = self.ora_connect(arg)
+            connect_info = self.url_connect(self.connect_url(arg, opts))
+        except Exception, e:
+            self.perror(r'URL connection format: rdbms://username:password@host/database')
+            return
         if opts.add or (self.connection_number is None):
             try:
                 self.connection_number = max(self.connections.keys()) + 1
@@ -277,8 +312,7 @@ class sqlpython(cmd2.Cmd):
     terminatorSearchString = '|'.join('\\' + d.split()[0] for d in do_terminators.__doc__.splitlines())
         
     bindScanner = {'oracle': Parser(pyparsing.Literal(':') + pyparsing.Word( pyparsing.alphanums + "_$#" )),
-                   'postgres': Parser(pyparsing.Literal('%(') + 
-                                      pyparsing.Word(pyparsing.alphanums + "_$#") + ')s')}
+                   'postgres': Parser(pyparsing.Literal('%(') + legal_sql_word + ')s')}
     def findBinds(self, target, givenBindVars = {}):
         result = givenBindVars
         if self.rdbms in self.bindScanner:
