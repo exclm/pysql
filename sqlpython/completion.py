@@ -1,4 +1,4 @@
-import pyparsing, re
+import pyparsing, re, doctest
 
 sqlStyleComment = pyparsing.Literal("--") + pyparsing.ZeroOrMore(pyparsing.CharsNotIn("\n"))
 keywords = {'order by': pyparsing.Keyword('order', caseless=True) +
@@ -40,30 +40,31 @@ def orderedParseResults(parsers, statement):
     results.sort(cmp=lambda x,y:cmp(x[1],y[1]))
     return results
         
-at_beginning = re.compile(r'^\s*\S+\s*$')
+at_beginning = re.compile(r'^\s*\S+$')
 def whichSegment(statement):
-    if at_beginning.search(statement):
+    '''
+    >>> whichSegment("SELECT col FROM t")
+    'from'
+    >>> whichSegment("SELECT * FROM t")
+    'from'
+    >>> whichSegment("DESC ")
+    'DESC'
+    >>> whichSegment("DES")
+    'beginning'
+    >>> whichSegment("")
+    'beginning'
+    >>> whichSegment("select  ")
+    'select'
+    
+    '''
+    if (not statement) or at_beginning.search(statement):
         return 'beginning'
     results = orderedParseResults(keywords.values(), statement)
     if results:
         return ' '.join(results[-1][0])
     else:
-        return None
-
-oracleIdentifierCharacters = pyparsing.alphanums + '_#$'    
-def wordInProgress(statement):
-    result = []
-    letters = list(statement)
-    letters.reverse()
-    for letter in letters:
-        if letter not in oracleIdentifierCharacters:
-            result.reverse()
-            return ''.join(result)
-        result.append(letter)
-    result.reverse()
-    return ''.join(result)
-    
-
+        return statement.split(None,1)[0]
+   
 reserved = '''
       access
      add
@@ -174,3 +175,6 @@ reserved = '''
      whenever
      where
      with '''.split()
+
+if __name__ == '__main__':
+    doctest.testmod()

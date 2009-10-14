@@ -329,6 +329,16 @@ class BlobDisplayer(object):
         else:
             return '(BLOB not saved, check bloblimit)'
         
+class Abbreviatable_List(list):
+    def match(self, target):
+        target = target.lower()
+        result = [i for i in self if i.startswith(target)]
+        if len(result) == 0:
+            raise ValueError, 'None of %s start with %s' % (str(self), target)
+        elif len(result) > 1:
+            raise ValueError, 'Too many matches: %s' % str(result)
+        return result[0]
+    
 class sqlpyPlus(sqlpython.sqlpython):
     defaultExtension = 'sql'
     abbrev = True    
@@ -351,7 +361,8 @@ class sqlpyPlus(sqlpython.sqlpython):
     def __init__(self):
         sqlpython.sqlpython.__init__(self)
         self.binds = CaselessDict()
-        self.settable += '''autobind bloblimit colors commit_on_exit maxfetch maxtselctrows 
+        self.settable += '''autobind bloblimit colors commit_on_exit 
+                            default_rdbms maxfetch maxtselctrows 
                             rows_remembered scan serveroutput 
                             sql_echo timeout heading wildsql version'''.split()
         self.settable.remove('case_insensitive')
@@ -369,6 +380,8 @@ class sqlpyPlus(sqlpython.sqlpython):
         self.result_history = []
         self.rows_remembered = 10000
         self.bloblimit = 5
+        self.default_rdbms = 'oracle'
+        self.rdbms_supported = Abbreviatable_List('oracle postgres mysql'.split())
         self.version = 'SQLPython %s' % sqlpython.__version__
         self.pystate = {'r': [], 'binds': self.binds, 'substs': self.substvars}
         
@@ -546,7 +559,6 @@ class sqlpyPlus(sqlpython.sqlpython):
         (username, schemas) = self.metadata()
         segment = completion.whichSegment(line)
         text = text.upper()
-        print segment
         if segment in ('select', 'where', 'having', 'set', 'order by', 'group by'):
             completions = [c for c in schemas[username].column_names if c.startswith(text)] \
                           or [c for c in schemas.qual_column_names if c.startswith(text)]
@@ -556,12 +568,11 @@ class sqlpyPlus(sqlpython.sqlpython):
         elif segment == 'beginning':
             completions = [n for n in self.get_names() if n.startswith('do_')] + [
                            'insert', 'update', 'delete', 'drop', 'alter', 'begin', 'declare', 'create']
-            print completions
             completions = [c for c in completions if c.startswith(text)]     
+        elif segment:
+            completions = [t for t in schemas[username].table_names if t.startswith(text)]
         else:
             completions = [r for r in completion.reserved if r.startswith(text)]
-                            
-                           
         return completions
     
     columnlistPattern = pyparsing.SkipTo(pyparsing.CaselessKeyword('from'))('columns') + \
@@ -1522,10 +1533,12 @@ class sqlpyPlus(sqlpython.sqlpython):
               make_option('-c', '--check', action='store_true', help="Don't refresh, just check refresh status")])
     def do_refresh(self, arg, opts):
         '''Refreshes metadata for the specified schema; only required
-           if table structures, etc. have changed. '''
+           if table structures, etc. have changed. (sqlpython will check
+           for new objects, and will not waste labor if no objects have
+           been created or modified in a schema.)'''
         (username, schemas) = self.metadata()
         if opts.check:
-            print schemas.complete
+            self.poutput(schemas.refresh_times(arg))
             return
         if opts.all:
             if opts.immediate:

@@ -47,11 +47,40 @@ class RefreshGroupThread(threading.Thread):
                                [s.qual_table_names for s in self.schemas.values()],
                                [])
         
+class OracleSchemaAccess(object):        
+    child_type = gerald.OracleSchema
+    current_database_time_query = 'SELECT sysdate FROM dual'
+    def latest_ddl_timestamp_query(self, username, connection):
+        curs = connection.cursor()
+        curs.execute('''SELECT   owner, MAX(last_ddl_time)
+                        FROM     all_objects
+                        GROUP BY owner
+                        -- sort :username to top
+                        ORDER BY REPLACE(owner, :username, 'A'), owner''',
+                     {'username': username.upper()})
+        return curs 
+
+class PostgresSchemaAccess(object):        
+    child_type = gerald.PostgresSchema
+    current_database_time_query = 'SELECT current_time'
+    def latest_ddl_timestamp_query(self, username, connection):
+        curs = connection.cursor()
+        curs.execute("""SELECT  '%s', current_time""" % username)
+        return curs 
+    
+class MySQLSchemaAccess(object):        
+    child_type = gerald.MySQLSchema
+    current_database_time_query = 'SELECT sysdate FROM dual'
+    def latest_ddl_timestamp_query(self, username, connection):
+        curs = connection.cursor()
+        curs.execute("""SELECT  '%s', current_time""" % username)
+        return curs 
+    
 class SchemaDict(dict):
-    schema_types = {'oracle': gerald.OracleSchema}
+    schema_types = {'oracle': OracleSchemaAccess, 'postgres': PostgresSchemaAccess, 'mysql': MySQLSchemaAccess}
     def __init__(self, dct, rdbms, user, connection, connection_string):
         dict.__init__(self, dct)
-        self.child_type = self.schema_types[rdbms]
+        self.schema_access = self.schema_types[rdbms]()
         self.user = user
         self.connection = connection
         self.gerald_connection_string = gerald_connection_string(connection_string)
@@ -59,19 +88,24 @@ class SchemaDict(dict):
         self.complete = 0
     def refresh_asynch(self):
         self.refresh_thread.start()
+    current_database_time_sql = {gerald.OracleSchema: 'SELECT sysdate FROM dual',
+                                 gerald.PostgresSchema: 'SELECT current_time'}
     def get_current_database_time(self):
         curs = self.connection.cursor()
-        curs.execute('SELECT sysdate FROM dual')
+        curs.execute(self.schema_access.current_database_time_query)
         return curs.fetchone()[0]              
+    def refresh_times(self, target_schema):
+        now = self.get_current_database_time()
+        result = []
+        for (schema_name, schema) in self.items():
+            if (not target_schema) or (target_schema.lower() == schema_name.lower()):
+                result.append('%s: %s  (%s ago)' % (schema_name, schema.refreshed, now - schema.refreshed))
+        result.sort()
+        return '\n'.join(result)
+            
     def refresh(self):
         current_database_time = self.get_current_database_time()
-        curs = self.connection.cursor()
-        curs.execute('''SELECT   owner, MAX(last_ddl_time)
-                        FROM     all_objects
-                        GROUP BY owner
-                        -- sort :username to top
-                        ORDER BY REPLACE(owner, :username, 'A'), owner''',
-                     {'username': self.user.upper()})
+        curs = self.schema_access.latest_ddl_timestamp_query(self.user, self.connection)
         for (owner, last_ddl_time) in curs.fetchall():
             if (owner not in self) or (self[owner].refreshed < last_ddl_time):
                 self.refresh_one(owner, current_database_time)
@@ -81,11 +115,12 @@ class SchemaDict(dict):
         self.column_names = [s.column_names for s in self.values()]
         self.columns = reduce(operator.add, [s.column_names for s in self.values()])
         self.complete = 'all'
-        print 'metadata discovered'
     def refresh_one(self, owner, current_database_time=None):
+        #owner = owner.upper()
+        owner = str(owner)
         if not current_database_time:
             current_database_time = self.get_current_database_time()
-        self[owner] = self.child_type(owner, self.gerald_connection_string)
+        self[owner] = self.schema_access.child_type(owner, self.gerald_connection_string)
         self[owner].refreshed = current_database_time        
         build_column_list(self[owner])
 
