@@ -13,7 +13,7 @@ import sqlalchemy, pyparsing, schemagroup
 __version__ = '1.6.8'    
 
 class Parser(object):
-    comment_def = "--" + ~ ('-' + pyparsing.CaselessKeyword('begin')) + pyparsing.ZeroOrMore(pyparsing.CharsNotIn("\n"))    
+    comment_def = "--" + pyparsing.NotAny('-' + pyparsing.CaselessKeyword('begin')) + pyparsing.ZeroOrMore(pyparsing.CharsNotIn("\n"))    
     def __init__(self, scanner, retainSeparator=True):
         self.scanner = scanner
         self.scanner.ignore(pyparsing.sglQuotedString)
@@ -119,7 +119,7 @@ class sqlpython(cmd2.Cmd):
                                                (pyparsing.CaselessKeyword('sysoper') ^ 
                                                 pyparsing.CaselessKeyword('sysdba'))('mode')))
     postgresql_connect_parser = (legal_sql_word('db_name') + 
-                                 pyparsing.Optional(legal_sql_word('username')))                       
+                                 pyparsing.Optional(legal_sql_word('username')))
           
     def connect_url(self, arg, opts):
         rdbms = opts.rdbms or self.default_rdbms
@@ -170,9 +170,9 @@ class sqlpython(cmd2.Cmd):
                                     help='close connection {N} (or current)'),
                    cmd2.make_option('-C', '--closeall', action='store_true', 
                                     help='close all connections'),
-                   cmd2.make_option('--postgres', help='Connect to a postgreSQL database'),
-                   cmd2.make_option('--oracle', help='Connect to an Oracle database'),
-                   cmd2.make_option('--mysql', help='Connect to a MySQL database'),                   
+                   cmd2.make_option('--postgres', action='store_true', help='Connect to a postgreSQL database'),
+                   cmd2.make_option('--oracle', action='store_true', help='Connect to an Oracle database'),
+                   cmd2.make_option('--mysql', action='store_true', help='Connect to a MySQL database'),                   
                    cmd2.make_option('-r', '--rdbms', type='string', 
                                     help='Type of database to connect to (oracle, postgres, mysql)'),
                    cmd2.make_option('-H', '--host', type='string', 
@@ -189,15 +189,15 @@ class sqlpython(cmd2.Cmd):
         '''Opens the DB connection'''
         if opts.closeall:
             self.closeall()
-            return
+            return 
         if opts.close:
             if not arg:
                 arg = self.connection_number
             self.disconnect(arg)
-            return
+            return 
         if not arg:
             self.list_connections()
-            return
+            return 
         try:
             if self.successful_connection_to_number(arg):
                 return
@@ -207,7 +207,8 @@ class sqlpython(cmd2.Cmd):
         try:
             connect_info = self.url_connect(arg)
         except sqlalchemy.exc.ArgumentError, e:
-            connect_info = self.url_connect(self.connect_url(arg, opts))
+            url = self.connect_url(arg, opts)
+            connect_info = self.url_connect(url)
         except Exception, e:
             self.perror(r'URL connection format: rdbms://username:password@host/database')
             return
@@ -224,6 +225,8 @@ class sqlpython(cmd2.Cmd):
             self.curs.callproc('dbms_output.enable', [])
         if (self.rdbms == 'mysql'):
             self.curs.execute('SET SQL_MODE=ANSI')
+        return 
+    
     def postparsing_precmd(self, statement):
         stop = 0
         self.saved_connection_number = None

@@ -348,8 +348,8 @@ class sqlpyPlus(sqlpython.sqlpython):
     multilineCommands = '''select insert update delete tselect
                       create drop alter _multiline_comment'''.split()
     sqlpython.sqlpython.noSpecialParse.append('spool')
-    commentGrammars = pyparsing.Or([pyparsing.Literal('--') + pyparsing.restOfLine, pyparsing.cStyleComment])
-    commentGrammars = pyparsing.Or([Parser.comment_def, pyparsing.cStyleComment])
+    commentGrammars = pyparsing.cStyleComment
+    multilineOnlyCommentGrammars = pyparsing.Literal('--') + pyparsing.restOfLine  
     prefixParser = pyparsing.Optional(pyparsing.Word(pyparsing.nums)('connection_number') 
                                       + ':')
     reserved_words = [
