@@ -185,6 +185,7 @@ which get and run SQL scripts from disk.'''
 def run():
     my=mysqlpy()
     print my.__doc__
+    # Arguments to sqlpython: <connection info> (optional) 
     try:
         if sys.argv[1][0] != '@':
             connectstring = sys.argv.pop(1)
@@ -205,11 +206,14 @@ class TestCase(Cmd2TestCase):
 if __name__ == '__main__':
     parser = optparse.OptionParser()
     parser.add_option('-t', '--test', dest='unittests', action='store_true', default=False, help='Run unit test suite')
-    (callopts, callargs) = parser.parse_args()
-    if callopts.unittests:
-        mysqlpy.testfiles = callargs
-        sys.argv = [sys.argv[0]]  # the --test argument upsets unittest.main()
-        unittest.main()
+    try:
+        (callopts, callargs) = parser.parse_args()
+        if callopts.unittests:
+            mysqlpy.testfiles = callargs
+            sys.argv = [sys.argv[0]]  # the --test argument upsets unittest.main()
+            unittest.main()
+    except optparse.BadOptionError:
+        pass        
     else:
         #import cProfile, pstats
         #cProfile.run('run()', 'stats.txt')
