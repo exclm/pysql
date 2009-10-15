@@ -1202,21 +1202,20 @@ class sqlpyPlus(sqlpython.sqlpython):
         commands = {}
         for c in self.do_psql.__doc__.splitlines()[2:]:
             (abbrev, command) = c.split(None, 1)
-            commands[abbrev[1:]] = command
-        words = arg.split(None,1)
+            commands[abbrev] = command
+        parts = arg.parsed.raw.split(None,1)
+        abbrev = parts[0]
         try:
-            abbrev = words[0]
+            remainder = parts[1]
         except IndexError:
-            return
-        try:
-            args = words[1]
-        except IndexError:
-            args = ''
-        try:
-            return self.onecmd('%s %s%s%s' % (commands[abbrev], args, arg.parsed.terminator, arg.parsed.suffix))
-        except KeyError:
-            self.perror('psql command \%s not yet supported.' % abbrev)
-
+            remainder = ''
+        if abbrev in commands:
+            newcommand = '%s %s' % (commands[abbrev], remainder)
+            return self.onecmd(newcommand)
+        else:
+            self.perror('No abbreviated command for %s' % abbrev)
+            self.perror(self.do_psql.__doc__)
+            
     def _do_dir(self, type, arg, opts):
         self.do_ls("%s/%s%s%s" % (type, str(arg), arg.parsed.terminator, arg.parsed.suffix), opts)
 
