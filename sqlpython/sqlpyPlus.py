@@ -374,7 +374,6 @@ class sqlpyPlus(sqlpython.sqlpython):
         self.wildsql = False
         self.serveroutput = True
         self.scan = True
-        self.nonpythoncommand = 'sql'
         self.substvars = {}
         self.result_history = []
         self.rows_remembered = 10000
