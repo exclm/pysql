@@ -210,12 +210,13 @@ if __name__ == '__main__':
     for arg in ('-t', '--test'):
         if arg in testfiles:
             testfiles.remove(arg)
+            sys.argv.remove(arg)
             mysqlpy.testfiles = testfiles
             if not testfiles:
                 print 'No test file specified to run against!'
                 sys.exit()
     if hasattr(mysqlpy, 'testfiles'):
-        sys.argv = [sys.argv[0]]
+        sys.argv = [sys.argv[0]]  # the --test argument upsets unittest.main()        
         unittest.main()
     else:
         run()

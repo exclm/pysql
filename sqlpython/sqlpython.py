@@ -121,9 +121,15 @@ class sqlpython(cmd2.Cmd):
     postgresql_connect_parser = (legal_sql_word('db_name') + 
                                  pyparsing.Optional(legal_sql_word('username')))
           
-    def connect_url(self, arg, opts):
-        rdbms = opts.rdbms or self.default_rdbms
-        
+    def connect_url(self, arg, opts):               
+        if opts.oracle:
+            rdbms = 'oracle'
+        elif opts.postgres:
+            rdbms = 'postgres'
+        elif opts.mysql:
+            rdbms = 'mysql'
+        else:
+            rdbms = self.default_rdbms
         mode = 0
         host = None
         port = None
@@ -210,6 +216,7 @@ class sqlpython(cmd2.Cmd):
             url = self.connect_url(arg, opts)
             connect_info = self.url_connect(url)
         except Exception, e:
+            self.perror(str(e))
             self.perror(r'URL connection format: rdbms://username:password@host/database')
             return
         if opts.add or (self.connection_number is None):
