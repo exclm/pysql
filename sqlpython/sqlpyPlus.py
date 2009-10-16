@@ -1107,22 +1107,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         except (TypeError, IndexError):
             self.pfeedback('Could not resolve object %s.' % identifier)
             return '', '', ''
-
-    def resolve_with_column(self, identifier):
-        colName = None
-        object_type, owner, object_name = self.resolve(identifier)
-        if not object_type:
-            parts = identifier.split('.')
-            if len(parts) > 1:
-                colName = parts[-1]
-                identifier = '.'.join(parts[:-1])
-                object_type, owner, object_name = self.resolve(identifier)
-        return object_type, owner, object_name, colName
         
-    def do_resolve(self, arg):
-        target = arg.upper()
-        self.poutput(','.join(self.resolve(target))+'\n')
-
     def spoolstop(self):
         if self.spoolFile:
             self.stdout = self.stdoutBeforeSpool
