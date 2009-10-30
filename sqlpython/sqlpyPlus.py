@@ -23,7 +23,7 @@ or with a python-like shorthand
 
 - catherinedevlin.blogspot.com  May 31, 2006
 """
-import sys, os, re, sqlpython, cx_Oracle, pyparsing, re, completion
+import sys, os, re, sqlpython, pyparsing, re, completion
 import datetime, pickle, binascii, subprocess, time, itertools, hashlib
 import traceback, operator
 from cmd2 import Cmd, make_option, options, Statekeeper, Cmd2TestCase
@@ -31,7 +31,7 @@ from output_templates import output_templates
 from schemagroup import MetaData
 from metadata import metaqueries
 from plothandler import Plot
-from sqlpython import Parser
+from sqlpython import Parser, cx_Oracle, psycopg2
 import imagedetect
 import warnings
 warnings.filterwarnings('ignore', 'BaseException.message', DeprecationWarning)
@@ -412,7 +412,7 @@ class sqlpyPlus(sqlpython.sqlpython):
     def dbms_output(self):
         "Dumps contents of Oracle's DBMS_OUTPUT buffer (where PUT_LINE goes)"
         try:
-            line = self.curs.var(cx_Oracle.STRING)
+            line = self.curs.var(cx_Oracle.STRING) # TODO: would regular string and number work?
             status = self.curs.var(cx_Oracle.NUMBER)
             self.curs.callproc('dbms_output.get_line', [line, status])
             while not status.getvalue():
@@ -752,7 +752,8 @@ class sqlpyPlus(sqlpython.sqlpython):
         self.rows = self.curs.fetchmany(min(self.maxfetch, (rowlimit or self.maxfetch)))
         self.colnames = [d[0] for d in self.curs.description]
         self.coltypes = [d[1] for d in self.curs.description]
-        if cx_Oracle.BLOB in self.coltypes:
+        #TODO: Other databases can have BLOBs, too
+        if cx_Oracle and (cx_Oracle.BLOB in self.coltypes):
             self.rows = [
                  [(    (coltype == cx_Oracle.BLOB) 
                    and BlobDisplayer(datum, (rownum < self.bloblimit)))
@@ -833,7 +834,7 @@ class sqlpyPlus(sqlpython.sqlpython):
 
                 self.poutput(txt)
                 if opts.full:
-                    # Hmm... dependent objects...
+                    # TODO: 'full' option for gerald metadata
             
                     if opts.full:
                         for dependent_type in ('OBJECT_GRANT', 'CONSTRAINT', 'TRIGGER'):        
@@ -986,10 +987,13 @@ class sqlpyPlus(sqlpython.sqlpython):
                             self.poutput('%d: %s' % (line_num, line))
             
     def _col_type_descriptor(self, col):
-        if 'precision' in col:
-            return '%s(%d,%d)' % (col['type'], col['length'], col['precision'])
-        elif 'length' in col:
-            return '%s(%d)' % (col['type'], col['length'])
+        #if col['type'] in ('integer',):
+        #    return col['type']
+        if ('length' in col) and (col['length'] is not None):
+            if ('precision' in col) and (col['precision'] is not None):
+                return '%s(%d,%d)' % (col['type'], col['length'], col['precision'])
+            else:
+                return '%s(%d)' % (col['type'], col['length'])
         else:
             return col['type']
         
@@ -997,6 +1001,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         columns = [c['columns'] for c in tbl.constraints.values() if c['type'] == type]
         if columns:
             return reduce(list.extend, columns)
+                    #TODO: in postgres, _key_columns returns 'fishies_pkey' instead of 'n'        
         else:
             return []
         
@@ -1050,23 +1055,23 @@ class sqlpyPlus(sqlpython.sqlpython):
     def do_deps(self, arg):
         '''Lists all objects that are dependent upon the object.'''
         #TODO: Can this be Geraldized?
-        target = arg.upper()
-        object_type, owner, object_name = self.resolve(target)
-        if object_type == 'PACKAGE BODY':
-            q = "and (type != 'PACKAGE BODY' or name != :object_name)'"
-            object_type = 'PACKAGE'
-        else:
-            q = ""
-        q = """SELECT name,
-          type
-          from user_dependencies
-          where
-          referenced_name like :object_name
-          and	referenced_type like :object_type
-          and	referenced_owner like :owner
-          %s;""" % (q)
-        self.do_select(self.parsed(q, terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix), 
-                       bindVarsIn={'object_name':object_name, 'object_type':object_type, 'owner':owner})
+        for obj in self._matching_database_objects(arg, opts):
+
+            if object_type == 'PACKAGE BODY':
+                q = "and (type != 'PACKAGE BODY' or name != :object_name)'"
+                object_type = 'PACKAGE'
+            else:
+                q = ""
+            q = """SELECT name,
+              type
+              from user_dependencies
+              where
+              referenced_name like :object_name
+              and	referenced_type like :object_type
+              and	referenced_owner like :owner
+              %s;""" % (q)
+            self.do_select(self.parsed(q, terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix), 
+                           bindVarsIn={'object_name':object_name, 'object_type':object_type, 'owner':owner})
 
     @options([all_users_option])        
     def do_comments(self, arg, opts):
@@ -1274,8 +1279,7 @@ class sqlpyPlus(sqlpython.sqlpython):
     @options(standard_options)
     def do__dir_constraints(self, arg, opts):
         '''
-        Called with an exact table name, lists the indexes of that table.
-        Otherwise, acts as shortcut for `ls index/*(arg)*`
+        Lists constaints of a table.
         '''
         self.do__dir_(arg, opts, 'constraints', self._str_constraint)
 
@@ -1369,7 +1373,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                         sql = 'SELECT %s'
                     self.curs.execute(sql % val)
                     return True, var, self.curs.fetchone()[0]
-                except:   # should not be bare - should catch cx_Oracle.DatabaseError, etc.
+                except:   # TODO: should not be bare - should catch cx_Oracle.DatabaseError, etc.
                     return True, var, val  # we give up and assume it's a string
             
     def do_setbind(self, arg):
@@ -1492,7 +1496,11 @@ class sqlpyPlus(sqlpython.sqlpython):
         
     def metadata(self):
         schemas = self.connections[self.connection_number]['schemas']
-        username = self.connections[self.connection_number]['user'].upper()
+        username = self.connections[self.connection_number]['user']
+        if self.rdbms == 'oracle':
+            username = username.upper()
+        elif self.rdbms == 'postgres':
+            username = username.lower()
         return (username, schemas)
         
     def _to_sql_wildcards(self, original):
@@ -1550,7 +1558,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             self.pfeedback('Results are incomplete - only %d schemas mapped so far' % schemas.complete)        
         
         seek = self._regex(arg, opts.get('exact'))
-        qualified = opts.get('all')
+        qualified = opts.get('all') or '.' in arg   # TODO: is this working?
         for (schema_name, schema) in schemas.items():
             if schema_name == username or opts.get('all'):
                 for (name, dbobj) in schema.schema.items():                

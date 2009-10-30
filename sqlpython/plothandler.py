@@ -1,10 +1,12 @@
-import shelve, pickle, cx_Oracle, datetime, sys, itertools
+import shelve, pickle, datetime, sys, itertools
+from sqlpython import cx_Oracle
 shelvename = 'plot.shelve'
 
 try:
     import pylab
     class Plot(object):
-        plottable_types = (cx_Oracle.NUMBER, datetime.datetime)    
+        plottable_types = (cx_Oracle and cx_Oracle.NUMBER, datetime.datetime)
+        #TODO: add non-Oracle types
         def __init__(self):
             self.legends = []
             self.yserieslists = []

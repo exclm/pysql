@@ -163,18 +163,19 @@ which get and run SQL scripts from disk.'''
         except Exception, e:
             self.perror(e)
 
-    def do_sessinfo(self,args):
-        '''Reports session info for the given sid, extended to RAC with gv$'''
-        try:
-            if not args:
-                self.curs.execute('SELECT sid FROM v$mystat')
-                args = self.curs.fetchone()[0]
-            self.onecmd('SELECT * from gv$session where sid=%s\\t' % args)
-        except cx_Oracle.DatabaseError, e:
-            if 'table or view does not exist' in str(e):
-                self.perror('This account has not been granted SELECT privileges to v$mystat or gv$session.')
-            else:
-                raise 
+    if cx_Oracle:
+        def do_sessinfo(self,args):
+            '''Reports session info for the given sid, extended to RAC with gv$'''
+            try:
+                if not args:
+                    self.curs.execute('SELECT sid FROM v$mystat')
+                    args = self.curs.fetchone()[0]
+                self.onecmd('SELECT * from gv$session where sid=%s\\t' % args)
+            except cx_Oracle.DatabaseError, e:
+                if 'table or view does not exist' in str(e):
+                    self.perror('This account has not been granted SELECT privileges to v$mystat or gv$session.')
+                else:
+                    raise 
 
     def do_sleect(self,args):    
         '''implements sleect = select, a common typo'''
