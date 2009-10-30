@@ -8,9 +8,17 @@
 # Best used with the companion modules sqlpyPlus and mysqlpy 
 # See also http://twiki.cern.ch/twiki/bin/view/PSSGroup/SqlPython
 
-import cmd2,getpass,binascii,cx_Oracle,re,os,platform
+import cmd2,getpass,binascii,re,os,platform
 import sqlalchemy, pyparsing, schemagroup
 __version__ = '1.6.8'    
+try:
+    import cx_Oracle
+except ImportError:
+    cx_Oracle = None
+try:
+    import psycopg2
+except ImportError:
+    psycopg2 = None
 
 class Parser(object):
     comment_def = "--" + pyparsing.NotAny('-' + pyparsing.CaselessKeyword('begin')) + pyparsing.ZeroOrMore(pyparsing.CharsNotIn("\n"))    
