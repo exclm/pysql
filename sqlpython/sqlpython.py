@@ -333,6 +333,7 @@ class sqlpython(cmd2.Cmd):
                    'postgres': Parser(pyparsing.Literal('%(') + legal_sql_word + ')s')}
     def findBinds(self, target, givenBindVars = {}):
         result = givenBindVars
+        #TODO: A consistent bind style?  As a setting, perhaps?
         if self.rdbms in self.bindScanner:
             for finding, startat, endat in self.bindScanner[self.rdbms].scanner.scanString(target):
                 varname = finding[1]
