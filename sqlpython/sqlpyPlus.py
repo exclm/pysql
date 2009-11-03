@@ -357,15 +357,26 @@ class sqlpyPlus(sqlpython.sqlpython):
             'resource', 'revoke', 'select', 'share', 'start', 'union', 'update', 
             'where', 'with']    
     default_file_name = 'afiedt.buf'
+    settable = sqlpython.settable + '''
+        autobind
+        bloblimit
+        colors
+        commit_on_exit
+        default_rdbms
+        maxfetch
+        maxtselctrows
+        rows_remembered
+        scan
+        serveroutput
+        sql_echo
+        timeout
+        heading
+        wildsql
+        version'''
     def __init__(self):
         sqlpython.sqlpython.__init__(self)
         self.binds = CaselessDict()
-        self.settable += '''autobind bloblimit colors commit_on_exit 
-                            default_rdbms maxfetch maxtselctrows 
-                            rows_remembered scan serveroutput 
-                            sql_echo timeout heading wildsql version'''.split()
         self.settable.remove('case_insensitive')
-        self.settable.sort()
         self.stdoutBeforeSpool = sys.stdout
         self.sql_echo = False
         self.spoolFile = None
@@ -660,7 +671,9 @@ class sqlpyPlus(sqlpython.sqlpython):
             prompt = ''
         varname = args.lower().split()[0]
         self.substvars[varname] = self.pseudo_raw_input(prompt)
-                
+
+    #TODO: double-ampersand not working
+    #substvars not remembered b/t queries
     def ampersand_substitution(self, raw, regexpr, isglobal):
         subst = regexpr.search(raw)
         while subst:
@@ -700,9 +713,10 @@ class sqlpyPlus(sqlpython.sqlpython):
                           help='Bind row #ROW instead of final row (zero-based)')])    
     def do_bind(self, arg, opts):
         '''
-        Inserts the results from the final row in the last completed SELECT statement
-        into bind variables with names corresponding to the column names.  When the optional 
-        `autobind` setting is on, this will be issued automatically after every query that 
+        Inserts the results from the final row in the last completed
+        SELECT statement into bind variables with names corresponding 
+        to the column names.  When the optional `autobind` setting is
+        on, this will be issued automatically after every query that 
         returns exactly one row.
         '''
         try:
@@ -918,7 +932,11 @@ class sqlpyPlus(sqlpython.sqlpython):
                                (program, os.getcwd()))
             if not create.strip().lower().startswith('y'):
                 return
-        subprocess.call([program, 'init'])
+        try:
+            subprocess.call([program, 'init'])
+        except OSError:
+            self.perror('Call to %s failed; is it installed and in PATH?' % program)
+            return
         opts.dump = True
         self._pull(arg, opts, vc=[program, 'add'])
         subprocess.call([program, 'commit', '-m', '"%s"' % opts.message or 'committed from sqlpython'])        
@@ -1051,11 +1069,12 @@ class sqlpyPlus(sqlpython.sqlpython):
                         break
                 self.poutput(''.join(l for (ln, l) in m.db_object.source[:index]))
                         
-            
-    def do_deps(self, arg):
+    @options([all_users_option])            
+    def do_deps(self, arg, opts):
         '''Lists all objects that are dependent upon the object.'''
         #TODO: Can this be Geraldized?
         for obj in self._matching_database_objects(arg, opts):
+            obj.db_object.triggers
 
             if object_type == 'PACKAGE BODY':
                 q = "and (type != 'PACKAGE BODY' or name != :object_name)'"
