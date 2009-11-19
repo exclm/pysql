@@ -353,7 +353,8 @@ class sqlpython(cmd2.Cmd):
             command = '%s %s'    
         if self.rdbms == 'oracle':
             current_time = self.current_database_time()
-        self.curs.execute(command % (arg.parsed.command, arg.parsed.args), self.varsUsed)
+        commandstring = command % (arg.parsed.command, arg.parsed.args)
+        self.curs.execute(commandstring, self.varsUsed)
         executionmessage = '\nExecuted%s\n' % ((self.curs.rowcount > 0) and ' (%d rows)' % self.curs.rowcount or '')
         if self.rdbms == 'oracle':
             self._show_errors(all_users=True, limit=1, mintime=current_time)
