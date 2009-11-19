@@ -895,7 +895,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         show all err (type/name)        - all compilation errors from the user's PL/SQL objects.
         show (index/schema/tablespace/trigger/view/constraint/comment) on (table)
         '''
-        if arg.startswith('param'):
+        if arg.startswith('param') and self.rdbms == 'oracle':
             try:
                 paramname = arg.split()[1].lower()
             except IndexError:
