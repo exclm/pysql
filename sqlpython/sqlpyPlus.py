@@ -357,26 +357,27 @@ class sqlpyPlus(sqlpython.sqlpython):
             'resource', 'revoke', 'select', 'share', 'start', 'union', 'update', 
             'where', 'with']    
     default_file_name = 'afiedt.buf'
-    settable = sqlpython.settable + '''
-        autobind
-        bloblimit
-        colors
-        commit_on_exit
-        default_rdbms
-        maxfetch
-        maxtselctrows
-        rows_remembered
-        scan
-        serveroutput
-        sql_echo
+    settable = sqlpython.sqlpython.settable + '''
+        autobind         Always fill bind variables from final row
+        bloblimit        Max # of BLOBs to copy to disk for each query
+        colors           colorize query results (*nix only)
+        commit_on_exit   automatically COMMIT when exiting program
+        default_rdbms    
+        maxfetch         limit # of rows fetched
+        maxtselctrows    max # rows in transposed results
+        rows_remembered  # rows stored in ``r`` for python access
+        scan             interpolate substitution variables
+        serveroutput     send dbms_output.put_line to screen (Oracle)
+        sql_echo         echo SQL commands
         timeout
         heading
-        wildsql
-        version'''
+        wildsql          Accept wildcards, position #s in column names
+        version'''.splitlines()
+    
     def __init__(self):
         sqlpython.sqlpython.__init__(self)
         self.binds = CaselessDict()
-        self.settable.remove('case_insensitive')
+        self.settable.pop('case_insensitive')
         self.stdoutBeforeSpool = sys.stdout
         self.sql_echo = False
         self.spoolFile = None
@@ -990,8 +991,6 @@ class sqlpyPlus(sqlpython.sqlpython):
             if opts.col:
                 if hasattr(m.db_object, 'columns'):
                     for col in m.db_object.columns:
-                        if isinstance(col, tuple):
-                            col = col[1]  # will become unnecessary once gerald views return dicts of columns
                         if seek.search(col):
                             self.poutput('%s.%s' % (m.descriptor(qualified), col))
             else:
@@ -1039,7 +1038,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             if opts.long and hasattr(m.db_object, 'comments'):
                 if m.db_object.comments:
                     self.poutput(m.db_object.comments) 
-            if hasattr(m.db_object, 'columns') and not isinstance(m.db_object.columns, list): # drop once gerald returns column dicts for views
+            if hasattr(m.db_object, 'columns'):
                 cols = sorted(m.db_object.columns.values(), key=sortkey)[:rowlimit]
                 if opts.long:
                     primary_key_columns = self._key_columns(m.db_object, 'Primary')
@@ -1622,9 +1621,9 @@ class sqlpyPlus(sqlpython.sqlpython):
         pattern, targets = args[0], args[1:]
         if opts.ignorecase:
             pattern = pattern.lower()
-            comparitor = "OR LOWER(to_char(%s)) LIKE '%%%s%%'"
+            comparitor = "OR LOWER(%s) LIKE '%%%%%%s%%%%'" % self._cast_as_char()
         else:
-            comparitor = "OR to_char(%s) LIKE '%%%s%%'"
+            comparitor = "OR %s LIKE '%%%%%%s%%%%'" % self._cast_as_char()
         sql_pattern = self._to_sql_wildcards(pattern)
         re_pattern = re.compile(self._to_re_wildcards(pattern), 
                                 (opts.ignorecase and re.IGNORECASE) or 0)
@@ -1646,10 +1645,10 @@ class sqlpyPlus(sqlpython.sqlpython):
                             self.poutput('%4d: %s' % (line_num, line))
                 
 
-    def _cast(self, colname, typ='CHAR'):
-        'self._cast(colname, typ) => Returns the RDBMS-equivalent "CAST (colname AS typ) expression.' 
-        converter = {'oracle': 'TO_%(typ)s(%(colname)s)'}.get(self.rdbms, 'CAST(%(colname)s AS %(typ)s)')
-        return converter % {'colname': colname, 'typ': typ}
+    def _cast_as_char(self):
+        'self._cast_as_char() => Returns the RDBMS-equivalent "CAST(%s AS VARCHAR) expression.' 
+        converter = {'oracle': 'TO_CHAR(%s)'}.get(self.rdbms, 'CAST(%s AS VARCHAR)')
+        return converter
     
     def _execute(self, sql, bindvars={}):
         self.sqlfeedback(sql)
