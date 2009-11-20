@@ -675,8 +675,6 @@ class sqlpyPlus(sqlpython.sqlpython):
         varname = args.lower().split()[0]
         self.substvars[varname] = self.pseudo_raw_input(prompt)
 
-    #TODO: double-ampersand not working
-    #substvars not remembered b/t queries
     def ampersand_substitution(self, raw, regexpr, isglobal):
         subst = regexpr.search(raw)
         while subst:
@@ -1263,6 +1261,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                                   idx['type'], (idx['unique'] and 'unique') or '')
 
     def _str_constraint(self, cons, long=False):
+        #TODO: this is way too unclear right now
         if 'condition' in cons:
             details = '(%s)' % cons['condition']
         elif 'reftable' in cons:
@@ -1665,53 +1664,9 @@ class sqlpyPlus(sqlpython.sqlpython):
     def do_refs(self, arg):
         '''Lists referential integrity (foreign key constraints) on an object or referring to it.'''
         
-        if not arg.strip():
-            self.perror('Usage: refs (table name)')
-        result = []
-        (type, owner, table_name) = self.resolve(arg.upper())        
-        sql = """SELECT constraint_name, r_owner, r_constraint_name 
-                             FROM   all_constraints 
-                             WHERE  constraint_type = 'R'
-                             AND    owner = :owner
-                             AND    table_name = :table_name"""
-        self._execute(sql, {"owner": owner, "table_name": table_name})
-        for (constraint_name, remote_owner, remote_constraint_name) in self.curs.fetchall():
-            result.append('%s on %s.%s:' % (constraint_name, owner, table_name))
-            
-            self._execute("SELECT column_name FROM all_cons_columns WHERE owner = :owner AND constraint_name = :constraint_name ORDER BY position",
-                          {'constraint_name': constraint_name, 'owner': owner})
-            result.append("    (%s)" % (",".join(col[0] for col in self.curs.fetchall())))
-            self._execute("SELECT table_name FROM all_constraints WHERE owner = :remote_owner AND constraint_name = :remote_constraint_name",
-                          {'remote_owner': remote_owner, 'remote_constraint_name': remote_constraint_name})
-            remote_table_name = self.curs.fetchone()[0]
-            result.append("must be in %s:" % (remote_table_name))
-            self._execute("SELECT column_name FROM all_cons_columns WHERE owner = :remote_owner AND constraint_name = :remote_constraint_name ORDER BY position",
-                              {'remote_constraint_name': remote_constraint_name, 'remote_owner': remote_owner})
-            result.append('    (%s)\n' % (",".join(col[0] for col in self.curs.fetchall())))
-        remote_table_name = table_name
-        remote_owner = owner
-        self._execute("""SELECT  owner, constraint_name, table_name, r_constraint_name
-                             FROM    all_constraints
-                             WHERE   (r_owner, r_constraint_name) IN
-                               ( SELECT owner, constraint_name
-                                 FROM   all_constraints
-                                 WHERE  table_name = :remote_table_name
-                                 AND    owner = :remote_owner )""",
-                          {'remote_table_name': remote_table_name, 'remote_owner': remote_owner})
-        for (owner, constraint_name, table_name, remote_constraint_name) in self.curs.fetchall():
-            result.append('%s on %s.%s:' % (constraint_name, owner, table_name))
-            self._execute("SELECT column_name FROM all_cons_columns WHERE owner = :owner AND constraint_name = :constraint_name ORDER BY position",
-                              {'constraint_name': constraint_name, 'owner': owner})
-            result.append("    (%s)" % (",".join(col[0] for col in self.curs.fetchall())))
-            self._execute("SELECT table_name FROM all_constraints WHERE owner = :remote_owner AND constraint_name = :remote_constraint_name",
-                              {'remote_owner': remote_owner, 'remote_constraint_name': remote_constraint_name})
-            remote_table_name = self.curs.fetchone()[0]
-            result.append("must be in %s:" % (remote_table_name))
-            self._execute("SELECT column_name FROM all_cons_columns WHERE owner = :remote_owner AND constraint_name = :remote_constraint_name ORDER BY position",
-                              {'remote_constraint_name': remote_constraint_name, 'remote_owner': remote_owner})
-            result.append('    (%s)\n' % (",".join(col[0] for col in self.curs.fetchall())))
-        self.poutput('\n'.join(result) + "\n")
-    
+        # TODO: needs much polish
+        return self.do__dir_constraints(arg)
+
 def _test():
     import doctest
     doctest.testmod()

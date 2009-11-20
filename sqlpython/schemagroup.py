@@ -67,13 +67,14 @@ class PostgresSchemaAccess(object):
         curs = connection.cursor()
         curs.execute("""SELECT  '%s', current_time""" % username)
         return curs 
+        # TODO: we just assume that we always need a refresh - that's sloppy
     
 class MySQLSchemaAccess(object):        
     child_type = gerald.MySQLSchema
-    current_database_time_query = 'SELECT sysdate FROM dual'
+    current_database_time_query = 'SELECT now()'
     def latest_ddl_timestamp_query(self, username, connection):
         curs = connection.cursor()
-        curs.execute("""SELECT  '%s', current_time""" % username)
+        curs.execute("""SELECT  '%s', now()""" % username)
         return curs 
     
 class SchemaDict(dict):
