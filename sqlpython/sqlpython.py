@@ -341,7 +341,7 @@ class sqlpython(cmd2.Cmd):
                     result[varname] = self.binds[varname]
                 except KeyError:
                     if not givenBindVars.has_key(varname):
-                        print 'Bind variable %s not defined.' % (varname)
+                        raise KeyError, 'Bind variable "%s" not defined.' % (varname)
         return result
 
     def default(self, arg):
