@@ -567,13 +567,15 @@ class sqlpyPlus(sqlpython.sqlpython):
         re.IGNORECASE | re.DOTALL | re.MULTILINE)        
     def completedefault(self, text, line, begidx, endidx):
         (username, schemas) = self.metadata()
-        segment = completion.whichSegment(line)
+        segment = completion.whichSegment(line)        
         text = text.upper()
         if segment in ('select', 'where', 'having', 'set', 'order by', 'group by'):
             completions = [c for c in schemas[username].column_names if c.startswith(text)] \
                           or [c for c in schemas.qual_column_names if c.startswith(text)]
                           # TODO: the latter not working
         elif segment in ('from', 'update', 'insert into'):
+            # print schemas[username].table_names
+            # TODO: from postgres, these table names are jrrt.fishies, etc.
             completions = [t for t in schemas[username].table_names if t.startswith(text)]
         elif segment == 'beginning':
             completions = [n for n in self.get_names() if n.startswith('do_')] + [
@@ -695,10 +697,13 @@ class sqlpyPlus(sqlpython.sqlpython):
             subst = regexpr.search(raw) # do not FINDALL b/c we don't want to ask twice
         return raw
 
-    numericampre = re.compile('(&(\d+))')    
+    doublenumericampre = re.compile('(&&(\d+))')  
+    numericampre = re.compile('(&(\d+))')        
     doubleampre = re.compile('(&&([a-zA-Z\d_$#]+))', re.IGNORECASE)
     singleampre = re.compile( '(&([a-zA-Z\d_$#]+))', re.IGNORECASE)
     def preparse(self, raw, **kwargs):
+        if self.scan:
+            raw = self.ampersand_substitution(raw, regexpr=self.doublenumericampre, isglobal=True)            
         if self.scan:
             raw = self.ampersand_substitution(raw, regexpr=self.numericampre, isglobal=False)
         if self.scan:
@@ -1514,6 +1519,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         
     def metadata(self):
         schemas = self.connections[self.connection_number]['schemas']
+        
         username = self.connections[self.connection_number]['user']
         if self.rdbms == 'oracle':
             username = username.upper()
