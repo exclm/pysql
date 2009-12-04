@@ -18,7 +18,7 @@ setup(name="sqlpython",
       packages=find_packages(),
       include_package_data=True,    
       install_requires=['pyparsing','cmd2>=0.5.6','gerald>=0.3.1',
-                        'genshi>=0.5','sqlalchemy'],
+                        'genshi>=0.5','sqlalchemy>=0.5.5'],
       extras_require = {
         'oracle':  ['cx_Oracle>=5.0.2'],
         'postgres': ['psycopg2'],
