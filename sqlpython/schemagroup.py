@@ -1,4 +1,5 @@
 import gerald, re, datetime, threading, time, operator
+import gerald.oracle_schema, gerald.postgres_schema, gerald.mysql_schema
 
 def gerald_connection_string(sqlalchemy_connection_string):
     return sqlalchemy_connection_string.split('/?mode=')[0].replace('//','/')
@@ -48,7 +49,7 @@ class RefreshGroupThread(threading.Thread):
                                [])
         
 class OracleSchemaAccess(object):        
-    child_type = gerald.OracleSchema
+    child_type = gerald.oracle_schema.User
     current_database_time_query = 'SELECT sysdate FROM dual'
     def latest_ddl_timestamp_query(self, username, connection):
         curs = connection.cursor()
@@ -61,7 +62,7 @@ class OracleSchemaAccess(object):
         return curs 
 
 class PostgresSchemaAccess(object):        
-    child_type = gerald.PostgresSchema
+    child_type = gerald.PostgresSchema # we need User here, too
     current_database_time_query = 'SELECT current_time'
     def latest_ddl_timestamp_query(self, username, connection):
         curs = connection.cursor()
