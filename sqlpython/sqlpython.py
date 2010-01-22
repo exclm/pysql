@@ -126,8 +126,8 @@ class sqlpython(cmd2.Cmd):
                             pyparsing.Optional(pyparsing.CaselessKeyword('as') + 
                                                (pyparsing.CaselessKeyword('sysoper') ^ 
                                                 pyparsing.CaselessKeyword('sysdba'))('mode')))
-    postgresql_connect_parser = (legal_sql_word('db_name') + 
-                                 pyparsing.Optional(legal_sql_word('username')))
+    postgresql_connect_parser = pyparsing.Optional(legal_sql_word('db_name') + 
+                                                   pyparsing.Optional(legal_sql_word('username')))
           
     def connect_url(self, arg, opts):               
         if opts.oracle:
@@ -184,7 +184,7 @@ class sqlpython(cmd2.Cmd):
                                     help='close connection {N} (or current)'),
                    cmd2.make_option('-C', '--closeall', action='store_true', 
                                     help='close all connections'),
-                   cmd2.make_option('--postgres', action='store_true', help='Connect to a postgreSQL database'),
+                   cmd2.make_option('--postgres', action='store_true', help='Connect to postgreSQL: `sqlpython --postgres [DBNAME [USERNAME]]`'),
                    cmd2.make_option('--oracle', action='store_true', help='Connect to an Oracle database'),
                    cmd2.make_option('--mysql', action='store_true', help='Connect to a MySQL database'),                   
                    cmd2.make_option('-r', '--rdbms', type='string', 
@@ -209,7 +209,7 @@ class sqlpython(cmd2.Cmd):
                 arg = self.connection_number
             self.disconnect(arg)
             return 
-        if not arg:
+        if (not arg) and (not opts.postgres):
             self.list_connections()
             return 
         try:
