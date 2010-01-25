@@ -346,7 +346,6 @@ class sqlpython(cmd2.Cmd):
             rrows2 = range(len(toprint))
             for j in rrows2:
                 val = toprint[j][i]
-                #import pdb; pdb.set_trace()
                 if str(self.coltypes[i]) == "<type 'cx_Oracle.NUMBER'>":  # right align numbers - but must generalize!
                     toprint[j][i] = (" " * (maxcol-len(val))) + val
                 else:

@@ -29,7 +29,6 @@ class DatabaseInstance(object):
             return False
             
     def parse_connect_arg(self, arg, opts):
-        self.password = opts.password or getpass.getpass('Password: ')
         self.host = opts.hostname
         self.oracle_connect_mode = 0
         if opts.postgres:
@@ -43,6 +42,7 @@ class DatabaseInstance(object):
         self.assign_args(arg, opts)
         self.db_name = opts.database or self.db_name
         self.port = self.port or self.default_port        
+        self.password = self.password or opts.password or getpass.getpass('Password: ')        
         self.uri = self.uri or '%s://%s:%s@%s:%s/%s' % (self.rdbms, self.username, self.password,
                                                          self.host, self.port, self.db_name)
     
