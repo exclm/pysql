@@ -59,15 +59,15 @@ class sqlpython(cmd2.Cmd):
     def no_instance(self):
         self.prompt = 'SQL.No_Connection> '
         self.curs = None
-        self.conn = None
+        self.current_instance = None
         self.instance_number = None
         
     def make_instance_current(self, instance_number):
         db_instance = self.instances[instance_number]
-        self.prompt = conn.prompt
-        self.rdbms = conn.rdbms
+        self.prompt = db_instance.prompt
+        self.rdbms = db_instance.rdbms
         self.instance_number = instance_number
-        self.curs = conn.connection.cursor()
+        self.curs = db_instance.connection.cursor()
         self.current_instance = db_instance
             
     def list_instances(self):
@@ -107,7 +107,20 @@ class sqlpython(cmd2.Cmd):
     postgresql_connect_parser = pyparsing.Optional(legal_sql_word('db_name') + 
                                                    pyparsing.Optional(legal_sql_word('username')))
           
-
+    def successfully_connect_to_number(self, arg):
+        try:
+            instance_number = int(arg)
+        except ValueError:            
+            return False
+        try:
+            self.make_instance_current(instance_number)
+        except IndexError:
+            self.list_instances()
+            return False
+        if (self.rdbms == 'oracle') and self.serveroutput:
+            self.curs.callproc('dbms_output.enable', [])           
+        return True
+    
     @cmd2.options([cmd2.make_option('-a', '--add', action='store_true', 
                                     help='add connection (keep current connection)'),
                    cmd2.make_option('-c', '--close', action='store_true', 
@@ -152,7 +165,7 @@ class sqlpython(cmd2.Cmd):
             except ValueError:
                 self.instance_number = 0            
         db_instance.set_instance_number(self.instance_number)
-        self.instances[self.instance_number] = conn
+        self.instances[self.instance_number] = db_instance
         self.make_instance_current(self.instance_number)        
         if (self.rdbms == 'oracle') and self.serveroutput:
             self.curs.callproc('dbms_output.enable', [])        

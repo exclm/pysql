@@ -1517,12 +1517,12 @@ class sqlpyPlus(sqlpython.sqlpython):
         'XML SCHEMA')
         
     def metadata(self):
-        username = self.conn.username
+        username = self.current_instance.username
         if self.rdbms == 'oracle':
             username = username.upper()
         elif self.rdbms == 'postgres':
             username = username.lower()
-        return (username, self.conn.schemas)
+        return (username, self.current_instance.schemas)
         
     def _to_sql_wildcards(self, original):
         return original.replace('*','%').replace('?','_')
