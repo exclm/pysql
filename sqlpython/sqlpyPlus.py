@@ -1043,7 +1043,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                     self.poutput(m.db_object.comments) 
             if hasattr(m.db_object, 'columns'):
                 cols = sorted(m.db_object.columns.values(), key=sortkey)[:rowlimit]
-                if opts.long:
+                if opts.long and hasattr(m.db_object, 'constraints'):
                     primary_key_columns = self._key_columns(m.db_object, 'Primary')
                     unique_key_columns = self._key_columns(m.db_object, 'Unique')
                     self.colnames = 'N Name Nullable Type Key Default Comments'.split()
@@ -1265,12 +1265,12 @@ class sqlpyPlus(sqlpython.sqlpython):
         if 'condition' in cons:
             details = '(%s)' % cons['condition']
         elif 'reftable' in cons:
-            details = '(%s) in %s' % (','.join(cons['columns']), cons['reftable'])
+            details = 'columns (%s) in table "%s"' % (','.join(cons['columns']), cons['reftable'])
         elif 'columns' in cons:
             details = '(%s)' % ','.join(cons['columns'])
         else:
             details = ''
-        return '%7s %s: %s %s' % (cons['type'], cons['name'], details,
+        return '%7s key "%s": %s %s' % (cons['type'], cons['name'], details,
                                   ((not cons['enabled']) and 'DISABLED') or '')
 
 
@@ -1369,7 +1369,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         >>> s.interpret_variable_assignment(s.parsed("baz := 22"))
         (True, 'baz', 22)
         >>> s.interpret_variable_assignment(s.parsed("foo"))
-        (False, 'foo', None)    
+        (False, 'foo', None)
         '''
         arg = self.parsed(arg)
         try:

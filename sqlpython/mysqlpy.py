@@ -10,7 +10,6 @@
 
 from sqlpyPlus import *
 import sys, tempfile, optparse, unittest
-import sqlalchemy
 
 class mysqlpy(sqlpyPlus):
     '''
@@ -103,6 +102,7 @@ WHERE  created > SYSDATE - 7;''')
 
     def do_longops(self,args):
         '''Runs query_longops defined above, to display long running operations (full scans, etc)'''
+        import pdb; pdb.set_trace()
         self.onecmd(self.query_longops)
         
     def do_load(self,args):
