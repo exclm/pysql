@@ -49,89 +49,51 @@ class sqlpython(cmd2.Cmd):
 
     def __init__(self):
         cmd2.Cmd.__init__(self)
-        self.no_connection()
+        self.no_instance()
         self.maxfetch = 1000
         self.terminator = ';'
         self.timeout = 30
         self.commit_on_exit = True
-        self.connections = {}
+        self.instances = {}
         
-    def no_connection(self):
+    def no_instance(self):
         self.prompt = 'SQL.No_Connection> '
         self.curs = None
         self.conn = None
-        self.connection_number = None
+        self.instance_number = None
         
-    def make_connection_current(self, connection_number):
-        conn = self.connections[connection_number]
+    def make_instance_current(self, instance_number):
+        db_instance = self.instances[instance_number]
         self.prompt = conn.prompt
         self.rdbms = conn.rdbms
-        self.connection_number = connection_number
+        self.instance_number = instance_number
         self.curs = conn.connection.cursor()
-        self.conn = conn
+        self.current_instance = db_instance
             
-    def successfully_connect_to_number(self, arg):
-        try:
-            connection_number = int(arg)
-        except ValueError:            
-            return False
-        try:
-            self.make_connection_current(connection_number)
-        except IndexError:
-            self.list_connections()
-            return False
-        if (self.rdbms == 'oracle') and self.serveroutput:
-            self.curs.callproc('dbms_output.enable', [])           
-        return True
-
-    def successful_connection_to_number(self, arg):
-        # deprecated 
-        try:
-            connection_number = int(arg)
-        except ValueError:            
-            return False
-        self.make_connection_current(connection_number)
-        if (self.rdbms == 'oracle') and self.serveroutput:
-            self.curs.callproc('dbms_output.enable', [])           
-        return True
-
-    def list_connections(self):
+    def list_instances(self):
         self.stdout.write('Existing connections:\n')
-        self.stdout.write('\n'.join('%s (%s)' % (v['prompt'], v['rdbms']) 
-                                    for (k,v) in sorted(self.connections.items())) + '\n')
+        self.stdout.write('\n'.join('%s (%s)' % (v.prompt, v.rdbms) 
+                                    for (k,v) in sorted(self.instances.items())) + '\n')
         
     def disconnect(self, arg):
         try:
-            connection_number = int(arg)
-            connection = self.connections[connection_number]
+            instance_number = int(arg)
+            instance = self.instances[instance_number]
         except (ValueError, KeyError):
-            self.list_connections()
+            self.list_instances()
             return
         if self.commit_on_exit:
-            connection['conn'].commit()
-        self.connections.pop(connection_number)
-        if connection_number == self.connection_number:
-            self.no_connection()
+            instance.connection.commit()
+        self.instances.pop(instance_number)
+        if instance_number == self.instance_number:
+            self.no_instance()
             
     def closeall(self):
-        for connection_number in self.connections.keys():
-            self.disconnect(connection_number)
+        for instance_number in self.instances.keys():
+            self.disconnect(instance_number)
         self.curs = None
-        self.no_connection()        
+        self.no_instance()        
             
-    def url_connect(self, arg):
-        eng = sqlalchemy.create_engine(arg, use_ansiquotes=True) 
-        self.conn = eng.connect().connection
-        user = eng.url.username or ''
-        rdbms = eng.url.drivername
-        conn  = {'conn': self.conn, 'prompt': self.prompt, 'dbname': eng.url.database,
-                 'rdbms': rdbms, 'user': user, 'eng': eng, 
-                 'schemas': schemagroup.SchemaDict({}, 
-                    rdbms=rdbms, user=user, connection=self.conn, connection_string=arg)}
-        s = conn['schemas']
-        s.refresh_asynch()
-        return conn
-    
     legal_sql_word = pyparsing.Word(pyparsing.alphanums + '_$#')
     legal_hostname = pyparsing.Word(pyparsing.alphanums + '_-.')('host') + pyparsing.Optional(
         ':' + pyparsing.Word(pyparsing.nums)('port'))
@@ -145,54 +107,6 @@ class sqlpython(cmd2.Cmd):
     postgresql_connect_parser = pyparsing.Optional(legal_sql_word('db_name') + 
                                                    pyparsing.Optional(legal_sql_word('username')))
           
-    def connect_url(self, arg, opts):               
-        if opts.oracle:
-            rdbms = 'oracle'
-        elif opts.postgres:
-            rdbms = 'postgres'
-        elif opts.mysql:
-            rdbms = 'mysql'
-        else:
-            rdbms = self.default_rdbms
-        mode = 0
-        host = None
-        port = None
-        
-        if rdbms == 'oracle':
-            result = self.oracle_connect_parser.parseString(arg)
-            if result.mode == 'sysdba':
-                mode = cx_Oracle.SYSDBA
-            elif result.mode == 'sysoper':
-                mode = cx_Oracle.SYSOPER   
-            else:
-                mode = 0
-        elif rdbms == 'postgres':
-            result = self.postgresql_connect_parser.parseString(arg)
-            port = opts.port or os.environ.get('PGPORT') or 5432            
-            host = opts.host or os.environ.get('PGHOST') or 'localhost'
-       
-        username = result.username or opts.username           
-        if not username and rdbms == 'postgres':
-            username = os.environ.get('PGUSER') or os.environ.get('USER')
-
-        db_name = result.db_name or opts.database
-        if not db_name:
-            if rdbms == 'oracle':
-                db_name = os.environ.get('ORACLE_SID')
-            elif rdbms == 'postgres':
-                db_name = os.environ.get('PGDATABASE') or username
-        
-        password = result.password or getpass.getpass('Password: ')
-               
-        if host:
-            if port:
-                host = '%s:%s' % (host, port)
-            db_name = '%s/%s' % (host, db_name)
-
-        url = '%s://%s:%s@%s' % (rdbms, username, password, db_name)
-        if mode:
-            url = '%s/?mode=%d' % mode
-        return url
 
     @cmd2.options([cmd2.make_option('-a', '--add', action='store_true', 
                                     help='add connection (keep current connection)'),
@@ -222,108 +136,43 @@ class sqlpython(cmd2.Cmd):
             return 
         if opts.close:
             if not arg:
-                arg = self.connection_number
+                arg = self.instance_number
             self.disconnect(arg)
             return 
         if (not arg) and (not opts.postgres):
-            self.list_connections()
+            self.list_instances()
             return 
         if self.successfully_connect_to_number(arg):
             return
         
-        conn = connections.Connection(arg, opts, default_rdbms = self.default_rdbms)
-        if opts.add or (self.connection_number is None):
+        db_instance = connections.DatabaseInstance(arg, opts, default_rdbms = self.default_rdbms)
+        if opts.add or (self.instance_number is None):
             try:
-                self.connection_number = max(self.connections.keys()) + 1
+                self.instance_number = max(self.instances.keys()) + 1
             except ValueError:
-                self.connection_number = 0            
-        conn.set_connection_number(self.connection_number)
-        self.connections[self.connection_number] = conn
-        self.make_connection_current(self.connection_number)        
+                self.instance_number = 0            
+        db_instance.set_instance_number(self.instance_number)
+        self.instances[self.instance_number] = conn
+        self.make_instance_current(self.instance_number)        
         if (self.rdbms == 'oracle') and self.serveroutput:
             self.curs.callproc('dbms_output.enable', [])        
     
-    @cmd2.options([cmd2.make_option('-a', '--add', action='store_true', 
-                                    help='add connection (keep current connection)'),
-                   cmd2.make_option('-c', '--close', action='store_true', 
-                                    help='close connection {N} (or current)'),
-                   cmd2.make_option('-C', '--closeall', action='store_true', 
-                                    help='close all connections'),
-                   cmd2.make_option('--postgres', action='store_true', help='Connect to postgreSQL: `sqlpython --postgres [DBNAME [USERNAME]]`'),
-                   cmd2.make_option('--oracle', action='store_true', help='Connect to an Oracle database'),
-                   cmd2.make_option('--mysql', action='store_true', help='Connect to a MySQL database'),                   
-                   cmd2.make_option('-r', '--rdbms', type='string', 
-                                    help='Type of database to connect to (oracle, postgres, mysql)'),
-                   cmd2.make_option('-H', '--host', type='string', 
-                                    help='Host to connect to (postgresql only)'),                                  
-                   cmd2.make_option('-p', '--port', type='int', 
-                                    help='Port to connect to (postgresql only)'),                                  
-                   cmd2.make_option('-d', '--database', type='string', 
-                                    help='Database name to connect to'),
-                   cmd2.make_option('-U', '--username', type='string', 
-                                    help='Database user name to connect as')
-                   ])
-    def _o_connect(self, arg, opts):
- 
-        '''Opens the DB connection'''
-        if opts.closeall:
-            self.closeall()
-            return 
-        if opts.close:
-            if not arg:
-                arg = self.connection_number
-            self.disconnect(arg)
-            return 
-        if (not arg) and (not opts.postgres):
-            self.list_connections()
-            return 
-        try:
-            if self.successful_connection_to_number(arg):
-                return
-        except IndexError:
-            self.list_connections()
-            return
-        try:
-            connect_info = self.url_connect(arg)
-        except sqlalchemy.exc.ArgumentError, e:
-            url = self.connect_url(arg, opts)
-            connect_info = self.url_connect(url)
-        except Exception, e:
-            self.perror(str(e))
-            self.perror(r'URL connection format: rdbms://username:password@host/database')
-            return
-        if opts.add or (self.connection_number is None):
-            try:
-                self.connection_number = max(self.connections.keys()) + 1
-            except ValueError:
-                self.connection_number = 0
-        connect_info['prompt'] = '%d:%s@%s> ' % (self.connection_number, connect_info['user'], connect_info['dbname'])
-        self.connections[self.connection_number] = connect_info
-        self.make_connection_current(self.connection_number)
-        self.curs = self.conn.cursor()
-        if (self.rdbms == 'oracle') and self.serveroutput:
-            self.curs.callproc('dbms_output.enable', [])
-        #if (self.rdbms == 'mysql'):
-        #    self.curs.execute('SET SQL_MODE=ANSI')
-        #    # this dies... if only we could set sql_mode when making the connection
-        return 
-    
     def postparsing_precmd(self, statement):
         stop = 0
-        self.saved_connection_number = None
-        if statement.parsed.connection_number:
-            saved_connection_number = self.connection_number
+        self.saved_instance_number = None
+        if statement.parsed.instance_number:
+            saved_instance_number = self.instance_number
             try:
-                if self.successful_connection_to_number(statement.parsed.connection_number):
+                if self.successfully_connect_to_number(statement.parsed.instance_number):
                     if statement.parsed.command:
-                        self.saved_connection_number = saved_connection_number
+                        self.saved_instance_number = saved_instance_number
             except KeyError:
-                self.list_connections()
-                raise KeyError, 'No connection #%s' % statement.parsed.connection_number
+                self.list_instances()
+                raise KeyError, 'No connection #%s' % statement.parsed.instance_number
         return stop, statement           
     def postparsing_postcmd(self, stop):
-        if self.saved_connection_number is not None:
-            self.successful_connection_to_number(self.saved_connection_number)
+        if self.saved_instance_number is not None:
+            self.successfully_connect_to_number(self.saved_instance_number)
         return stop
                 
     do_host = cmd2.Cmd.do_shell

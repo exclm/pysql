@@ -349,7 +349,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                       create drop alter _multiline_comment'''.split()
     sqlpython.sqlpython.noSpecialParse.append('spool')
     commentGrammars = pyparsing.Or([pyparsing.cStyleComment, pyparsing.Literal('--') + pyparsing.restOfLine])
-    prefixParser = pyparsing.Optional(pyparsing.Word(pyparsing.nums)('connection_number') 
+    prefixParser = pyparsing.Optional(pyparsing.Word(pyparsing.nums)('instance_number') 
                                       + ':')
     reserved_words = [
             'alter', 'begin', 'comment', 'create', 'delete', 'drop', 'end', 'for', 'grant', 
@@ -1517,14 +1517,12 @@ class sqlpyPlus(sqlpython.sqlpython):
         'XML SCHEMA')
         
     def metadata(self):
-        schemas = self.connections[self.connection_number]['schemas']
-        
-        username = self.connections[self.connection_number]['user']
+        username = self.conn.username
         if self.rdbms == 'oracle':
             username = username.upper()
         elif self.rdbms == 'postgres':
             username = username.lower()
-        return (username, schemas)
+        return (username, self.conn.schemas)
         
     def _to_sql_wildcards(self, original):
         return original.replace('*','%').replace('?','_')
