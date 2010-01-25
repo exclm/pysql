@@ -9,7 +9,7 @@
 # See also http://twiki.cern.ch/twiki/bin/view/PSSGroup/SqlPython
 
 import cmd2,getpass,binascii,re,os,platform
-import sqlalchemy, pyparsing, schemagroup
+import sqlalchemy, pyparsing, schemagroup, connections
 __version__ = '1.6.8'    
 try:
     import cx_Oracle
@@ -63,11 +63,12 @@ class sqlpython(cmd2.Cmd):
         self.connection_number = None
         
     def make_connection_current(self, connection_number):
-        self.conn = self.connections[connection_number]['conn']
-        self.prompt = self.connections[connection_number]['prompt']
-        self.rdbms = self.connections[connection_number]['rdbms']
+        conn = self.connections[connection_number]
+        self.prompt = conn.prompt
+        self.rdbms = conn.rdbms
         self.connection_number = connection_number
-        self.curs = self.conn.cursor()
+        self.curs = conn.connection.cursor()
+        self.conn = conn
             
     def successfully_connect_to_number(self, arg):
         try:
@@ -202,18 +203,18 @@ class sqlpython(cmd2.Cmd):
                    cmd2.make_option('--postgres', action='store_true', help='Connect to postgreSQL: `sqlpython --postgres [DBNAME [USERNAME]]`'),
                    cmd2.make_option('--oracle', action='store_true', help='Connect to an Oracle database'),
                    cmd2.make_option('--mysql', action='store_true', help='Connect to a MySQL database'),                   
-                   cmd2.make_option('-r', '--rdbms', type='string', 
-                                    help='Type of database to connect to (oracle, postgres, mysql)'),
-                   cmd2.make_option('-H', '--host', type='string', 
-                                    help='Host to connect to (postgresql only)'),                                  
+                   cmd2.make_option('-H', '--hostname', type='string', 
+                                    help='Machine where database is hosted (postgresql only)'),                                  
                    cmd2.make_option('-p', '--port', type='int', 
                                     help='Port to connect to (postgresql only)'),                                  
+                   cmd2.make_option('--password', type='string', 
+                                    help='Password (mysql only)'),                     
                    cmd2.make_option('-d', '--database', type='string', 
                                     help='Database name to connect to'),
                    cmd2.make_option('-U', '--username', type='string', 
                                     help='Database user name to connect as')
                    ])
-    def do_connect2(self, arg, opts):
+    def do_connect(self, arg, opts):
  
         '''Opens the DB connection'''
         if opts.closeall:
@@ -229,38 +230,18 @@ class sqlpython(cmd2.Cmd):
             return 
         if self.successfully_connect_to_number(arg):
             return
-        match = re.search("(postgres|oracle|mysql|sqlite|mssql):/(.*$)")
-        if match:
-            (username, password, host, port, dbName
-             ) = gerald.utilities.dburi.Connection().parse_uri(match.group(2))
-            rdbms = match.group(1)
-            
         
-        try:
-            connect_info = self.url_connect(arg)
-        except sqlalchemy.exc.ArgumentError, e:
-            url = self.connect_url(arg, opts)
-            connect_info = self.url_connect(url)
-        except Exception, e:
-            self.perror(str(e))
-            self.perror(r'URL connection format: rdbms://username:password@host/database')
-            return
+        conn = connections.Connection(arg, opts, default_rdbms = self.default_rdbms)
         if opts.add or (self.connection_number is None):
             try:
                 self.connection_number = max(self.connections.keys()) + 1
             except ValueError:
-                self.connection_number = 0
-        connect_info['prompt'] = '%d:%s@%s> ' % (self.connection_number, connect_info['user'], connect_info['dbname'])
-        self.connections[self.connection_number] = connect_info
-        self.make_connection_current(self.connection_number)
-        self.curs = self.conn.cursor()
+                self.connection_number = 0            
+        conn.set_connection_number(self.connection_number)
+        self.connections[self.connection_number] = conn
+        self.make_connection_current(self.connection_number)        
         if (self.rdbms == 'oracle') and self.serveroutput:
-            self.curs.callproc('dbms_output.enable', [])
-        #if (self.rdbms == 'mysql'):
-        #    self.curs.execute('SET SQL_MODE=ANSI')
-        #    # this dies... if only we could set sql_mode when making the connection
-        return 
-    
+            self.curs.callproc('dbms_output.enable', [])        
     
     @cmd2.options([cmd2.make_option('-a', '--add', action='store_true', 
                                     help='add connection (keep current connection)'),
@@ -282,7 +263,7 @@ class sqlpython(cmd2.Cmd):
                    cmd2.make_option('-U', '--username', type='string', 
                                     help='Database user name to connect as')
                    ])
-    def do_connect(self, arg, opts):
+    def _o_connect(self, arg, opts):
  
         '''Opens the DB connection'''
         if opts.closeall:
