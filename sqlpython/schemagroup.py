@@ -51,7 +51,7 @@ class RefreshGroupThread(threading.Thread):
 class OracleSchemaAccess(object):        
     child_type = gerald.oracle_schema.User
     current_database_time_query = 'SELECT sysdate FROM dual'
-    def latest_ddl_timestamp_query(self, username, connection):
+    def most_recent_ddl_by_owner(self, username, connection):
         curs = connection.cursor()
         curs.execute('''SELECT   owner, MAX(last_ddl_time)
                         FROM     all_objects
@@ -59,24 +59,30 @@ class OracleSchemaAccess(object):
                         -- sort :username to top
                         ORDER BY REPLACE(owner, :username, 'A'), owner''',
                      {'username': username.upper()})
-        return curs 
+        result = curs.fetchall()
+        curs.close()
+        return result
 
 class PostgresSchemaAccess(object):        
     child_type = gerald.PostgresSchema # we need User here, too
     current_database_time_query = 'SELECT current_time'
-    def latest_ddl_timestamp_query(self, username, connection):
+    def most_recent_ddl_by_owner(self, username, connection):
         curs = connection.cursor()
         curs.execute("""SELECT  '%s', current_time""" % username)
-        return curs 
+        result = curs.fetchall()
+        curs.close()
+        return result
         # TODO: we just assume that we always need a refresh - that's sloppy
     
 class MySQLSchemaAccess(object):        
     child_type = gerald.MySQLSchema
     current_database_time_query = 'SELECT now()'
-    def latest_ddl_timestamp_query(self, username, connection):
+    def most_recent_ddl_by_owner(self, username, connection):
         curs = connection.cursor()
         curs.execute("""SELECT  '%s', now()""" % username)
-        return curs 
+        result = curs.fetchall()
+        curs.close()
+        return result
     
 class SchemaDict(dict):
     schema_types = {'oracle': OracleSchemaAccess, 'postgres': PostgresSchemaAccess, 'mysql': MySQLSchemaAccess}
@@ -95,7 +101,9 @@ class SchemaDict(dict):
     def get_current_database_time(self):
         curs = self.connection.cursor()
         curs.execute(self.schema_access.current_database_time_query)
-        return curs.fetchone()[0]              
+        current_time = curs.fetchone()[0]
+        curs.close()
+        return current_time       
     def refresh_times(self, target_schema):
         now = self.get_current_database_time()
         result = []
@@ -107,8 +115,7 @@ class SchemaDict(dict):
             
     def refresh(self):
         current_database_time = self.get_current_database_time()
-        curs = self.schema_access.latest_ddl_timestamp_query(self.user, self.connection)
-        for (owner, last_ddl_time) in curs.fetchall():
+        for (owner, last_ddl_time) in self.schema_access.most_recent_ddl_by_owner(self.user, self.connection):
             if (owner not in self) or (self[owner].refreshed < last_ddl_time):
                 self.refresh_one(owner, current_database_time)
                 # what if a user's last object is deleted?
