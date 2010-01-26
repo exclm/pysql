@@ -14,7 +14,7 @@ class DatabaseInstance(object):
         if not self.parse_connect_uri(arg):
             self.parse_connect_arg(arg, opts)
         self.connection = self.new_connection()
-        self.discover_schemas()
+        #self.discover_schemas()
     
     def parse_connect_uri(self, uri):
         results = self.connection_uri_parser.search(uri)
