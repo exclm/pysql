@@ -168,7 +168,8 @@ class sqlpython(cmd2.Cmd):
         self.instances[self.instance_number] = db_instance
         self.make_instance_current(self.instance_number)        
         if (self.rdbms == 'oracle') and self.serveroutput:
-            self.curs.callproc('dbms_output.enable', [])        
+            self.current_instance.connection.cursor().callproc('dbms_output.enable',[])
+            #self.curs.callproc('dbms_output.enable', [])        
     
     def postparsing_precmd(self, statement):
         stop = 0
