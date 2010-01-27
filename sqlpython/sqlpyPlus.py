@@ -971,10 +971,11 @@ class sqlpyPlus(sqlpython.sqlpython):
         Args specify which objects to store, same format as `ls`.'''
         self._vc(arg, opts, 'git')        
         
-    all_users_option = make_option('-a', action='store_const', dest="scope",
+    all_users_option = make_option('-a', '--all', action='store_const', dest="scope",
                                          default={'col':'', 'view':'user', 'schemas':'user', 'firstcol': ''}, 
                                          const={'col':', owner', 'view':'all', 'schemas':'all', 'firstcol': 'owner, '},
-                                         help='Describe all objects (not just my own)')                
+                                         )     
+    all_users_option = make_option('-a', '--all', action='store_true', help='Describe all objects (not just my own)')
     @options([all_users_option,
               make_option('-c', '--col', action='store_true', help='find column'),
              ])                    
@@ -1051,12 +1052,12 @@ class sqlpyPlus(sqlpython.sqlpython):
                     self.rows = [(col['name'], (col['nullable'] and 'NULL') or 'NOT NULL', self._col_type_descriptor(col)) 
                                  for col in cols]
                 self.coltypes = [str] * len(self.colnames)
-                self.poutput(self.tabular_output(arg.parsed.terminator, self.tblname) + '\n\n')
+                self.poutput('%s\n\n' % self.tabular_output(arg.parsed.terminator, self.tblname))
             elif hasattr(descrip.dbobj, 'increment_by'):
                 self.colnames = 'name min_value max_value increment_by'.split()
                 self.coltypes = [str, int, int, int]
                 self.rows = [(getattr(descrip.dbobj, p) for p in self.colnames)]
-                self.poutput(self.tabular_output(arg.parsed.terminator, self.tblname) + '\n\n')
+                self.poutput('%s\n\n' % self.tabular_output(arg.parsed.terminator, self.tblname))
             elif hasattr(descrip.dbobj, 'source'):
                 end_heading = re.compile(r'\bDECLARE|BEGIN\b', re.IGNORECASE)
                 for (index, (ln, line)) in enumerate(descrip.dbobj.source):
@@ -1210,8 +1211,8 @@ class sqlpyPlus(sqlpython.sqlpython):
         self.do_ls("%s/%s%s%s" % (type, str(arg), arg.parsed.terminator, arg.parsed.suffix), opts)
 
     standard_options = [
+              all_users_option,
               make_option('-l', '--long', action='store_true', help='long descriptions'),
-              make_option('-a', '--all', action='store_true', help="all schemas' objects"),
               make_option('-i', '--immediate', action='store_true', help="force immediate refresh of metadata"),
               #make_option('-t', '--timesort', action='store_true', help="Sort by last_ddl_time"),              
               make_option('-r', '--reverse', action='store_true', help="Reverse order while sorting")]
@@ -1513,33 +1514,21 @@ class sqlpyPlus(sqlpython.sqlpython):
         return result.replace('\\*','.*').replace('\\?','.')
         
     def _regex_form_of_search_pattern(self, s, exact=False):
+        if not s:
+            return re.compile('.*')
         seekpatt = r'[/\\]?%s[/\\]?' % (
             s.replace('*', '.*').replace('?','.').replace('%', '.*'))        
         if exact:
             seekpatt = '^%s$' % seekpatt
         return re.compile(seekpatt, re.IGNORECASE)
 
-    @options([make_option('-a', '--all', action='store_true', help="all schemas' objects"),
-              make_option('-i', '--immediate', action='store_true', help="Wait until refresh is done"),
-              make_option('-c', '--check', action='store_true', help="Don't refresh, just check refresh status")])
-    def do_refresh(self, arg, opts):
+    def do_refresh(self, arg):
         '''Refreshes metadata for the specified schema; only required
-           if table structures, etc. have changed. (sqlpython will check
-           for new objects, and will not waste labor if no objects have
-           been created or modified in a schema.)'''
-        (username, schemas) = self.metadata()
-        if opts.check:
-            self.poutput(schemas.refresh_times(arg))
-            return
-        if opts.all:
-            if opts.immediate:
-                self.perror("Don't combine --all and --immediate.  It will take too long.")
-                return
-            schemas.refresh()
-        elif arg:
-            schemas.refresh_one(arg)
+           if table structures, etc. have changed.'''
+        if self.current_instance.gerald.complete and self.current_instance.gerald.current:
+            self.current_instance.discover_metadata()
         else:
-            schemas.refresh_one(username)
+            self.pfeedback('Metadata discovery is already underway.')       
         
     def _print_gerald_status_warning(self, gerald_schema):
         if not gerald_schema.complete:
@@ -1575,7 +1564,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         '''
         opts.exact = True
         (username, schemas) = self.metadata()
-        result = [descrip.fullname for descrip in self._matching_database_objects(arg, opts)]
+        result = [descrip.path for descrip in self._matching_database_objects(arg, opts)]
         if result:
             result.sort(reverse=bool(opts.reverse))
             self.poutput('\n'.join(result))
