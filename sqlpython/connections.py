@@ -10,16 +10,16 @@ class ObjectDescriptor(object):
     def __init__(self, name, dbobj):
         self.fullname = name
         self.dbobj = dbobj
-        self.type = str(type(self.dbobj)).split()[-1].lower()
+        self.type = str(type(self.dbobj)).split('.')[-1].lower().strip("'>")
         self.path = '%s/%s' % (self.type, self.fullname)
         #self.type_path = '%s/' % self.dbobj.type
         (self.owner, self.unqualified_name) = self.fullname.split('.')
         self.owner = self.owner.lower()
     def match_pattern(self, pattern, specific_owner=None):
-        return ( pattern.match(fullname) or 
+        return ( pattern.match(self.fullname) or 
                   pattern.match(self.type) or 
                   ((not specific_owner) and pattern.match(self.unqualified_name)) or
-                  ((self.owner == specific_owner.lower()) and pattern.match(self.unqualified_name)) )
+                  (specific_owner and (self.owner == specific_owner.lower()) and pattern.match(self.unqualified_name)) )
         
 class GeraldPlaceholder(object):
     current = False
@@ -36,6 +36,9 @@ class DatabaseInstance(object):
             self.parse_connect_arg(arg, opts)
         self.connection = self.new_connection()
         self.gerald = GeraldPlaceholder()
+        self.discover_metadata()
+        
+    def discover_metadata(self):
         self.metadata_discovery_thread = MetadataDiscoveryThread(self)
         self.metadata_discovery_thread.start()
     
@@ -71,15 +74,7 @@ class DatabaseInstance(object):
     
     def gerald_uri(self):
         return self.uri.split('?mode=')[0]
-        
-    def discover_schemas(self):
-        self.gerald = self.gerald_class(self.username, self.gerald_uri())
-        self.gerald.descriptions = {}
-        for (name, obj) in self.gerald.schema.items():
-            self.gerald.descriptions[name] = ObjectDescriptor(name, obj)            
-        self.gerald.current = True
-        self.gerald.complete = True
-    
+           
     def set_instance_number(self, instance_number):
         self.instance_number = instance_number
         self.prompt = "%d:%s@%s> " % (self.instance_number, self.username, self.db_name)        
@@ -170,12 +165,14 @@ class MetadataDiscoveryThread(threading.Thread):
         threading.Thread.__init__(self)
         self.db_instance = db_instance
     def run(self):
-        self.db_instance.gerald = self.db_instance.gerald_class(self.db_instance.username, self.db_instance.gerald_uri())
-        self.db_instance.gerald.descriptions = {}
-        for (name, obj) in self.db_instance.gerald.schema.items():
-            self.db_instance.gerald.descriptions[name] = ObjectDescriptor(name, obj)            
-        self.db_instance.gerald.current = True
-        self.db_instance.gerald.complete = True
+        self.db_instance.gerald.current = False
+        newgerald = self.db_instance.gerald_class(self.db_instance.username, self.db_instance.gerald_uri())
+        newgerald.descriptions = {}
+        for (name, obj) in newgerald.schema.items():
+            newgerald.descriptions[name] = ObjectDescriptor(name, obj)            
+        newgerald.current = True
+        newgerald.complete = True
+        self.db_instance.gerald = newgerald
 
 rdbms_types = {'oracle': OracleDatabaseInstance, 'mysql': MySQLDatabaseInstance, 'postgres': PostgresDatabaseInstance}
                   
