@@ -4,6 +4,10 @@ The database `orcl` must be running and must include
 user testschema, password testschema, with the RESOURCE
 privilege (`GRANT RESOURCE TO testschema`).
 
+SQL.No_Connection> set color off
+colors - was: True
+now: False
+
 SQL.No_Connection> connect testschema/testschema@orcl
 0:testschema@orcl> drop table play;
 /.*/
@@ -13,6 +17,7 @@ SQL.No_Connection> connect testschema/testschema@orcl
 
 Executed
 
+0:testschema@orcl> py import time; time.sleep(60) # allow metadata to load
 0:testschema@orcl> INSERT INTO play VALUES ('Twelfth Night', 'Shakespeare');
 
 Executed (1 rows)

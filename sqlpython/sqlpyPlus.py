@@ -1538,13 +1538,6 @@ class sqlpyPlus(sqlpython.sqlpython):
                             
     def _matching_database_objects(self, arg, opts):
         # doesn't get java$options
-        if opts.get('immediate'): #TODO
-            if opts.get('all'):
-                self.perror('Cannot combine --all with --immediate - operation takes too long')
-                raise StopIteration
-            else:
-                self.pfeedback('Refreshing metadata for %s...' % username)
-                schemas.refresh_one(username)
 
         (username, gerald_schema) = self.metadata()                
         self._print_gerald_status_warning(gerald_schema)
