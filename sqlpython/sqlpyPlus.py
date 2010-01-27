@@ -982,7 +982,8 @@ class sqlpyPlus(sqlpython.sqlpython):
     def do_find(self, arg, opts):
         """Finds argument in source code or (with -c) in column definitions."""
               
-        seek = self._regex_form_of_search_pattern(arg, exact=opts.col)
+        seek = re.compile(self._regex_form_of_search_pattern(arg, exact=opts.col),
+                          re.IGNORECASE)
         qualified = opts.get('all')
         for descrip in self._matching_database_objects('*', opts):
             if opts.col:
@@ -1213,8 +1214,6 @@ class sqlpyPlus(sqlpython.sqlpython):
     standard_options = [
               all_users_option,
               make_option('-l', '--long', action='store_true', help='long descriptions'),
-              make_option('-i', '--immediate', action='store_true', help="force immediate refresh of metadata"),
-              #make_option('-t', '--timesort', action='store_true', help="Sort by last_ddl_time"),              
               make_option('-r', '--reverse', action='store_true', help="Reverse order while sorting")]
     
     @options(standard_options)
@@ -1515,12 +1514,16 @@ class sqlpyPlus(sqlpython.sqlpython):
         
     def _regex_form_of_search_pattern(self, s, exact=False):
         if not s:
-            return re.compile('.*')
-        seekpatt = r'[/\\]?%s[/\\]?' % (
-            s.replace('*', '.*').replace('?','.').replace('%', '.*'))        
+            return '^[^\.]*$'
+        if '.' in s:
+            seekpatt = r'[/\\]?%s[/\\]?' % (
+                s.replace('*', '.*').replace('?','.').replace('%', '.*'))        
+        else:
+            seekpatt = r'[/\\]?%s[/\\]?' % (
+                s.replace('*', '[^\.]*').replace('?','[^\.]').replace('%', '[^\.]*'))                    
         if exact:
             seekpatt = '^%s$' % seekpatt
-        return re.compile(seekpatt, re.IGNORECASE)
+        return seekpatt
 
     def do_refresh(self, arg):
         '''Refreshes metadata for the specified schema; only required
@@ -1544,7 +1547,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         if not gerald_schema.complete:
             raise StopIteration
         
-        seek = self._regex_form_of_search_pattern(arg, opts.get('exact'))
+        seek = str(arg) and self._regex_form_of_search_pattern(arg, opts.get('exact'))
         for (name, descrip) in gerald_schema.descriptions.items():
             if descrip.match_pattern(seek, specific_owner = ((not opts.all) and username)):
                 yield descrip
