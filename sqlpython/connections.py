@@ -12,14 +12,19 @@ class ObjectDescriptor(object):
         self.dbobj = dbobj
         self.type = str(type(self.dbobj)).split('.')[-1].lower().strip("'>")
         self.path = '%s/%s' % (self.type, self.fullname)
-        #self.type_path = '%s/' % self.dbobj.type
         (self.owner, self.unqualified_name) = self.fullname.split('.')
+        self.unqualified_path = '%s/%s' % (self.type, self.unqualified_name)
         self.owner = self.owner.lower()
     def match_pattern(self, pattern, specific_owner=None):
-        return ( pattern.match(self.fullname) or 
-                  pattern.match(self.type) or 
-                  ((not specific_owner) and pattern.match(self.unqualified_name)) or
-                  (specific_owner and (self.owner == specific_owner.lower()) and pattern.match(self.unqualified_name)) )
+        right_owner = (not specific_owner) or (self.owner == specific_owner.lower())
+        if not pattern:
+            return right_owner        
+        compiled = re.compile(pattern, re.IGNORECASE)            
+        if r'\.' in pattern:
+            return compiled.match(self.fullname) or compiled.match(self.path)
+        return right_owner and (compiled.match(self.type) or 
+                                 compiled.match(self.unqualified_name) or
+                                 compiled.match(self.unqualified_path))
         
 class GeraldPlaceholder(object):
     current = False
