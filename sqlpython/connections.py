@@ -130,7 +130,7 @@ try:
     class OracleDatabaseInstance(DatabaseInstance):
         gerald_class = gerald.oracle_schema.User
         rdbms = 'oracle'
-        connection_parser = re.compile('(?P<username>[^/\s]*)(/(?P<password>[^/\s]*))?@((?P<host>[^/\s:]*)(:(?P<port>\d{1,4}))?/)?(?P<db_name>[^/\s:]*)(\s+as\s+(?P<mode>sys(dba|oper)))?',
+        connection_parser = re.compile('(?P<username>[^/\s@]*)(/(?P<password>[^/\s@]*))?(@((?P<host>[^/\s:]*)(:(?P<port>\d{1,4}))?/)?(?P<db_name>[^/\s:]*))?(\s+as\s+(?P<mode>sys(dba|oper)))?',
                                             re.IGNORECASE)
         connection_modes = {'SYSDBA': cx_Oracle.SYSDBA, 'SYSOPER': cx_Oracle.SYSOPER}
         oracle_connect_mode = 0
@@ -139,7 +139,7 @@ try:
             connectargs = self.connection_parser.search(arg)
             self.username = connectargs.group('username')
             self.password = connectargs.group('password')
-            self.db_name = connectargs.group('db_name')
+            self.db_name = connectargs.group('db_name') or os.getenv('ORACLE_SID')
             self.port = connectargs.group('port') or self.default_port
             self.host = connectargs.group('host')
             if self.host:
