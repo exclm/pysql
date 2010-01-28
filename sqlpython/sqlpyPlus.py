@@ -1537,7 +1537,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         if not gerald_schema.complete:
             self.pfeedback('Metadata is not available yet - still gathering')
         elif not gerald_schema.current:
-            self.pfeedback('Metadata is stale - requested refresh still incomplete')
+            self.pfeedback('Metadata is stale - requested refresh still underway')
                             
     def _matching_database_objects(self, arg, opts):
         # doesn't get java$options

@@ -171,6 +171,9 @@ class sqlpython(cmd2.Cmd):
             self.current_instance.connection.cursor().callproc('dbms_output.enable',[])
             #self.curs.callproc('dbms_output.enable', [])        
     
+    def do_pickle(self, arg):
+        self.current_instance.pickle()
+        
     def postparsing_precmd(self, statement):
         stop = 0
         self.saved_instance_number = None
