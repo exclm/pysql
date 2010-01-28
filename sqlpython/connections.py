@@ -5,6 +5,7 @@ import gerald
 import schemagroup
 import time
 import threading
+import pickle
 
 class ObjectDescriptor(object):
     def __init__(self, name, dbobj):
@@ -31,8 +32,10 @@ class GeraldPlaceholder(object):
     complete = False
     
 class DatabaseInstance(object):
+    import_failure = None
     password = None
     uri = None
+    pickledir = os.path.join(os.getenv('HOME'), '.sqlpython')
     connection_uri_parser = re.compile('(postgres|oracle|mysql|sqlite|mssql):/(.*$)', re.IGNORECASE)
     
     def __init__(self, arg, opts, default_rdbms = 'oracle'):
@@ -41,7 +44,7 @@ class DatabaseInstance(object):
             self.parse_connect_arg(arg, opts)
         self.connection = self.new_connection()
         self.gerald = GeraldPlaceholder()
-        self.discover_metadata()
+        self.discover_metadata()        
         
     def discover_metadata(self):
         self.metadata_discovery_thread = MetadataDiscoveryThread(self)
@@ -74,15 +77,40 @@ class DatabaseInstance(object):
         self.db_name = opts.database or self.db_name
         self.port = self.port or self.default_port        
         self.password = self.password or opts.password or getpass.getpass('Password: ')        
-        self.uri = self.uri or '%s://%s:%s@%s:%s/%s' % (self.rdbms, self.username, self.password,
-                                                         self.host, self.port, self.db_name)
-    
+        self.uri = self.uri or self.calculated_uri()
+    def calculated_uri(self):
+        return '%s://%s:%s@%s:%s/%s' % (self.rdbms, self.username, self.password,
+                                         self.host, self.port, self.db_name)    
     def gerald_uri(self):
         return self.uri.split('?mode=')[0]
            
     def set_instance_number(self, instance_number):
         self.instance_number = instance_number
-        self.prompt = "%d:%s@%s> " % (self.instance_number, self.username, self.db_name)        
+        self.prompt = "%d:%s@%s> " % (self.instance_number, self.username, self.db_name)  
+    def pickle(self):
+        try:
+            os.mkdir(self.pickledir)
+        except OSError:
+            pass 
+        picklefile = open(self.picklefile(), 'w')
+        pickle.dump(self.gerald.schema, picklefile)
+        picklefile.close()
+    def picklefile(self):
+        return os.path.join(self.pickledir, ('%s.%s.%s.%s.pickle' % 
+                             (self.rdbms, self.username, self.host, self.db_name)).lower())
+    def retreive_pickled_gerald(self):
+        picklefile = open(self.picklefile())
+        schema = pickle.load(picklefile)
+        picklefile.close()
+        newgerald = rdbms_types[self.rdbms].gerald_class(self.username, None)
+        newgerald.connect(self.gerald_uri())
+        newgerald.schema = schema  
+        newgerald.current = False
+        newgerald.complete = True      
+        newgerald.descriptions = {}        
+        for (name, obj) in newgerald.schema.items():
+            newgerald.descriptions[name] = ObjectDescriptor(name, obj)                    
+        self.gerald = newgerald
 
 class OpenSourceDatabaseInstance(DatabaseInstance):
     def assign_args(self, arg, opts):
@@ -91,6 +119,12 @@ class OpenSourceDatabaseInstance(DatabaseInstance):
         self.db_name = self.db_name or self.username
         self.host = opts.hostname or self.host or 'localhost'
 
+class ImportFailure(DatabaseInstance):
+    def fail(self, *arg, **kwargs):
+        raise ImportError, 'Python DB-API2 module (MySQLdb/psycopg2/cx_Oracle) was not successfully imported'
+    assign_args = fail
+    new_connection = fail
+    
 try:
     import psycopg2
     class PostgresDatabaseInstance(OpenSourceDatabaseInstance):
@@ -110,8 +144,7 @@ try:
                                      password = self.password, database = self.db_name,
                                      port = self.port)                
 except ImportError:
-    class PostgresDatabaseInstance(OpenSourceDatabaseInstance):
-        pass
+    PostgresDatabaseInstance = ImportFailure
             
 try:
     import MySQLdb
@@ -126,9 +159,7 @@ try:
                                     passwd = self.password, db = self.db_name,
                                     port = self.port, sql_mode = 'ANSI')
 except ImportError:
-    class MySQLDatabaseInstance(OpenSourceDatabaseInstance):
-        pass
-
+    MySQLDatabaseInstance = ImportFailure
 try:
     import cx_Oracle
     
@@ -151,9 +182,17 @@ try:
                 self.dsn = cx_Oracle.makedsn(self.host, self.port, self.db_name)
             else:
                 self.dsn = self.db_name
-                self.uri = '%s://%s:%s@%s' % (self.rdbms, self.username, self.password, self.db_name)
             if connectargs.group('mode'):
                 self.oracle_connect_mode = self.connection_modes.get(connectargs.group('mode').upper())
+        def calculated_uri(self):
+            if self.host:
+                result = DatabaseInstance.calculated_uri(self)
+            else:
+                result = '%s://%s:%s@%s' % (self.rdbms, self.username, self.password,
+                                            self.db_name)
+            if self.oracle_connect_mode:
+                result = "%s?mode=%d" % (result, self.oracle_connect_mode)
+            return result
         def new_connection(self):
             return cx_Oracle.connect(user = self.username, 
                                       password = self.password,
@@ -162,14 +201,18 @@ try:
             
                                            
 except ImportError:
-    class OracleDatabaseInstance(DatabaseInstance):
-        pass
+    OracleDatabaseInstance = ImportFailure
         
 class MetadataDiscoveryThread(threading.Thread):
     def __init__(self, db_instance):
         threading.Thread.__init__(self)
         self.db_instance = db_instance
     def run(self):
+        if not self.db_instance.gerald.complete:
+            try:
+                self.db_instance.retreive_pickled_gerald()
+            except IOError:
+                pass
         self.db_instance.gerald.current = False
         newgerald = self.db_instance.gerald_class(self.db_instance.username, self.db_instance.gerald_uri())
         newgerald.descriptions = {}
@@ -178,6 +221,7 @@ class MetadataDiscoveryThread(threading.Thread):
         newgerald.current = True
         newgerald.complete = True
         self.db_instance.gerald = newgerald
+        self.db_instance.pickle()
 
 rdbms_types = {'oracle': OracleDatabaseInstance, 'mysql': MySQLDatabaseInstance, 'postgres': PostgresDatabaseInstance}
                   
