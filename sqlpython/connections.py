@@ -13,11 +13,14 @@ class ObjectDescriptor(object):
         self.dbobj = dbobj
         self.type = str(type(self.dbobj)).split('.')[-1].lower().strip("'>")
         self.path = '%s/%s' % (self.type, self.fullname)
-        (self.owner, self.unqualified_name) = self.fullname.split('.')
+        if '.' in self.fullname:
+            (self.owner, self.unqualified_name) = self.fullname.split('.')
+            self.owner = self.owner.lower()        
+        else:
+            (self.owner, self.unqualified_name) = (None, self.fullname)        
         self.unqualified_path = '%s/%s' % (self.type, self.unqualified_name)
-        self.owner = self.owner.lower()
     def match_pattern(self, pattern, specific_owner=None):
-        right_owner = (not specific_owner) or (self.owner == specific_owner.lower())
+        right_owner = (not self.owner) or (not specific_owner) or (self.owner == specific_owner.lower())
         if not pattern:
             return right_owner        
         compiled = re.compile(pattern, re.IGNORECASE)            

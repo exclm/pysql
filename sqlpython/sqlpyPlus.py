@@ -1593,10 +1593,9 @@ class sqlpyPlus(sqlpython.sqlpython):
                     clauses = []
                     for col in descrip.dbobj.columns:
                         clauses.append(comparitor % (col, sql_pattern))
-                    sql = "SELECT * FROM %s WHERE 1=0\n%s;" % (descrip.dbobj, ' '.join(clauses))
-                    sql = self.parsed(sql, 
-                                          terminator=arg.parsed.terminator or ';',
-                                          suffix=arg.parsed.suffix)
+                    sql = "SELECT * FROM %s WHERE 1=0\n%s;" % (descrip.fullname, ' '.join(clauses))
+                    sql = self.parsed(sql, terminator=arg.parsed.terminator or ';',
+                                      suffix=arg.parsed.suffix)
                     self.do_select(sql)
                 elif hasattr(descrip.dbobj, 'source'):
                     for (line_num, line) in descrip.dbobj.source:
