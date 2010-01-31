@@ -152,7 +152,7 @@ class sqlpython(cmd2.Cmd):
                 arg = self.instance_number
             self.disconnect(arg)
             return 
-        if (not arg) and (not opts.postgres):
+        if (not arg) and (not opts.postgres) and (not opts.mysql):
             self.list_instances()
             return 
         if self.successfully_connect_to_number(arg):
