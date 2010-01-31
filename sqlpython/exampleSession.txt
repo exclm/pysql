@@ -352,3 +352,7 @@ Executed
 0:testschema@orcl> foo
 
 bar
+
+0:testschema@orcl> \c postgres://testschema:testschema@localhost/catherine
+
+

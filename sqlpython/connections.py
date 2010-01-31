@@ -2,7 +2,6 @@ import re
 import os
 import getpass
 import gerald
-import schemagroup
 import time
 import threading
 import pickle

@@ -347,7 +347,6 @@ class sqlpyPlus(sqlpython.sqlpython):
     multilineCommands = '''select insert update delete tselect
                       create drop alter _multiline_comment'''.split()
     sqlpython.sqlpython.noSpecialParse.append('spool')
-    commentGrammars = pyparsing.Or([pyparsing.cStyleComment, pyparsing.Literal('--') + pyparsing.restOfLine])
     prefixParser = pyparsing.Optional(pyparsing.Word(pyparsing.nums)('instance_number') 
                                       + ':')
     reserved_words = [
@@ -393,6 +392,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         self.rdbms_supported = Abbreviatable_List('oracle postgres mysql'.split())
         self.version = 'SQLPython %s' % sqlpython.__version__
         self.pystate = {'r': [], 'binds': self.binds, 'substs': self.substvars}
+        self.commentGrammars = pyparsing.Or([pyparsing.cStyleComment, self.doubleDashComment])
         
     # overrides cmd's parseline
     def parseline(self, line):
