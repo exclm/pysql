@@ -111,7 +111,7 @@ class ConnectionData(object):
                             pass
         self.set_corrections()     
         if not self.password:
-            self.password = getpass.getpass()        
+            self.password = getpass.getpass()    
     def parse_connect_uri(self, uri):
         results = self.connection_uri_parser.search(uri)
         if results:
@@ -149,6 +149,7 @@ class MySQLConnectionData(ConnectionData):
     def set_defaults(self):
         self.port = self.default_port       
         self.hostname = 'localhost'
+        self.database = os.getenv('USER')
     def connection(self):
         return MySQLdb.connect(host = self.hostname, user = self.username, 
                                 passwd = self.password, db = self.database,
@@ -161,6 +162,7 @@ class PostgresConnectionData(ConnectionData):
         self.port = os.getenv('PGPORT') or self.default_port
         self.database = os.getenv('ORACLE_SID')
         self.hostname = os.getenv('PGHOST') or 'localhost'
+        self.username = os.getenv('USER')
     def connection(self):
         return psycopg2.connect(host = self.hostname, user = self.username, 
                                  password = self.password, database = self.database,
