@@ -95,17 +95,6 @@ class sqlpython(cmd2.Cmd):
         self.no_instance()        
             
     legal_sql_word = pyparsing.Word(pyparsing.alphanums + '_$#')
-    legal_hostname = pyparsing.Word(pyparsing.alphanums + '_-.')('host') + pyparsing.Optional(
-        ':' + pyparsing.Word(pyparsing.nums)('port'))
-    oracle_connect_parser = legal_sql_word('username') + (
-                            pyparsing.Optional('/' + pyparsing.CharsNotIn('@')("password")) + 
-                            pyparsing.Optional('@' + pyparsing.Optional(legal_hostname + '/') +
-                                               legal_sql_word('db_name')) + 
-                            pyparsing.Optional(pyparsing.CaselessKeyword('as') + 
-                                               (pyparsing.CaselessKeyword('sysoper') ^ 
-                                                pyparsing.CaselessKeyword('sysdba'))('mode')))
-    postgresql_connect_parser = pyparsing.Optional(legal_sql_word('db_name') + 
-                                                   pyparsing.Optional(legal_sql_word('username')))
           
     def successfully_connect_to_number(self, arg):
         try:
@@ -131,17 +120,17 @@ class sqlpython(cmd2.Cmd):
                    cmd2.make_option('--oracle', action='store_true', help='Connect to an Oracle database'),
                    cmd2.make_option('--mysql', action='store_true', help='Connect to a MySQL database'),                   
                    cmd2.make_option('-H', '--hostname', type='string', 
-                                    help='Machine where database is hosted (postgresql only)'),                                  
+                                    help='Machine where database is hosted'),                                  
                    cmd2.make_option('-p', '--port', type='int', 
-                                    help='Port to connect to (postgresql only)'),                                  
+                                    help='Port to connect to'),                                  
                    cmd2.make_option('--password', type='string', 
-                                    help='Password (mysql only)'),                     
+                                    help='Password'),                     
                    cmd2.make_option('-d', '--database', type='string', 
                                     help='Database name to connect to'),
                    cmd2.make_option('-U', '--username', type='string', 
                                     help='Database user name to connect as'),
-                   cmd2.make_option('-u', '--user', type='string', 
-                                    help='Database user name to connect as')
+#                   cmd2.make_option('-u', '--user', type='string', 
+#                                    help='Database user name to connect as')
                    ])
     def do_connect(self, arg, opts):
  
