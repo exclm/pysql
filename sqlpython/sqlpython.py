@@ -139,6 +139,8 @@ class sqlpython(cmd2.Cmd):
                    cmd2.make_option('-d', '--database', type='string', 
                                     help='Database name to connect to'),
                    cmd2.make_option('-U', '--username', type='string', 
+                                    help='Database user name to connect as'),
+                   cmd2.make_option('-u', '--user', type='string', 
                                     help='Database user name to connect as')
                    ])
     def do_connect(self, arg, opts):

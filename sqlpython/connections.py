@@ -35,12 +35,15 @@ class GeraldPlaceholder(object):
     
 class DatabaseInstance(object):
     import_failure = None
+    username = None
     password = None
+    port = None
     uri = None
     pickledir = os.path.join(os.getenv('HOME'), '.sqlpython')
     connection_uri_parser = re.compile('(postgres|oracle|mysql|sqlite|mssql):/(.*$)', re.IGNORECASE)
     
     def __init__(self, arg, opts, default_rdbms = 'oracle'):
+        opts.username = opts.username or opts.user
         self.default_rdbms = default_rdbms
         if not self.parse_connect_uri(arg):
             self.parse_connect_arg(arg, opts)
