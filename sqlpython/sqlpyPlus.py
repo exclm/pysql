@@ -833,13 +833,14 @@ class sqlpyPlus(sqlpython.sqlpython):
                 if opts.get('lines'):
                     txt = self._with_line_numbers(txt)    
                 if opts.dump:
-                    path = os.path.join(description.owner.lower(), description.type.lower()) \
+                    owner = description.owner or self.current_instance.username
+                    path = os.path.join(owner.lower(), description.type.lower()) \
                            .replace(' ', '_')
                     try:
                         os.makedirs(path)
                     except OSError:
                         pass
-                    filename = os.path.join(path, '%s.sql' % description.name.lower())
+                    filename = os.path.join(path, '%s.sql' % description.unqualified_name.lower())
                     self.stdout = open(filename, 'w')
                 if opts.get('num') is not None:
                     txt = txt.splitlines()
