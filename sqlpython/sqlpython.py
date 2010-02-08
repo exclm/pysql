@@ -10,7 +10,7 @@
 
 import cmd2,getpass,binascii,re,os,platform
 import sqlalchemy, pyparsing, schemagroup, connections
-__version__ = '1.6.8'    
+__version__ = '1.7.0'
 try:
     import cx_Oracle
 except ImportError:
@@ -293,20 +293,13 @@ class sqlpython(cmd2.Cmd):
         return cmd2.Cmd.do_quit(self, None)
     do_exit = do_quit
     do_q = do_quit
-    colorcodes = {'bold':{True:'\x1b[1m',False:'\x1b[22m'},
-                  'red':{True:'\x1b[36m',False:'\x1b[39m'},
-                  'cyan':{True:'\x1b[31m',False:'\x1b[39m'},
-                  'underline':{True:'\x1b[4m',False:'\x1b[24m'}}
-    colors = (platform.system() != 'Windows')
     def colorize(self, val, color):
-        if self.colors and (self.stdout == self.initial_stdout):
-            if color not in self.colorcodes:
-                if (color % 2):
-                    color = 'red'
-                else:
-                    color = 'cyan'
-            return self.colorcodes[color][True] + val + self.colorcodes[color][False]        
-        return val
+        if color not in self.colorcodes:
+            if (color % 2):
+                color = 'red'
+            else:
+                color = 'cyan'
+        return cmd2.Cmd.colorize(self, val, color)
     def pmatrix(self,rows,maxlen=30,heading=True,restructuredtext=False):
         '''prints a matrix, used by sqlpython to print queries' result sets'''
         names = self.colnames
