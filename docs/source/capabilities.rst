@@ -37,6 +37,9 @@ sqlpython commands) with `@/path/to/script.sql` or (for online scripts)
 History
 =======
 
+If used on a *nix machine with ``readline`` installed, then ``bash``-like access
+to the command history is available.
+
 The up- and down-arrow keys allow you to scroll through the lines entered so far
 in your sqlpython session.
 
@@ -248,6 +251,17 @@ from the final row (row numbers begin at 0 for this command).
 
 When the `autobind` sqlpython parameter is True, a `bind` statement is issued automatically
 after every query that returns exactly one row.
+
+Once bind variables are defined, they can be used in SQL statements.  The syntax
+is dependnent on which RDBMS is being queried.
+
+---------- ------------------------------------------
+RDBMS      bind variable example
+---------- ------------------------------------------
+Oracle     SELECT * FROM party WHERE name = :name;
+postgreSQL SELECT * FROM party WHERE name = %(name)s;
+MySQL      SELECT * FROM party WHERE name = ;
+---------- ------------------------------------------
 
 Bind variables are available from within Python as a dictionary named `binds` (see Python).
 
