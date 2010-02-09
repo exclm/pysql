@@ -9,7 +9,7 @@
 # See also http://twiki.cern.ch/twiki/bin/view/PSSGroup/SqlPython
 
 import cmd2,getpass,binascii,re,os,platform
-import pyparsing, schemagroup, connections
+import pyparsing, connections
 __version__ = '1.7.0'
 try:
     import cx_Oracle

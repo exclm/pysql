@@ -1353,6 +1353,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         (False, 'foo', None)
         '''
         arg = self.parsed(arg)
+        import pdb; pdb.set_trace()
         try:
             var, val = self.assignmentSplitter.split(arg.parsed.expanded, maxsplit=1)
         except ValueError:
