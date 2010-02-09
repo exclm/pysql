@@ -2,7 +2,10 @@
 SQLPython's extra capabilities
 ==============================
 
-For the most part, SQLPython simply duplicates SQL\*Plus's capabilites.
+SQLPython's primary function is to allow entry of SQL queries, much like
+SQL*Plus, psql, and the mysql command-line client.  It aims to reproduce
+as many SQL*Plus capabilities as possible.  In addition, it offers several
+extra features inspired by other command-line clients.
 
 Neatened output
 ===============
