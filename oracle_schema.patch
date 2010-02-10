@@ -1,0 +1,7 @@
+171c171,174
+<             schema[table_key] = Table(table_name, cursor, owner)
+---
+>             try:
+>                 schema[table_key] = Table(table_name, cursor, owner)
+>             except Exception, e:
+>                 LOG.warning('Failed to get metadata for table %s.%s: %s' % (owner, table_name, str(e)))                
