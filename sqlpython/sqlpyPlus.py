@@ -1355,9 +1355,9 @@ class sqlpyPlus(sqlpython.sqlpython):
         arg = self.parsed(arg)
         import pdb; pdb.set_trace()
         try:
-            var, val = self.assignmentSplitter.split(arg.parsed.expanded, maxsplit=1)
+            var, val = self.assignmentSplitter.split(arg, maxsplit=1)
         except ValueError:
-            return False, arg.parsed.expanded.split()[-1] or None, None 
+            return False, str(arg).split()[-1] or None, None
         var = var.split()[-1]
         val = val.strip()
         if (len(val) > 1) and ((val[0] == val[-1] == "'") or (val[0] == val[-1] == '"')):
