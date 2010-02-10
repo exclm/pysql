@@ -1,0 +1,13 @@
+94c94,98
+<             # Connect to the db and suck out the data dictionary information
+---
+>             # Connect to the db and suck out the data dictionary information            
+>             self.connect(connection_string)
+>             self.schema = self._get_schema(self._cursor)
+> 
+>     def connect(self, connection_string):
+99,100c103
+<             self.schema = self._get_schema(self._cursor)
+< 
+---
+>             

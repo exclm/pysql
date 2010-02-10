@@ -7,6 +7,7 @@ import threading
 import pickle
 import optparse
 import doctest
+import benchmark
 
 try:
     import cx_Oracle
@@ -91,6 +92,9 @@ class ConnectionData(object):
         >>> opts = OptionTestDummy(mysql=True, password='password')
         >>> ConnectionData('thedatabase theuser', opts).uri()        
         'mysql://theuser:password@localhost:3306/thedatabase'
+        >>> opts = OptionTestDummy(mysql=True, password='password')
+        >>> ConnectionData('thedatabase', opts).uri()        
+        'mysql://catherine:password@localhost:3306/thedatabase'
         '''
         self.arg = arg
         self.opts = opts
@@ -149,6 +153,7 @@ class MySQLConnectionData(ConnectionData):
     def set_defaults(self):
         self.port = self.default_port       
         self.hostname = 'localhost'
+        self.username = os.getenv('USER')
         self.database = os.getenv('USER')
     def connection(self):
         return MySQLdb.connect(host = self.hostname, user = self.username, 
@@ -245,9 +250,10 @@ class DatabaseInstance(object):
         return os.path.join(self.pickledir, ('%s.%s.%s.%s.pickle' % 
                              (self.rdbms, self.username, self.conn_data.hostname, self.database)).lower())
     def retreive_pickled_gerald(self):
-        picklefile = open(self.picklefile())
-        schema = pickle.load(picklefile)
-        picklefile.close()
+        with benchmark.benchmark('gerald retrieve'):
+            picklefile = open(self.picklefile())
+            schema = pickle.load(picklefile)
+            picklefile.close()
         newgerald = gerald_classes[self.rdbms](self.username, None)
         newgerald.connect(self.conn_data.gerald_uri())
         newgerald.schema = schema  
@@ -269,10 +275,12 @@ class MetadataDiscoveryThread(threading.Thread):
             except IOError:
                 pass
         self.db_instance.gerald.current = False
-        newgerald = gerald_classes[self.db_instance.rdbms](self.db_instance.username, self.db_instance.conn_data.gerald_uri())
+        with benchmark.benchmark('metadata gather'):
+            newgerald = gerald_classes[self.db_instance.rdbms](self.db_instance.username, self.db_instance.conn_data.gerald_uri())
         newgerald.descriptions = {}
-        for (name, obj) in newgerald.schema.items():
-            newgerald.descriptions[name] = ObjectDescriptor(name, obj)            
+        with benchmark.benchmark('fill out descriptions'):
+            for (name, obj) in newgerald.schema.items():
+                newgerald.descriptions[name] = ObjectDescriptor(name, obj)            
         newgerald.current = True
         newgerald.complete = True
         self.db_instance.gerald = newgerald
