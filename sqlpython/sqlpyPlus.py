@@ -370,7 +370,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         timeout
         heading
         wildsql          Accept wildcards, position #s in column names
-        version'''.splitlines()
+        version'''
     
     def __init__(self):
         sqlpython.sqlpython.__init__(self)
