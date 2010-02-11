@@ -7,7 +7,6 @@ import threading
 import pickle
 import optparse
 import doctest
-import benchmark
 
 try:
     import cx_Oracle
@@ -250,10 +249,9 @@ class DatabaseInstance(object):
         return os.path.join(self.pickledir, ('%s.%s.%s.%s.pickle' % 
                              (self.rdbms, self.username, self.conn_data.hostname, self.database)).lower())
     def retreive_pickled_gerald(self):
-        with benchmark.benchmark('gerald retrieve'):
-            picklefile = open(self.picklefile())
-            schema = pickle.load(picklefile)
-            picklefile.close()
+        picklefile = open(self.picklefile())
+        schema = pickle.load(picklefile)
+        picklefile.close()
         newgerald = gerald_classes[self.rdbms](self.username, None)
         newgerald.connect(self.conn_data.gerald_uri())
         newgerald.schema = schema  
@@ -275,12 +273,10 @@ class MetadataDiscoveryThread(threading.Thread):
             except IOError:
                 pass
         self.db_instance.gerald.current = False
-        with benchmark.benchmark('metadata gather'):
-            newgerald = gerald_classes[self.db_instance.rdbms](self.db_instance.username, self.db_instance.conn_data.gerald_uri())
+        newgerald = gerald_classes[self.db_instance.rdbms](self.db_instance.username, self.db_instance.conn_data.gerald_uri())
         newgerald.descriptions = {}
-        with benchmark.benchmark('fill out descriptions'):
-            for (name, obj) in newgerald.schema.items():
-                newgerald.descriptions[name] = ObjectDescriptor(name, obj)            
+        for (name, obj) in newgerald.schema.items():
+            newgerald.descriptions[name] = ObjectDescriptor(name, obj)            
         newgerald.current = True
         newgerald.complete = True
         self.db_instance.gerald = newgerald
