@@ -918,6 +918,8 @@ class sqlpyPlus(sqlpython.sqlpython):
                         return self._show_shortcut(shortcut, argpieces)
                 if argpieces[0][:3] == 'err':
                     return self._show_errors(all_users=False, limit=1, targets=argpieces[1:])
+                elif argpieces[0][:3] == 'tab':
+                    return self.do_ls('table/*')
                 elif (argpieces[0], argpieces[1][:3]) == ('all','err'):
                     return self._show_errors(all_users=False, limit=None, targets=argpieces[2:])
             except IndexError:
