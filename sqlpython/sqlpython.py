@@ -109,29 +109,26 @@ class sqlpython(cmd2.Cmd):
         if (self.rdbms == 'oracle') and self.serveroutput:
             self.curs.callproc('dbms_output.enable', [])           
         return True
-    
-    @cmd2.options([cmd2.make_option('-a', '--add', action='store_true', 
+
+    @cmd2.options([cmd2.make_option('-a', '--add', action='store_true',
                                     help='add connection (keep current connection)'),
-                   cmd2.make_option('-c', '--close', action='store_true', 
+                   cmd2.make_option('-c', '--close', action='store_true',
                                     help='close connection {N} (or current)'),
-                   cmd2.make_option('-C', '--closeall', action='store_true', 
+                   cmd2.make_option('-C', '--closeall', action='store_true',
                                     help='close all connections'),
                    cmd2.make_option('--postgres', action='store_true', help='Connect to postgreSQL: `sqlpython --postgres [DBNAME [USERNAME]]`'),
                    cmd2.make_option('--oracle', action='store_true', help='Connect to an Oracle database'),
-                   cmd2.make_option('--mysql', action='store_true', help='Connect to a MySQL database'),                   
-                   cmd2.make_option('-H', '--hostname', type='string', 
-                                    help='Machine where database is hosted'),                                  
-                   cmd2.make_option('-p', '--port', type='int', 
-                                    help='Port to connect to'),                                  
-                   cmd2.make_option('--password', type='string', 
-                                    help='Password'),                     
-                   cmd2.make_option('-d', '--database', type='string', 
+                   cmd2.make_option('--mysql', action='store_true', help='Connect to a MySQL database'),
+                   cmd2.make_option('-H', '--hostname', type='string',
+                                    help='Machine where database is hosted'),
+                   cmd2.make_option('-p', '--port', type='int',
+                                    help='Port to connect to'),
+                   cmd2.make_option('--password', type='string',
+                                    help='Password'),
+                   cmd2.make_option('-d', '--database', type='string',
                                     help='Database name to connect to'),
-                   cmd2.make_option('-U', '--username', type='string', 
-                                    help='Database user name to connect as'),
-#                   cmd2.make_option('-u', '--user', type='string', 
-#                                    help='Database user name to connect as')
-                   ])
+                   cmd2.make_option('-U', '--username', type='string',
+                                    help='Database user name to connect as')])
     def do_connect(self, arg, opts):
  
         '''Opens the DB connection'''

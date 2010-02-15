@@ -375,7 +375,8 @@ class sqlpyPlus(sqlpython.sqlpython):
     def __init__(self):
         sqlpython.sqlpython.__init__(self)
         self.binds = CaselessDict()
-        self.settable.pop('case_insensitive')
+        if self.settable.has_key('case_insensitive'):
+            self.settable.pop('case_insensitive')
         self.stdoutBeforeSpool = sys.stdout
         self.sql_echo = False
         self.spoolFile = None
@@ -1355,7 +1356,6 @@ class sqlpyPlus(sqlpython.sqlpython):
         (False, 'foo', None)
         '''
         arg = self.parsed(arg)
-        import pdb; pdb.set_trace()
         try:
             var, val = self.assignmentSplitter.split(arg, maxsplit=1)
         except ValueError:
@@ -1623,6 +1623,32 @@ class sqlpyPlus(sqlpython.sqlpython):
         
         # TODO: needs much polish
         return self.do__dir_constraints(arg)
+
+    def run_commands_at_invocation(self, callargs):
+        connection_args = []
+        while True:
+            try:
+                arg = callargs.pop(0)
+                connection_args.append(arg)
+                if ';' in arg:
+                    break
+            except IndexError:
+                break
+        if connection_args:
+            self.do_connect(' '.join(connection_args))
+            sqlpython.sqlpython.run_commands_at_invocation(self, callargs)
+        for arg in callargs:
+            connection_args.append(callargs.pop())
+        for initial_command in callargs:
+            if self.onecmd(initial_command + '\n') == app._STOP_AND_EXIT:
+                return
+
+    def cmdloop(self):
+        if sys.argv[1] in ('--test', '-t'):
+            self.runTranscriptTests(sys.argv[2:])
+        else:
+            self.run_commands_at_invocation(sys.argv[1:])
+            self._cmdloop()
 
 def _test():
     import doctest
