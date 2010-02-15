@@ -4,10 +4,6 @@ The database `orcl` must be running and must include
 user testschema, password testschema, with the RESOURCE
 privilege (`GRANT RESOURCE TO testschema`).
 
-SQL.No_Connection> set color off
-colors - was: True
-now: False
-
 SQL.No_Connection> connect testschema/testschema@orcl
 0:testschema@orcl> drop table play;
 /.*/

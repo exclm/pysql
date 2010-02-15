@@ -102,7 +102,6 @@ WHERE  created > SYSDATE - 7;''')
 
     def do_longops(self,args):
         '''Runs query_longops defined above, to display long running operations (full scans, etc)'''
-        import pdb; pdb.set_trace()
         self.onecmd(self.query_longops)
         
     def do_load(self,args):
@@ -185,39 +184,7 @@ which get and run SQL scripts from disk.'''
 
 def run():
     my=mysqlpy()
-    print my.__doc__
-    # split a complex argument string, like 
-    # ``--postgres -H localhost dbname username ls "select * from tbl" @myscript``
-    # into a portion to feed to ``do_connect`` and a portion to run as SQL commands
-    connectstring = sys.argv[1:]
-    commands = []
-    for (n, arg) in enumerate(sys.argv[1:]):
-        if arg.startswith('@') or len(arg.split()) > 1:
-            connectstring = sys.argv[1:n+1]
-            commands = sys.argv[n+1:]
-            break
-    if connectstring:
-        my.onecmd('connect %s' % ' '.join(connectstring))
-    for command in commands:
-        if my.onecmd(command + '\n') == my._STOP_AND_EXIT:
-            return
     my.cmdloop()
     
-class TestCase(Cmd2TestCase):
-    CmdApp = mysqlpy
-
 if __name__ == '__main__':    
-    testfiles = sys.argv[1:]
-    for arg in ('-t', '--test'):
-        if arg in testfiles:
-            testfiles.remove(arg)
-            sys.argv.remove(arg)
-            mysqlpy.testfiles = testfiles
-            if not testfiles:
-                print 'No test file specified to run against!'
-                sys.exit()
-    if hasattr(mysqlpy, 'testfiles'):
-        sys.argv = [sys.argv[0]]  # the --test argument upsets unittest.main()        
-        unittest.main()
-    else:
-        run()
+    run()

@@ -17,7 +17,7 @@ setup(name="sqlpython",
       url="http://packages.python.org/sqlpython",
       packages=find_packages(),
       include_package_data=True,    
-      install_requires=['pyparsing','cmd2>=0.6.0','gerald>=0.3.5',
+      install_requires=['pyparsing','cmd2>=0.6.0','gerald>=0.3.6',
                         'genshi>=0.5'],
       extras_require = {
         'oracle':  ['cx_Oracle>=5.0.2'],
