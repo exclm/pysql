@@ -31,6 +31,10 @@ from output_templates import output_templates
 from metadata import metaqueries
 from plothandler import Plot
 from sqlpython import Parser, cx_Oracle, psycopg2
+try:
+    import psycopg2.extensions
+except ImportError:
+    pass
 import imagedetect
 import warnings
 warnings.filterwarnings('ignore', 'BaseException.message', DeprecationWarning)
@@ -327,7 +331,24 @@ class BlobDisplayer(object):
                 self.url, self.url, self.imgwidth)
         else:
             return '(BLOB not saved, check bloblimit)'
-        
+
+class BlobDisplayer_postgresql(BlobDisplayer):
+    imgwidth = 400
+    def __init__(self, blob_oid, under_limit, sqlpython_instance):
+        self.url = ''
+        import pdb; pdb.set_trace()
+        if under_limit:
+            if self.folder_ok():
+                self.lobject = psycopg2.extensions.lobject(conn=sqlpython_instance.current_instance.connection, oid=blob_oid)
+                self.blob = self.lobject.read()
+                self.extension = imagedetect.extension_from_data(self.blob)
+                self.file_name = '%s/%d%s' % (
+                    os.path.join(os.getcwd(), self.folder_name), 
+                    blob_oid, self.extension)
+                self.url = 'file://%s' % self.file_name     
+                self.lobject.export(self.file_name)
+                self.lobject.close()
+                        
 class Abbreviatable_List(list):
     def match(self, target):
         target = target.lower()
@@ -773,6 +794,15 @@ class sqlpyPlus(sqlpython.sqlpython):
                    or datum
                    for (datum, coltype) in zip(row, self.coltypes)]
                  for (rownum, row) in enumerate(self.rows)]
+        '''
+        TODO: Segfault!  Drat!
+        elif psycopg2 and set(psycopg2.ROWID.values).intersection(set(self.coltypes)):
+            self.rows = [
+                 [(    (coltype in psycopg2.ROWID.values) 
+                   and BlobDisplayer_postgresql(datum, (rownum < self.bloblimit), self))
+                   or datum
+                   for (datum, coltype) in zip(row, self.coltypes)]
+                 for (rownum, row) in enumerate(self.rows)]        '''        
         self.rc = len(self.rows)
         if self.rc != 0:
             resultset = ResultSet()
