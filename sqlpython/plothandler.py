@@ -1,11 +1,15 @@
 import shelve, pickle, datetime, sys, itertools
-from sqlpython import cx_Oracle
+from sqlpython import cx_Oracle, psycopg2
 shelvename = 'plot.shelve'
 
 try:
     import pylab
     class Plot(object):
-        plottable_types = (cx_Oracle and cx_Oracle.NUMBER, datetime.datetime)
+        plottable_types = [cx_Oracle and cx_Oracle.NUMBER, 
+                           datetime.datetime]
+        if psycopg2:
+            for val in psycopg2.NUMBER.values:
+                plottable_types.append(val)
         #TODO: add non-Oracle types
         def __init__(self):
             self.legends = []
@@ -64,6 +68,7 @@ try:
             self.yplots.append(pylab.pie(self.yserieslists[0], labels=self.xticks or self.xvalues))
             self.legends = [self.legends[0]]
         def draw(self):
+            #import pdb; pdb.set_trace()
             if not self.yserieslists:
                 print 'At least one quantitative column needed to plot.'
                 return None
@@ -78,7 +83,7 @@ try:
                 self.bar()
             pylab.xlabel(self.xlabel)
             pylab.title(self.title)
-            pylab.legend([p[0] for p in self.yplots], self.legends, shadow=True)
+            pylab.legend([p[0] for p in self.yplots], self.legends, shadow=True) #dies for psql on pies
             pylab.show()
             print 'You can edit this plot from the command prompt (outside sqlpython) by running'
             print "ipython -pylab -c 'import sqlpython.plothandler; sqlpython.plothandler.Plot().unshelve()'"
