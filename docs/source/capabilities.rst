@@ -37,7 +37,7 @@ sqlpython commands) with `@/path/to/script.sql` or (for online scripts)
 History
 =======
 
-If used on a *nix machine with ``readline`` installed, then ``bash``-like access
+If used on a \*nix machine with ``readline`` installed, then ``bash``-like access
 to the command history is available.
 
 The up- and down-arrow keys allow you to scroll through the lines entered so far
@@ -282,6 +282,8 @@ enabled, column names in a SELECT statement do not need to be explicitly typed; 
 specified with special Wild SQL symbols: wildcards (`*`, `%`, `_`); column numbers (`#{N}`);
 and NOT-style exclusion (`!`).  The symbols can even be combined.
 
+TODO: column number Wild SQL is not working as of sqlpython 1.7.0
+
 ::
 
   jrrt@orcl> cat party
@@ -458,7 +460,7 @@ serveroutput          Print DBMS_OUTPUT.PUT_LINE results                   True
 sql_echo              Print text of "behind-the-scenes" queries            False
 timeout               In seconds                                           30
 timing                Print time for each command to execute               False
-wildsql               Accept *, %, #, and ! in column names                False
+wildsql               Accept \*, %, #, and ! in column names               False
 ===================== ===================================================  ===============
 
 The user can change these with the `set {paramname} {new-value}` statement.  
