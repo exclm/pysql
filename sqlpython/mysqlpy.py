@@ -183,8 +183,7 @@ which get and run SQL scripts from disk.'''
     do_slect = do_sleect
 
 def run():
-    my=mysqlpy()
-    my.cmdloop()
+    mysqlpy().cmdloop()
     
 if __name__ == '__main__':    
     run()

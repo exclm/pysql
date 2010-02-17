@@ -1643,6 +1643,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                 return
 
     def cmdloop(self):
+        # TODO: args past ; don't even get into sys.argv
         if sys.argv[1] in ('--test', '-t'):
             self.runTranscriptTests(sys.argv[2:])
         else:
