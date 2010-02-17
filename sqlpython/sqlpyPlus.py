@@ -466,7 +466,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         while next.lower().split()[:2] != ['remark','end']:
             statement.append(next)
             next = self.pseudo_raw_input(self.continuation_prompt)
-        return self.onecmd('\n'.join(statement))        
+        return self.onecmd_plus_hooks('\n'.join(statement))        
 
     def do_py(self, arg):
         '''
@@ -490,11 +490,6 @@ class sqlpyPlus(sqlpython.sqlpython):
             self.substvars[str(idx+1)] = arg
         return Cmd.do__load(self, fname)
     
-    def onecmd_plus_hooks(self, line):                          
-        line = self.precmd(line)
-        stop = self.onecmd(line)
-        stop = self.postcmd(stop, line)
-
     def _onchange_serveroutput(self, old, new):
         if (self.rdbms == 'oracle'):
             if new:
@@ -807,8 +802,9 @@ class sqlpyPlus(sqlpython.sqlpython):
         return self.do_select(self.parsed('SELECT * FROM %s;' % arg, 
                                           terminator = arg.parsed.terminator or ';', 
                                           suffix = arg.parsed.suffix))'''
-        return self.onecmd('SELECT * FROM %s%s%s' % (arg, arg.parsed.terminator or ';',
-                                                     arg.parsed.suffix or ''))
+        statement = 'SELECT * FROM %s%s%s' % (arg, arg.parsed.terminator or ';',
+                                              arg.parsed.suffix or '')
+        return self.onecmd(self.parsed(statement))
 
     @options([make_option('-d', '--dump', action='store_true', help='dump results to files'),
               make_option('-f', '--full', action='store_true', help='get dependent objects as well'),
@@ -882,7 +878,7 @@ class sqlpyPlus(sqlpython.sqlpython):
                     pass
         except IndexError:
             newarg = ''
-        return self.onecmd(shortcut + ' ' + newarg)
+        return self.onecmd(self.parsed(shortcut + ' ' + newarg))
     
     def do_show(self, arg):
         '''
@@ -898,14 +894,16 @@ class sqlpyPlus(sqlpython.sqlpython):
                 paramname = arg.split()[1].lower()
             except IndexError:
                 paramname = ''
-            self.onecmd("""SELECT name, 
-                           CASE type WHEN 1 THEN 'BOOLEAN'
-                                     WHEN 2 THEN 'STRING'
-                                     WHEN 3 THEN 'INTEGER'
-                                     WHEN 4 THEN 'PARAMETER FILE'
-                                     WHEN 5 THEN 'RESERVED'
-                                     WHEN 6 THEN 'BIG INTEGER' END type, 
-                           value FROM v$parameter WHERE name LIKE '%%%s%%';""" % paramname)
+            self.onecmd(self.parsed("""SELECT name, 
+                                              CASE type WHEN 1 THEN 'BOOLEAN'
+                                                        WHEN 2 THEN 'STRING'
+                                                        WHEN 3 THEN 'INTEGER'
+                                                        WHEN 4 THEN 'PARAMETER FILE'
+                                                        WHEN 5 THEN 'RESERVED'
+                                                        WHEN 6 THEN 'BIG INTEGER' END type, 
+                                                        value 
+                                       FROM v$parameter 
+                                       WHERE name LIKE '%%%s%%';""" % paramname))
         else:
             argpieces = arg.lower().split()
             argpieces = [a for a in argpieces if not a.startswith('-')]
@@ -1168,6 +1166,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             if query.rstrip()[-1] != self.terminator: 
                 query = '%s%s' % (query, self.terminator)
             self.onecmd_plus_hooks('%s > %s' % (query, fnames[n]))
+            #TODO: Does this stumble on output redirection?
         diffMergeSearcher.invoke(fnames[0], fnames[1])
 
     bufferPosPattern = re.compile('\d+')
@@ -1207,7 +1206,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             remainder = ''
         if abbrev in commands:
             newcommand = '%s %s' % (commands[abbrev], remainder)
-            return self.onecmd(newcommand)
+            return self.onecmd(self.parsed(newcommand))
         else:
             self.perror('No abbreviated command for %s' % abbrev)
             self.perror(self.do_psql.__doc__)
@@ -1640,7 +1639,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         for arg in callargs:
             connection_args.append(callargs.pop())
         for initial_command in callargs:
-            if self.onecmd(initial_command + '\n') == app._STOP_AND_EXIT:
+            if self.onecmd_plus_hooks(initial_command + '\n') == app._STOP_AND_EXIT:
                 return
 
     def cmdloop(self):
