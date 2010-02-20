@@ -68,7 +68,6 @@ try:
             self.yplots.append(pylab.pie(self.yserieslists[0], labels=self.xticks or self.xvalues))
             self.legends = [self.legends[0]]
         def draw(self):
-            #import pdb; pdb.set_trace()
             if not self.yserieslists:
                 print 'At least one quantitative column needed to plot.'
                 return None
