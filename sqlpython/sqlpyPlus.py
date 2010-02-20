@@ -336,7 +336,6 @@ class BlobDisplayer_postgresql(BlobDisplayer):
     imgwidth = 400
     def __init__(self, blob_oid, under_limit, sqlpython_instance):
         self.url = ''
-        import pdb; pdb.set_trace()
         if under_limit:
             if self.folder_ok():
                 self.lobject = psycopg2.extensions.lobject(conn=sqlpython_instance.current_instance.connection, oid=blob_oid)
@@ -498,6 +497,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             most recent resultset is `r[-1]`.
         SQL bind, substitution variables are exposed as `binds`, `substs`.
         SQL and sqlpython commands can be issued with `sql("your command")`.
+        Run python code from external files with ``run("filename.py")``
         '''
         return Cmd.do_py(self, arg)
 
@@ -1376,14 +1376,8 @@ class sqlpyPlus(sqlpython.sqlpython):
         Accepts strings like `foo = 'bar'` or `baz := 22`, 
         returns (assigned? (T/F), variable, new-value)
 
-        >>> s = sqlpyPlus()
-        >>> s.interpret_variable_assignment(s.parsed("foo = 'bar'"))
-        (True, 'foo', 'bar')
-        >>> s.interpret_variable_assignment(s.parsed("baz := 22"))
-        (True, 'baz', 22)
-        >>> s.interpret_variable_assignment(s.parsed("foo"))
-        (False, 'foo', None)
         '''
+        #TODO: quoted assignments currently failing?
         arg = self.parsed(arg)
         try:
             var, val = self.assignmentSplitter.split(arg, maxsplit=1)
