@@ -116,7 +116,7 @@ class sqlpython(cmd2.Cmd):
                                     help='close connection {N} (or current)'),
                    cmd2.make_option('-C', '--closeall', action='store_true',
                                     help='close all connections'),
-                   cmd2.make_option('--postgres', action='store_true', help='Connect to postgreSQL: `sqlpython --postgres [DBNAME [USERNAME]]`'),
+                   cmd2.make_option('--postgres', action='store_true', help='Connect to postgreSQL: `connect --postgres [DBNAME [USERNAME]]`'),
                    cmd2.make_option('--oracle', action='store_true', help='Connect to an Oracle database'),
                    cmd2.make_option('--mysql', action='store_true', help='Connect to a MySQL database'),
                    cmd2.make_option('-H', '--hostname', type='string',
@@ -145,8 +145,12 @@ class sqlpython(cmd2.Cmd):
             return 
         if self.successfully_connect_to_number(arg):
             return
-        
-        db_instance = connections.DatabaseInstance(arg, opts, default_rdbms = self.default_rdbms)
+
+        try:
+            db_instance = connections.DatabaseInstance(arg, opts, default_rdbms = self.default_rdbms)
+        except:
+            self.perror('Connection failure.\n' + self.do_connect.__doc__)
+            return
         if opts.add or (self.instance_number is None):
             try:
                 self.instance_number = max(self.instances.keys()) + 1
@@ -157,7 +161,6 @@ class sqlpython(cmd2.Cmd):
         self.make_instance_current(self.instance_number)        
         if (self.rdbms == 'oracle') and self.serveroutput:
             self.current_instance.connection.cursor().callproc('dbms_output.enable',[])
-            #self.curs.callproc('dbms_output.enable', [])        
     
     def do_pickle(self, arg):
         self.current_instance.pickle()
