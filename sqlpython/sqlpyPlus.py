@@ -391,7 +391,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         heading
         wildsql          Accept wildcards, position #s in column names
         version'''
-    
+        
     def __init__(self):
         sqlpython.sqlpython.__init__(self)
         self.binds = CaselessDict()

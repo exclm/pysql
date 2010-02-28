@@ -165,6 +165,7 @@ class sqlpython(cmd2.Cmd):
     def do_pickle(self, arg):
         self.current_instance.pickle()
         
+    _availability_regex = re.compile(r'\(\s*Availab(.*)\)', re.IGNORECASE )        
     def postparsing_precmd(self, statement):
         stop = 0
         self.saved_instance_number = None
@@ -177,6 +178,14 @@ class sqlpython(cmd2.Cmd):
             except KeyError:
                 self.list_instances()
                 raise KeyError, 'No connection #%s' % statement.parsed.instance_number
+        try:
+            method = getattr(self, 'do_' + statement.parsed.command)
+            availability = self._availability_regex.search(method.__doc__ or '')
+            if availability and (self.current_instance.rdbms not in availability.group(1).lower()):
+                raise NotImplementedError, '``%s`` unavailable for %s' % (
+                    statement.parsed.command, self.current_instance.rdbms)
+        except AttributeError:
+            pass
         return stop, statement           
     def postparsing_postcmd(self, stop):
         if self.saved_instance_number is not None:
