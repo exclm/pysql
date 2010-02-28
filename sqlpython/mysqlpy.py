@@ -85,29 +85,26 @@ Example:
         where time_remaining>0;
         '''
        
-    def do_new(self, args):
-        'tells you about new objects'
-        self.onecmd('''SELECT owner,
-       object_name,
-       object_type
-FROM   all_objects
-WHERE  created > SYSDATE - 7;''')
     def do_top9i(self,args):
-        '''Runs query_top9i defined above, to display active sessions in Oracle 9i'''
+        '''Runs query_top9i defined above, to display active sessions in Oracle 9i
+           (Availability: Oracle)'''        
         self.onecmd(self.query_top9i)
     
     def do_top(self,args): 
-        '''Runs query_ractop defined above, to display active sessions in Oracle 10g (and RAC)'''
+        '''Runs query_ractop defined above, to display active sessions in Oracle 10g (and RAC)
+           (Availability: Oracle)'''
         self.onecmd(self.query_ractop)
 
     def do_longops(self,args):
-        '''Runs query_longops defined above, to display long running operations (full scans, etc)'''
+        '''Runs query_longops defined above, to display long running operations (full scans, etc)
+           (Availability: Oracle)'''        
         self.onecmd(self.query_longops)
         
     def do_load(self,args):
         '''Runs query_load10g defined above, to display OS load on cluster nodes (10gRAC)
 Do not confuse with `GET myfile.sql` and `@myfile.sql`,
-which get and run SQL scripts from disk.'''
+which get and run SQL scripts from disk.
+           (Availability: Oracle)'''
         self.onecmd(self.query_load10g)
                 
     def do_db(self,args,filepath='pass.txt'): 
@@ -145,7 +142,8 @@ which get and run SQL scripts from disk.'''
             self.perror(e)
 
     def do_explain(self,args):
-        '''prints the plan of a given statement from the sql cache. 1 parameter: sql_id, see also do_sql '''
+        '''prints the plan of a given statement from the sql cache. 1 parameter: sql_id, see also do_sql
+           (Availability: Oracle)'''        
         words = args.split()
         if len(words) > 2 and words[0].lower() == 'plan' and words[1].lower() == 'for':
             self.curs.execute('explain %s' % args)
