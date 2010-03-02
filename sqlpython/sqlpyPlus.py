@@ -26,7 +26,7 @@ or with a python-like shorthand
 import sys, os, re, sqlpython, pyparsing, re, completion
 import datetime, pickle, binascii, subprocess, time, itertools, hashlib
 import traceback, operator
-from cmd2 import Cmd, make_option, options, Statekeeper, Cmd2TestCase
+from cmd2 import Cmd, make_option, options, Statekeeper, Cmd2TestCase, options_defined
 from output_templates import output_templates
 from metadata import metaqueries
 from plothandler import Plot
@@ -393,6 +393,9 @@ class sqlpyPlus(sqlpython.sqlpython):
         version'''
         
     def __init__(self):
+        # override commentGrammars before top-level __init__, or they won't affect self.parser
+        self.doubleDashComment = pyparsing.NotAny(pyparsing.Or(options_defined)) + pyparsing.Literal('--') + pyparsing.restOfLine        
+        self.commentGrammars = pyparsing.Or([pyparsing.cStyleComment, self.doubleDashComment])
         sqlpython.sqlpython.__init__(self)
         self.binds = CaselessDict()
         if self.settable.has_key('case_insensitive'):
@@ -413,7 +416,6 @@ class sqlpyPlus(sqlpython.sqlpython):
         self.rdbms_supported = Abbreviatable_List('oracle postgres mysql'.split())
         self.version = 'SQLPython %s' % sqlpython.__version__
         self.pystate = {'r': [], 'binds': self.binds, 'substs': self.substvars}
-        self.commentGrammars = pyparsing.Or([pyparsing.cStyleComment, self.doubleDashComment])
         
     # overrides cmd's parseline
     def parseline(self, line):
