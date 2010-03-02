@@ -7,9 +7,10 @@ Introduction
 * Current docs: http://packages.python.org/sqlpython/
 * Mailing list: http://groups.google.com/group/sqlpython
 
-SQLPython is a command-line interface to Oracle databases.  It is intended as an alternative to Oracle's
-SQL\*Plus.  For the most part, it can be used the same way SQL\*Plus would be used; this documentation
-focuses on the places where SQLPython differs.
+SQLPython is a command-line interface to relational databases.  It was created as an alternative to Oracle's
+``SQL\*Plus``, and can likewise be used instead of postgres' ``psql`` or mysql's ``mysql`` text clients.  
+For the most part, it can be used as any other text-based SQL interface would; this document focuses on 
+the extra capabilities 
 
 License
 -------
@@ -87,8 +88,11 @@ inspiration from two Perl-based open-source SQL clients,
 Non-Oracle RDBMS
 ----------------
 
-As of sqlpython 1.6.4, preliminary work has begun to adapt sqlpython to non-Oracle databases.
-You may use it to run queries against postgreSQL, MySQL, etc., but data-dictionary access
-commands (`ls`, `grep`, `refs`, etc.) will generate errors.  Connection to non-Oracle databases
-is currently only possible via URL connection strings.
+Version 1.7.0 of sqlpython works against PostgreSQL and MySQL, though the testing against
+those databases has been very slight thus far.  Help in testing and improving sqlpython's
+functions against those databases is welcome.  Support for Microsoft SQL Server and sqlite
+will be available as soon as those databases are added to the Gerald project, and volunteers
+for Gerald will benefit sqlpython as well.
 
+As of 1.7.0, sqlpython sessions can only "see" metadata within the named schema belonging
+to the currently connected user.  A fix for this is expected for 1.7.1.
