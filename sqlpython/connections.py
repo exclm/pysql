@@ -43,6 +43,7 @@ class ObjectDescriptor(object):
         if r'\.' in pattern:
             return compiled.match(self.fullname) or compiled.match(self.path)
         return right_owner and (compiled.match(self.type) or 
+                                compiled.match(self.type + r'/') or
                                  compiled.match(self.unqualified_name) or
                                  compiled.match(self.unqualified_path))
         
