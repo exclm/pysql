@@ -1244,7 +1244,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             self.perror(self.do_psql.__doc__)
             
     def _do_dir(self, type, arg, opts):
-        self.do_ls("%s/%s%s%s" % (type, str(arg), arg.parsed.terminator, arg.parsed.suffix), opts)
+        self._do_ls("%s/%s%s%s" % (type, str(arg), arg.parsed.terminator, arg.parsed.suffix), opts)
 
     standard_options = [
               all_users_option,
@@ -1581,18 +1581,22 @@ class sqlpyPlus(sqlpython.sqlpython):
             if descrip.match_pattern(seek, specific_owner = ((not opts.all) and username)):
                 yield descrip
    
-    @options(standard_options)
-    def do_ls(self, arg, opts):
-        '''
-        Lists objects as through they were in an {object_type}/{object_name} UNIX
-        directory structure.  `*` and `%` may be used as wildcards.
-        '''
+    def _do_ls(self, arg, opts):
+        'Functional core of ``do_ls``, split out into an undecorated version to be callable from other methods'
         opts.exact = True
         (username, schemas) = self.metadata()
         result = [descrip.path for descrip in self._matching_database_objects(arg, opts)]
         if result:
             result.sort(reverse=bool(opts.reverse))
             self.poutput('\n'.join(result))
+                
+    @options(standard_options)
+    def do_ls(self, arg, opts):
+        '''
+        Lists objects as through they were in an {object_type}/{object_name} UNIX
+        directory structure.  `*` and `%` may be used as wildcards.
+        '''
+        return self._do_ls(arg, opts)
         
     @options([make_option('-i', '--ignore-case', dest='ignorecase', action='store_true', help='Case-insensitive search'),
               make_option('-a', '--all', action='store_true', help="all schemas' objects")])     
