@@ -131,7 +131,13 @@ class sqlpython(cmd2.Cmd):
                                     help='Database user name to connect as')])
     def do_connect(self, arg, opts):
  
-        '''Opens the DB connection'''
+        '''Opens the DB connection.  Some sample valid connection strings:
+        
+        connect oracle://user:password@SID
+        connect postgres://user:password@hostname/dbname
+        connect user/password@SID  (Oracle is the default RDBMS target)
+        connect --postgres --hostname=hostname dbname username
+        connect --mysql dbname username'''
         if opts.closeall:
             self.closeall()
             return 
