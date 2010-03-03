@@ -194,8 +194,11 @@ class sqlpython(cmd2.Cmd):
             pass
         return stop, statement           
     def postparsing_postcmd(self, stop):
-        if self.saved_instance_number is not None:
-            self.successfully_connect_to_number(self.saved_instance_number)
+        try:
+            if self.saved_instance_number is not None:
+                self.successfully_connect_to_number(self.saved_instance_number)
+        except AttributeError:
+            pass  # no saved_instance_number has been defined
         return stop
                 
     do_host = cmd2.Cmd.do_shell
