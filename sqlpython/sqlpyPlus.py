@@ -360,7 +360,6 @@ class Abbreviatable_List(list):
     
 # TODO: read comments in psql
 # ls -l
-# bind variables / quotes
 
 class sqlpyPlus(sqlpython.sqlpython):
     defaultExtension = 'sql'
@@ -450,7 +449,7 @@ class sqlpyPlus(sqlpython.sqlpython):
     def dbms_output(self):
         "Dumps contents of Oracle's DBMS_OUTPUT buffer (where PUT_LINE goes)"
         try:
-            line = self.curs.var(cx_Oracle.STRING) # TODO: would regular string and number work?
+            line = self.curs.var(cx_Oracle.STRING) 
             status = self.curs.var(cx_Oracle.NUMBER)
             self.curs.callproc('dbms_output.get_line', [line, status])
             while not status.getvalue():
