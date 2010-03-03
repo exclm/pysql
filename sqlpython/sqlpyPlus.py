@@ -358,6 +358,10 @@ class Abbreviatable_List(list):
             raise ValueError, 'Too many matches: %s' % str(result)
         return result[0]
     
+# TODO: read comments in psql
+# ls -l
+# bind variables / quotes
+
 class sqlpyPlus(sqlpython.sqlpython):
     defaultExtension = 'sql'
     abbrev = True    
@@ -1380,7 +1384,10 @@ class sqlpyPlus(sqlpython.sqlpython):
 
         '''
         #TODO: quoted assignments currently failing?
-        arg = self.parsed(arg)
+        #arg = self.parsed(arg)
+        if hasattr(arg, 'parsed'):
+            arg = arg.parsed.raw
+        arg = arg.strip(self.terminators)
         try:
             var, val = self.assignmentSplitter.split(arg, maxsplit=1)
         except ValueError:
