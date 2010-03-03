@@ -1,0 +1,168 @@
+Transcript file for testing of sqlpython; run tests with 
+`python mysqlpy.py --test pgSession.txt`.
+The database ``testplatform`` must be running and must include 
+user ``testuser``, password ``testpassword``, with full rights on
+schema ``testuser``.
+
+SQL.No_Connection> set
+/.*/
+SQL.No_Connection> set colors off
+/.*/
+SQL.No_Connection> connect --postgres --password=testpassword testplatform testuser
+0:testuser@testplatform> drop table play;
+/.*/
+
+0:testuser@testplatform> rollback;
+
+Executed
+
+0:testuser@testplatform> CREATE TABLE play (
+>   title VARCHAR(40) CONSTRAINT xpk_play PRIMARY KEY,
+>   author VARCHAR(40));
+
+Executed
+
+0:testuser@testplatform> INSERT INTO play VALUES ('Twelfth Night', 'Shakespeare');
+
+Executed (1 rows)
+
+0:testuser@testplatform> INSERT INTO play VALUES ('The Tempest', 'Shakespeare');
+ 
+Executed (1 rows)
+
+0:testuser@testplatform> cat play
+
+title         author     
+------------- -----------
+Twelfth Night Shakespeare
+The Tempest   Shakespeare
+
+2 rows selected.
+
+0:testuser@testplatform> INSERT INTO play VALUES ('Agamemnon', 'Aeschylus'),
+>   ('Dreigroschenoper', 'Brecht'),
+>   ('Faust', 'Goethe');
+
+Executed (3 rows)
+
+0:testuser@testplatform> commit;
+
+Executed
+
+0:testuser@testplatform> select
+> *
+> from
+> play
+> ;
+
+title            author     
+---------------- -----------
+Twelfth Night    Shakespeare
+The Tempest      Shakespeare
+Agamemnon        Aeschylus  
+Dreigroschenoper Brecht     
+Faust            Goethe     
+
+5 rows selected.
+
+0:testuser@testplatform> refresh
+0:testuser@testplatform> py import time; time.sleep(120) # allow metadata to load
+0:testuser@testplatform> ls
+table/play
+0:testuser@testplatform> ls -l
+table/play
+0:testuser@testplatform> ls table/*
+table/play
+0:testuser@testplatform> desc play
+play
+Name   Nullable Type       
+------ -------- -----------
+title  NOT NULL varchar(40)
+author NULL     varchar(40)
+
+0:testuser@testplatform> COMMENT ON COLUMN play.author IS 'Primary author (if multiple)';
+
+Executed
+
+0:testuser@testplatform> COMMENT ON TABLE play IS 'I like plays.';
+
+Executed
+
+0:testuser@testplatform> :author = Shakespeare
+0:testuser@testplatform> select * from play where author = %(author)s;
+
+title         author     
+------------- -----------
+Twelfth Night Shakespeare
+The Tempest   Shakespeare
+
+2 rows selected.
+
+0:testuser@testplatform> py binds['author'] = 'Brecht'
+0:testuser@testplatform> select * from play where author = %(author)s;
+
+title            author
+---------------- ------
+Dreigroschenoper Brecht
+
+1 row selected.
+
+0:testuser@testplatform> select * from play where author = %(author)s\c
+
+
+title,author
+"Dreigroschenoper","Brecht"
+
+1 row selected.
+
+0:testuser@testplatform> select * from play where author = %(author)s\i
+
+
+INSERT INTO play (title, author) VALUES ('Dreigroschenoper', 'Brecht');
+
+1 row selected.
+
+
+0:testschema@orcl> select * from play where author='Shakespeare'\t
+
+
+COLUMN NAME ROW N.1       ROW N.2
+----------- ------------- -----------
+TITLE       Twelfth Night The Tempest
+AUTHOR      Shakespeare   Shakespeare
+
+2 rows selected.
+
+0:testuser@testplatform> set autobind on
+autobind - was: False
+now: True
+0:testuser@testplatform> grep -i aesch play
+play
+
+title     author   
+--------- ---------
+Agamemnon Aeschylus
+
+1 row selected.
+
+0:testuser@testplatform> :
+:1 = Agamemnon
+:2 = Aeschylus
+:author = Aeschylus
+:title = Agamemnon
+0:testuser@testplatform> cat play where title = :1
+syntax error at or near ":"
+LINE 1: select * FROM play where title = :1
+                                         ^
+
+0:testuser@testplatform> cat play where title = %(1)s
+
+title     author   
+--------- ---------
+Agamemnon Aeschylus
+
+1 row selected.
+
+0:testuser@testplatform> drop table play;
+
+Executed

@@ -1,0 +1,356 @@
+Transcript file for testing of sqlpython; run tests with 
+`python mysqlpy.py --test exampleSession.txt`.
+The database `orcl` must be running and must include 
+user testschema, password testschema, with the RESOURCE
+privilege (`GRANT RESOURCE TO testschema`).
+
+SQL.No_Connection> set color off
+/.*/
+SQL.No_Connection> connect testschema/testschema@orcl
+0:testschema@orcl> drop table play;
+/.*/
+0:testschema@orcl> CREATE TABLE play (
+>   title   VARCHAR2(40) CONSTRAINT xpk_play PRIMARY KEY,
+>   author  VARCHAR2(40));
+
+Executed
+
+0:testschema@orcl> py import time; time.sleep(60) # allow metadata to load
+0:testschema@orcl> INSERT INTO play VALUES ('Twelfth Night', 'Shakespeare');
+
+Executed (1 rows)
+
+0:testschema@orcl> INSERT INTO play VALUES ('The Tempest', 'Shakespeare');
+
+Executed (1 rows)
+
+0:testschema@orcl> INSERT INTO play VALUES ('Agamemnon', 'Aeschylus');
+
+Executed (1 rows)
+
+0:testschema@orcl> commit;
+
+Executed
+
+0:testschema@orcl> select
+> *
+> from
+> play;
+
+TITLE         AUTHOR
+------------- -----------
+Twelfth Night Shakespeare
+The Tempest   Shakespeare
+Agamemnon     Aeschylus
+
+3 rows selected.
+
+0:testschema@orcl> ls
+
+NAME          
+--------------
+INDEX/XPK_PLAY
+TABLE/PLAY    
+
+2 rows selected.
+
+0:testschema@orcl> ls -l
+
+NAME           STATUS LAST_DDL_TIME
+-------------- ------ -------------------
+INDEX/XPK_PLAY VALID  /[\\d\\- :]*/
+TABLE/PLAY     VALID  /[\\d\\- :]*/
+
+2 rows selected.
+
+0:testschema@orcl> ls table/*
+
+NAME      
+----------
+TABLE/PLAY
+
+1 row selected.
+
+0:testschema@orcl> desc play
+TABLE TESTSCHEMA.PLAY
+
+COLUMN_NAME Null?    DATA_TYPE
+----------- -------- ------------
+TITLE       NOT NULL VARCHAR2(40)
+AUTHOR      NULL     VARCHAR2(40)
+
+2 rows selected.
+
+0:testschema@orcl> COMMENT ON COLUMN play.author IS 'Primary author (if multiple)';
+
+Executed
+
+0:testschema@orcl> COMMENT ON TABLE play IS 'I like plays.';
+
+Executed
+
+0:testschema@orcl> comments play
+TABLE TESTSCHEMA.PLAY: I like plays.
+
+COLUMN_NAME COMMENTS
+----------- ----------------------------
+TITLE       None
+AUTHOR      Primary author (if multiple)
+
+2 rows selected.
+
+0:testschema@orcl> cat play
+
+TITLE         AUTHOR
+------------- -----------
+Twelfth Night Shakespeare
+The Tempest   Shakespeare
+Agamemnon     Aeschylus
+
+3 rows selected.
+
+0:testschema@orcl> help terminators
+;    standard Oracle format
+\c   CSV (with headings)
+\C   CSV (no headings)
+\g   list
+\G   aligned list
+\h   HTML table
+\i   INSERT statements
+\j   JSON
+\r   ReStructured Text
+\s   CSV (with headings)
+\S   CSV (no headings)
+\t   transposed
+\x   XML
+\l   line plot, with markers
+\L   scatter plot (no lines)
+\b   bar graph
+\p   pie chart
+0:testschema@orcl> select * from play where author='Shakespeare'\c
+
+TITLE,AUTHOR
+"Twelfth Night","Shakespeare"
+"The Tempest","Shakespeare"
+
+2 rows selected.
+
+0:testschema@orcl> select * from play where author='Shakespeare'\g
+
+
+
+**** Row: 1
+TITLE: Twelfth Night
+AUTHOR: Shakespeare
+
+**** Row: 2
+TITLE: The Tempest
+AUTHOR: Shakespeare
+
+
+2 rows selected.
+
+0:testschema@orcl> select * from play where author='Shakespeare'\h
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+  <head>
+    <title>play</title>
+    <meta http-equiv="content-type" content="text/html;charset=utf-8"/>
+  </head>
+  <body>
+    <table id="play" summary="Result set from query on table play">
+      <tr>
+        <th id="header_title">
+          title
+        </th><th id="header_author">
+          author
+        </th>
+      </tr>
+      <tr>
+        <td headers="header_title">
+          Twelfth Night
+        </td><td headers="header_author">
+          Shakespeare
+        </td>
+      </tr><tr>
+        <td headers="header_title">
+          The Tempest
+        </td><td headers="header_author">
+          Shakespeare
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
+
+2 rows selected.
+
+0:testschema@orcl> select * from play\i
+
+
+INSERT INTO play (TITLE, AUTHOR) VALUES ('Twelfth Night', 'Shakespeare');
+INSERT INTO play (TITLE, AUTHOR) VALUES ('The Tempest', 'Shakespeare');
+INSERT INTO play (TITLE, AUTHOR) VALUES ('Agamemnon', 'Aeschylus');
+
+3 rows selected.
+
+0:testschema@orcl> select * from play where author='Shakespeare'\t
+
+
+COLUMN NAME ROW N.1       ROW N.2
+----------- ------------- -----------
+TITLE       Twelfth Night The Tempest
+AUTHOR      Shakespeare   Shakespeare
+
+2 rows selected.
+
+0:testschema@orcl> select * from play where author='Shakespeare'\x
+
+
+<xml>
+  <play_resultset>
+    <play>
+      <title>Twelfth Night</title>
+      <author>Shakespeare</author>
+    </play>
+    <play>
+      <title>The Tempest</title>
+      <author>Shakespeare</author>
+    </play>
+  </play_resultset>
+</xml>
+
+2 rows selected.    
+
+0:testschema@orcl> set
+abbrev: True
+autobind: False
+commit_on_exit: True
+continuation_prompt: > 
+default_file_name: afiedt.buf
+echo: False
+editor: gedit
+feedback_to_output: False
+heading: True
+maxfetch: 1000
+maxtselctrows: 10
+prompt: 0:testschema@orcl> 
+quiet: False
+rows_remembered: 10000
+scan: True
+serveroutput: True
+sql_echo: False
+timeout: 30
+timing: False
+wildsql: False
+
+0:testschema@orcl> set autobind on
+autobind - was: False
+now: True
+
+0:testschema@orcl> select * from play where author like 'A%';
+
+TITLE     AUTHOR   
+--------- ---------
+Agamemnon Aeschylus
+
+1 row selected.
+
+0:testschema@orcl> print
+:1 = Agamemnon
+:2 = Aeschylus
+:author = Aeschylus
+:title = Agamemnon
+0:testschema@orcl> select * from play where title = :1;
+
+TITLE     AUTHOR   
+--------- ---------
+Agamemnon Aeschylus
+
+1 row selected.
+
+0:testschema@orcl> select * from play where author = :author;
+
+TITLE     AUTHOR   
+--------- ---------
+Agamemnon Aeschylus
+
+1 row selected.
+
+0:testschema@orcl> help grep
+grep {target} {table} [{table2,...}]
+        search for {target} in any of {table}'s fields
+Usage: grep [options] arg
+
+Options:
+  -h, --help         show this help message and exit
+  -i, --ignore-case  Case-insensitive search
+
+0:testschema@orcl> grep -i EM play
+play
+
+TITLE       AUTHOR
+----------- -----------
+The Tempest Shakespeare
+Agamemnon   Aeschylus
+
+2 rows selected.
+
+0:testschema@orcl> -- \d command inspired by postgresql's psql
+0:testschema@orcl> \dt
+
+TABLE_NAME TYPE
+---------- -----
+PLAY       TABLE
+
+1 row selected.
+
+0:testschema@orcl> \di play
+
+OWNER      INDEX_NAME INDEX_TYPE
+---------- ---------- ----------
+TESTSCHEMA XPK_PLAY   NORMAL    
+
+1 row selected.
+
+0:testschema@orcl> CREATE OR REPLACE VIEW review
+> AS
+>   SELECT title, author, 'A masterpiece!' review
+>   FROM   play;
+
+Executed
+
+0:testschema@orcl> \dv
+
+VIEW_NAME TYPE
+--------- ----
+REVIEW    VIEW
+
+1 row selected.
+
+0:testschema@orcl> cat review
+
+TITLE         AUTHOR      REVIEW
+------------- ----------- --------------
+Twelfth Night Shakespeare A masterpiece!
+The Tempest   Shakespeare A masterpiece!
+Agamemnon     Aeschylus   A masterpiece!
+
+3 rows selected.
+
+0:testschema@orcl> drop view review;
+
+Executed
+
+0:testschema@orcl> drop table play;
+
+Executed
+
+0:testschema@orcl> foo
+
+bar
+
+0:testschema@orcl> \c postgres://testschema:testschema@localhost/catherine
+
+
