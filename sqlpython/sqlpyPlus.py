@@ -1387,7 +1387,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         #arg = self.parsed(arg)
         if hasattr(arg, 'parsed'):
             arg = arg.parsed.raw
-        arg = arg.strip(self.terminators)
+        arg = arg.strip('\n;').lstrip(':')
         try:
             var, val = self.assignmentSplitter.split(arg, maxsplit=1)
         except ValueError:
