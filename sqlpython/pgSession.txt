@@ -4,8 +4,10 @@ The database ``testplatform`` must be running and must include
 user ``testuser``, password ``testpassword``, with full rights on
 schema ``testuser``.
 
-SQL.No_Connection> set color off
-
+SQL.No_Connection> set
+/.*/
+SQL.No_Connection> set colors off
+/.*/
 SQL.No_Connection> connect --postgres --password=testpassword testplatform testuser
 0:testuser@testplatform> drop table play;
 /.*/
@@ -63,8 +65,8 @@ Faust            Goethe
 
 5 rows selected.
 
-0:testuser@testplatform> ls
 0:testuser@testplatform> refresh
+0:testuser@testplatform> py import time; time.sleep(120) # allow metadata to load
 0:testuser@testplatform> ls
 table/play
 0:testuser@testplatform> ls -l
@@ -85,12 +87,6 @@ Executed
 0:testuser@testplatform> COMMENT ON TABLE play IS 'I like plays.';
 
 Executed
-
--- undone: reading comments!
--- ls -l
--- bind variable set using quotes fails
--- \dt total fail
--- set color off fail (in testing; weird)
 
 0:testuser@testplatform> :author = Shakespeare
 0:testuser@testplatform> select * from play where author = %(author)s;
