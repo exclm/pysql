@@ -223,7 +223,7 @@ class DatabaseInstance(object):
     password = None
     port = None
     uri = None
-    pickledir = os.path.join(os.getenv('HOME'), '.sqlpython')
+    pickledir = os.path.join(os.path.expanduser('~'), '.sqlpython')
     connection_uri_parser = re.compile('(postgres|oracle|mysql|sqlite|mssql):/(.*$)', re.IGNORECASE)
     
     def __init__(self, arg, opts, default_rdbms = 'oracle'):
