@@ -133,8 +133,12 @@ class ConnectionData(object):
     def uri(self):
         return '%s://%s:%s@%s:%s/%s' % (self.rdbms, self.username, self.password,
                                          self.hostname, self.port, self.database)  
+    colon_between_username_passwd = re.compile(r':(?=[^/]+@)')
     def gerald_uri(self):
-        return self.uri().split('?mode=')[0]    
+        result = self.uri().split('?mode=')[0]    
+        result = self.colon_between_username_passwd.sub('/', result)
+        result = result.replace('://', ':/')
+        return result
     def determine_rdbms(self):
         if self.opts.mysql:
             self.__class__ = MySQLConnectionData
