@@ -136,7 +136,6 @@ class ConnectionData(object):
     colon_between_username_passwd = re.compile(r':(?=[^/]+@)')
     def gerald_uri(self):
         result = self.uri().split('?mode=')[0]    
-        result = self.colon_between_username_passwd.sub('/', result)
         result = result.replace('://', ':/')
         return result
     def determine_rdbms(self):
