@@ -14,7 +14,7 @@ Contents:
    capabilities
    limitations
    comparison
-
+   design
 
 Indices and tables
 ==================
