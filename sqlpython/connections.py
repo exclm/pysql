@@ -256,7 +256,7 @@ class DatabaseInstance(object):
         picklefile = open(self.picklefile())
         schema = pickle.load(picklefile)
         picklefile.close()
-        newgerald = gerald_classes[self.rdbms](self.username, None)
+        newgerald = gerald_classes[self.rdbms](self.username, None, omit_error_objects=True)
         newgerald.connect(self.conn_data.gerald_uri())
         newgerald.schema = schema  
         newgerald.current = False
@@ -277,7 +277,7 @@ class MetadataDiscoveryThread(threading.Thread):
             except IOError:
                 pass
         self.db_instance.gerald.current = False
-        newgerald = gerald_classes[self.db_instance.rdbms](self.db_instance.username, self.db_instance.conn_data.gerald_uri())
+        newgerald = gerald_classes[self.db_instance.rdbms](self.db_instance.username, self.db_instance.conn_data.gerald_uri(), omit_error_objects=True)
         newgerald.descriptions = {}
         for (name, obj) in newgerald.schema.items():
             newgerald.descriptions[name] = ObjectDescriptor(name, obj)            

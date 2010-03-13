@@ -1,5 +1,10 @@
-from setuptools import setup, find_packages
-
+try:
+    from setuptools import setup, find_packages
+except ImportError:
+    from distutils.core import setup
+    def find_packages():
+        return ['sqlpython']
+    
 classifiers = """Development Status :: 4 - Beta
 Intended Audience :: Information Technology
 License :: OSI Approved :: MIT License
