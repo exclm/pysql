@@ -74,7 +74,7 @@ information.
 Bugs
 ----
 
-Please report bugs at http://trac-hg.assembla.com/sqlpython or to catherine.devlin@gmail.com.
+Please report bugs at http://www.assembla.com/spaces/sqlpython/tickets or to catherine.devlin@gmail.com.
 
 Origins
 -------

@@ -1,0 +1,110 @@
+SQL.No_Connection> connect testuser/testpassword@eqdev
+0:testuser@eqdev> connect oracle://testuser:testpassword@eqdev
+0:testuser@eqdev> connect --oracle testuser/testpassword@eqdev
+0:testuser@eqdev> connect --password=testpassword eqdev testuser
+Connection failure.
+Opens the DB connection.  Some sample valid connection strings:
+        
+        connect oracle://user:password@SID
+        connect postgres://user:password@hostname/dbname
+        connect user/password@SID  (Oracle is the default RDBMS target)
+        connect --postgres --hostname=hostname dbname username
+        connect --mysql dbname username
+Usage: connect [options] arg
+
+Options:
+  -h, --help            show this help message and exit
+  -a, --add             add connection (keep current connection)
+  -c, --close           close connection {N} (or current)
+  -C, --closeall        close all connections
+  --postgres            Connect to postgreSQL: `connect --postgres [DBNAME
+                        [USERNAME]]`
+  --oracle              Connect to an Oracle database
+  --mysql               Connect to a MySQL database
+  -H HOSTNAME, --hostname=HOSTNAME
+                        Machine where database is hosted
+  -p PORT, --port=PORT  Port to connect to
+  --password=PASSWORD   Password
+  -d DATABASE, --database=DATABASE
+                        Database name to connect to
+  -U USERNAME, --username=USERNAME
+                        Database user name to connect as
+
+0:testuser@eqdev> connect --postgres testplatform testuser
+Password: 
+0:testuser@testplatform> connect --postgres --password=testpassword testplatform testuser
+0:testuser@testplatform> connect --postgres --password=testpassword testplatform --username=testuser
+'NoneType' object has no attribute 'start'
+0:testuser@testplatform> connect --postgres --password=testpassword --username=testuser --database=testplatform
+0:testuser@testplatform> connect --postgres testuser/testpassword@testplatform
+Password: 
+Connection failure.
+Opens the DB connection.  Some sample valid connection strings:
+        
+        connect oracle://user:password@SID
+        connect postgres://user:password@hostname/dbname
+        connect user/password@SID  (Oracle is the default RDBMS target)
+        connect --postgres --hostname=hostname dbname username
+        connect --mysql dbname username
+Usage: connect [options] arg
+
+Options:
+  -h, --help            show this help message and exit
+  -a, --add             add connection (keep current connection)
+  -c, --close           close connection {N} (or current)
+  -C, --closeall        close all connections
+  --postgres            Connect to postgreSQL: `connect --postgres [DBNAME
+                        [USERNAME]]`
+  --oracle              Connect to an Oracle database
+  --mysql               Connect to a MySQL database
+  -H HOSTNAME, --hostname=HOSTNAME
+                        Machine where database is hosted
+  -p PORT, --port=PORT  Port to connect to
+  --password=PASSWORD   Password
+  -d DATABASE, --database=DATABASE
+                        Database name to connect to
+  -U USERNAME, --username=USERNAME
+                        Database user name to connect as
+
+0:testuser@testplatform> connect postgres://testuser:testpassword@testplatform
+Connection failure.
+Opens the DB connection.  Some sample valid connection strings:
+        
+        connect oracle://user:password@SID
+        connect postgres://user:password@hostname/dbname
+        connect user/password@SID  (Oracle is the default RDBMS target)
+        connect --postgres --hostname=hostname dbname username
+        connect --mysql dbname username
+Usage: connect [options] arg
+
+Options:
+  -h, --help            show this help message and exit
+  -a, --add             add connection (keep current connection)
+  -c, --close           close connection {N} (or current)
+  -C, --closeall        close all connections
+  --postgres            Connect to postgreSQL: `connect --postgres [DBNAME
+                        [USERNAME]]`
+  --oracle              Connect to an Oracle database
+  --mysql               Connect to a MySQL database
+  -H HOSTNAME, --hostname=HOSTNAME
+                        Machine where database is hosted
+  -p PORT, --port=PORT  Port to connect to
+  --password=PASSWORD   Password
+  -d DATABASE, --database=DATABASE
+                        Database name to connect to
+  -U USERNAME, --username=USERNAME
+                        Database user name to connect as
+
+0:testuser@testplatform> connect postgres://testuser:testpassword@localhost/testplatform
+0:testuser@testplatform> 
+0:testuser@testplatform> connect mysql://testuser:testpassword@localhost/testplatform
+0:testuser@testplatform> connect --mysql --password=testpassword --username=testuser --database=testplatform
+0:testuser@testplatform> connect --mysql --password=testpassword testplatform testuser
+0:testuser@testplatform> 
+
+
+fails:
+0:testuser@eqdev> connect --password=testpassword eqdev testuser
+0:testuser@testplatform> connect postgres://testuser:testpassword@testplatform
+0:testuser@testplatform> connect --postgres testuser/testpassword@testplatform
+0:testuser@eqdev> connect --password=testpassword eqdev testuser
