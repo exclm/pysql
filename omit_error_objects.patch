@@ -1,0 +1,143 @@
+diff -r db8d877dbf4e gerald/oracle_schema.py
+--- a/gerald/oracle_schema.py	Wed Mar 10 15:41:22 2010 -0500
++++ b/gerald/oracle_schema.py	Wed Mar 10 15:46:07 2010 -0500
+@@ -84,21 +84,21 @@
+         cursor.execute(stmt)
+         for table in cursor.fetchall():
+             LOG.debug('Getting details for table %s' % table[0])
+-            schema[table[0]] = Table(table[0], cursor, schema_name)
++            self._set_unless_fail(schema, table[0], table[0], Table, cursor, schema_name)
+         # Views
+         stmt = """SELECT view_name
+                   FROM   user_views"""
+         cursor.execute(stmt)
+         for view in cursor.fetchall():
+             LOG.debug("Getting details for view %s" % view[0])
+-            schema[view[0]] = View(view[0], cursor, schema_name)
++            self._set_unless_fail(schema, view[0], view[0], View, cursor, schema_name)
+         # Sequences
+         stmt = """SELECT sequence_name
+                   FROM   user_sequences"""
+         cursor.execute(stmt)
+         for sequence in cursor.fetchall():
+             LOG.debug("Getting details for sequence %s" % sequence[0])
+-            schema[sequence[0]] = Sequence(sequence[0], cursor, schema_name)
++            self._set_unless_fail(schema, sequence[0], sequence[0], Sequence, cursor, schema_name)
+         # Code objects (packages, procedures and functions)
+         # Note that we exclude package bodies, even though they are separate
+         # objects they are stored under the package header in gerald
+@@ -112,11 +112,9 @@
+             object_name, object_type = code_object
+             LOG.debug("Getting details for code object %s" % object_name)
+             if object_type == 'PACKAGE':
+-                schema[object_name] = Package(object_name, object_type, cursor,
+-                        schema_name)
++                self._set_unless_fail(schema, object_name, object_name, Package, object_type, cursor, schema_name)
+             else:
+-                schema[object_name] = CodeObject(object_name, object_type,
+-                        cursor, schema_name)
++                self._set_unless_fail(schema, object_name, object_name, CodeObject, object_type, cursor, schema_name)
+         # Database links
+         stmt = """SELECT db_link
+                   FROM   user_db_links
+@@ -126,12 +124,11 @@
+         for db_link in cursor.fetchall():
+             link_name = db_link[0]
+             LOG.debug("Getting details for db link %s" % link_name)
+-            schema[link_name] = DatabaseLink(link_name, cursor)
++            self._set_unless_fail(schema, link_name, link_name, DatabaseLink, cursor)
+         # All done, return the fruit of our labours
+         LOG.info('Got details for schema %s' % self.name)
+         return schema
+ 
+-
+ class User(schema.Schema):
+     """
+     A representation of an Oracle database user 
+@@ -168,7 +165,7 @@
+             owner, table_name = table
+             LOG.debug('Getting details for table %s' % table_name)
+             table_key = '%s.%s' % (owner, table_name)
+-            schema[table_key] = Table(table_name, cursor, owner)
++            self._set_unless_fail(schema, table_key, table_name, Table, cursor, owner)
+         # Views
+         stmt = """SELECT view_name, owner
+                   FROM   all_views"""
+@@ -177,7 +174,7 @@
+             view_name, owner = view
+             LOG.debug("Getting details for view %s" % view_name)
+             view_key = '%s.%s' % (owner, view_name)
+-            schema[view_key] = View(view_name, cursor, owner)
++            self._set_unless_fail(schema, view_key, view_name, View, cursor, owner)
+         # Sequences
+         stmt = """SELECT sequence_name, sequence_owner
+                   FROM   all_sequences"""
+@@ -186,7 +183,7 @@
+             sequence, owner = seq
+             LOG.debug("Getting details for sequence %s" % sequence)
+             sequence_key = '%s.%s' % (owner, sequence)
+-            schema[sequence_key] = Sequence(sequence, cursor, owner)
++            self._set_unless_fail(schema, sequence_key, sequence, Sequence, cursor, owner)
+         # Code objects (packages, procedures and functions)
+         # Note that we exclude package bodies, even though they are separate
+         # objects they are stored under the package header in gerald
+@@ -201,9 +198,9 @@
+             object_key = '%s.%s' % (owner, object_name)
+             LOG.debug("Getting details for code object %s" % object_key)
+             if object_type == 'PACKAGE':
+-                schema[object_key] = Package(object_name, object_type, cursor, owner)
++                self._set_unless_fail(schema, object_key, object_name, Package, object_type, cursor, owner)
+             else:
+-                schema[object_key] = CodeObject(object_name, object_type, cursor, owner)
++                self._set_unless_fail(schema, object_key, object_name, CodeObject, object_type, cursor, owner)
+         # All done, return the fruit of our labours
+         LOG.info('Got details for user %s' % self.name)
+         return schema
+@@ -1033,5 +1030,8 @@
+ 
+ 
+ if __name__ == "__main__":
+-    print "This module should not be invoked from the command line"
++    import gerald
++    sch = gerald.oracle_schema.User('eqdbw', 'oracle://eqdbw/mtndew@afmcce1.wpafb.af.mil/eqprod.wpafb.af.mil',omit_error_objects=True)    
++    print sch
++    #print "This module should not be invoked from the command line"
+     sys.exit(1)
+diff -r db8d877dbf4e gerald/schema.py
+--- a/gerald/schema.py	Wed Mar 10 15:41:22 2010 -0500
++++ b/gerald/schema.py	Wed Mar 10 15:46:07 2010 -0500
+@@ -75,7 +75,7 @@
+       - _db. A database connection. Optional, need not be provided by sub-classes.
+       - _cursor. A cursor generated from _db
+     """
+-    def __init__(self, schema_name, connection_string=None):
++    def __init__(self, schema_name, connection_string=None, omit_error_objects=False):
+         """
+         Initialise the schema. 
+ 
+@@ -87,6 +87,7 @@
+         @return: Success or failure
+         @rtype: Boolean
+         """
++        self.omit_error_objects = omit_error_objects
+         self.name = schema_name
+         self.api_version = Decimal('1.1')
+         self.schema = {}
+@@ -226,6 +227,15 @@
+                     results.append('%s is different ' % schema_object)
+                     results.append('in the two schemas')
+         return ''.join(results)
++    def _set_unless_fail(self, schema, key, object_name, object_type, *args):
++        try:
++            schema[key] = object_type(object_name, *args)
++        except (AttributeError) as e:
++            if self.omit_error_objects:
++                LOG.warning("Couldn't get details for %s: %s" % (key, str(e)))
++            else:
++                raise
++    
+ 
+ 
+ class Table(object):
+
+ 	  	 
