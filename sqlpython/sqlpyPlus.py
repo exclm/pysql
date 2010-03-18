@@ -854,16 +854,21 @@ class sqlpyPlus(sqlpython.sqlpython):
         """Displays source code."""
         self._pull(arg, opts)
 
-    def _pull(self, arg, opts, vc=None):        
+    def _pull(self, arg, opts, vc=None):  
         opts.exact = True
         statekeeper = Statekeeper(opts.dump and self, ('stdout',))
         (username, gerald_schema) = self.metadata()
         try:
-            for description in self._matching_database_objects(arg, opts):                
+            for description in self._matching_database_objects(arg, opts):            
                 self.poutput(description.path)
                 txt = description.dbobj.get_ddl()
+                if hasattr(description.dbobj, 'get_body_ddl'):
+                    bodytxt = description.dbobj.get_body_ddl()
+                else:
+                    bodytxt = ''
                 if opts.get('lines'):
                     txt = self._with_line_numbers(txt)    
+                    bodytxt = self._with_line_numbers(bodytxt)
                 if opts.dump:
                     owner = description.owner or self.current_instance.username
                     path = os.path.join(owner.lower(), description.type.lower()) \
@@ -874,14 +879,24 @@ class sqlpyPlus(sqlpython.sqlpython):
                         pass
                     filename = os.path.join(path, '%s.sql' % description.unqualified_name.lower())
                     self.stdout = open(filename, 'w')
+                    if bodytxt:
+                        bodyfilename = os.path.join(path, '%s_body.sql' % description.unqualified_name.lower())
+                        bodyfile = open(bodyfilename, 'w')
                 if opts.get('num') is not None:
                     txt = txt.splitlines()
                     txt = centeredSlice(txt, center=opts.num+1, width=opts.width)
                     txt = '\n'.join(txt)
                 else:
                     txt = 'REMARK BEGIN %s\n%s\nREMARK END\n' % (description.path, txt)
+                    if bodytxt:
+                        bodytxt = 'REMARK BEGIN %s\n%s\nREMARK END\n' % (description.path, bodytxt)
 
                 self.poutput(txt)
+                if bodytxt:
+                    if opts.dump:
+                        bodyfile.write(bodytxt)
+                    else:
+                        self.poutput(bodytxt)
                 if opts.full:
                     for dependent_type in ('constraints', 'triggers', 'indexes'):
                         if hasattr(description.dbobj, dependent_type):
@@ -889,6 +904,9 @@ class sqlpyPlus(sqlpython.sqlpython):
                                 self.poutput('REMARK BEGIN\n%s\nREMARK END\n\n' % depobj.get_ddl())
                 if opts.dump:
                     self.stdout.close()
+                    if bodytxt:
+                        bodyfile.close()
+                    statekeeper.restore()
                     if vc:
                         subprocess.call(vc + [filename])                    
         except:

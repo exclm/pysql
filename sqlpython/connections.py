@@ -27,7 +27,10 @@ class ObjectDescriptor(object):
     def __init__(self, name, dbobj):
         self.fullname = name
         self.dbobj = dbobj
-        self.type = str(type(self.dbobj)).split('.')[-1].lower().strip("'>")
+        if hasattr(self.dbobj, 'type'):
+            self.type = self.dbobj.type.lower()
+        else:
+            self.type = str(type(self.dbobj)).split('.')[-1].lower().strip("'>")
         self.path = '%s/%s' % (self.type, self.fullname)
         if '.' in self.fullname:
             (self.owner, self.unqualified_name) = self.fullname.split('.')
