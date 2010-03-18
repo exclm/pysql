@@ -49,11 +49,6 @@ Example:
  SQL> exit
     '''
 
-    '''
-    def do_greet(self, arg):
-        print 'Hello, ' + arg
-    '''
-
     def __init__(self):
         sqlpyPlus.__init__(self)
         self.maxtselctrows = 10
