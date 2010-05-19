@@ -154,8 +154,9 @@ class sqlpython(cmd2.Cmd):
 
         try:
             db_instance = connections.DatabaseInstance(arg, opts, default_rdbms = self.default_rdbms)
-        except:
+        except Exception, e:
             self.perror('Connection failure.\n' + self.do_connect.__doc__)
+            self.perror(str(e))
             return
         if opts.add or (self.instance_number is None):
             try:
