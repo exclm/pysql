@@ -8,20 +8,28 @@ import pickle
 import optparse
 import doctest
 
+gerald_classes = {}
+
 try:
     import cx_Oracle
+    gerald_classes['oracle'] = gerald.oracle_schema.User
 except ImportError:
     pass
 
 try:
     import psycopg2
+    gerald_classes['postgres'] = gerald.PostgresSchema
 except ImportError:
     pass
 
 try:
     import MySQLdb
+    gerald_classes['mysql'] = gerald.MySQLSchema
 except ImportError:
     pass
+
+if not gerald_classes:
+    raise ImportError, 'No Python database adapters installed!'
 
 class ObjectDescriptor(object):
     def __init__(self, name, dbobj):
@@ -214,10 +222,6 @@ class OracleConnectionData(ConnectionData):
     def connection(self):
         return cx_Oracle.connect(user = self.username, password = self.password,
                                   dsn = self.dsn, mode = self.mode)    
-
-gerald_classes = {'oracle': gerald.oracle_schema.User,
-                  'postgres': gerald.PostgresSchema,
-                  'mysql': gerald.MySQLSchema }
 
 class DatabaseInstance(object):
     import_failure = None
