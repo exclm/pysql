@@ -8,7 +8,7 @@ SQL.No_Connection> set
 /.*/
 SQL.No_Connection> set colors off
 /.*/
-SQL.No_Connection> connect --postgres --password=testpass00word testplatform testuser
+SQL.No_Connection> connect --postgres --password=testpassword testplatform testuser
 0:testuser@testplatform> drop table play;
 /.*/
 
