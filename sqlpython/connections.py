@@ -147,7 +147,6 @@ class ConnectionData(object):
     colon_between_username_passwd = re.compile(r':(?=[^/]+@)')
     def gerald_uri(self):
         result = self.uri().split('?mode=')[0]    
-        result = result.replace('://', ':/')
         return result
     def determine_rdbms(self):
         if self.opts.mysql:
@@ -160,6 +159,31 @@ class ConnectionData(object):
         self.port = self.default_port
     def set_corrections(self):
         pass
+
+
+parser = optparse.OptionParser()
+parser.add_option('--postgres', action='store_true', help='Connect to postgreSQL: `connect --postgres [DBNAME [USERNAME]]`')
+parser.add_option('--oracle', action='store_true', help='Connect to an Oracle database')
+parser.add_option('--mysql', action='store_true', help='Connect to a MySQL database')
+parser.add_option('-H', '--hostname', type='string',
+                                    help='Machine where database is hosted')
+parser.add_option('-p', '--port', type='int',
+                                    help='Port to connect to')
+parser.add_option('--password', type='string',
+                                    help='Password')
+parser.add_option('-d', '--database', type='string',
+                                    help='Database name to connect to')
+parser.add_option('-U', '--username', type='string',
+                                    help='Database user name to connect as')
+
+def connect(connstr):
+    (options, args) = parser.parse_args(connstr)
+    print options
+    print args
+
+
+
+
 
 class MySQLConnectionData(ConnectionData):
     rdbms = 'mysql'
