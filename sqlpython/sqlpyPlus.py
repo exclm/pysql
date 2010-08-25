@@ -1568,6 +1568,7 @@ class sqlpyPlus(sqlpython.sqlpython):
     def _regex_form_of_search_pattern(self, s, exact=False):
         if not s:
             return '^[^\.]*$'
+        s = s.replace('$','\$')  # not re.escape(s) b/c ``?`` is valid in SQL and regex
         if '.' in s:
             seekpatt = r'[/\\]?%s[/\\]?' % (
                 s.replace('*', '.*').replace('?','.').replace('%', '.*'))        
@@ -1593,8 +1594,6 @@ class sqlpyPlus(sqlpython.sqlpython):
             self.pfeedback('Metadata is stale - requested refresh still underway')
                             
     def _matching_database_objects(self, arg, opts):
-        # doesn't get java$options
-
         (username, gerald_schema) = self.metadata()                
         self._print_gerald_status_warning(gerald_schema)
         if not gerald_schema.complete:
