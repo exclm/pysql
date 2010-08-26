@@ -83,7 +83,11 @@ class sqlpython(cmd2.Cmd):
             self.list_instances()
             return
         if self.commit_on_exit:
-            instance.connection.commit()
+            try:
+                instance.connection.commit()
+            except Exception, e:
+                self.perror('Error while committing:')
+                self.perror(str(e))                
         self.instances.pop(instance_number)
         if instance_number == self.instance_number:
             self.no_instance()
