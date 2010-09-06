@@ -3,10 +3,9 @@ import os
 import getpass
 import gerald
 import time
-import threading
-import pickle
 import optparse
 import doctest
+import pyparsing
 
 gerald_classes = {}
 
@@ -28,8 +27,8 @@ try:
 except ImportError:
     pass
 
-if not gerald_classes:
-    raise ImportError, 'No Python database adapters installed!'
+#if not gerald_classes:
+#    raise ImportError, 'No Python database adapters installed!'
 
 class ObjectDescriptor(object):
     def __init__(self, name, dbobj):
@@ -80,6 +79,7 @@ class DatabaseInstance(object):
     connection_uri_parser = re.compile('(?P<rdbms>postgres|oracle|mysql|sqlite|mssql)://?(?P<connect_string>.*$)', re.IGNORECASE)    
     connection_parser = re.compile('((?P<database>\S+)(\s+(?P<username>\S+))?)?')    
     def __init__(self, arg, opts, default_rdbms = 'oracle'):
+        'no docstring'
         '''
         >>> opts = OptionTestDummy(postgres=True, password='password')        
         >>> DatabaseInstance('thedatabase theuser', opts).uri()        
@@ -123,6 +123,7 @@ class DatabaseInstance(object):
         self.set_corrections()     
         if not self.password:
             self.password = getpass.getpass()    
+        #self.connect()
     def parse_connect_uri(self, uri):
         results = self.connection_uri_parser.search(uri)
         if results:
@@ -156,7 +157,43 @@ class DatabaseInstance(object):
     def set_instance_number(self, instance_number):
         self.instance_number = instance_number
         self.prompt = "%d:%s@%s> " % (self.instance_number, self.username, self.database)  
-
+    sqlname = pyparsing.Word(pyparsing.alphas + '$_#%*', pyparsing.alphanums + '$_#%*')
+    ls_parser = ( (pyparsing.Optional(sqlname + pyparsing.Suppress("/"), default="%")("owner") + 
+                   pyparsing.Optional(sqlname + pyparsing.Suppress("/"), default="%")("type") + 
+                   pyparsing.Optional(sqlname, default="%")("name") +
+                   pyparsing.stringEnd ) 
+                   | ( pyparsing.Optional(sqlname + pyparsing.Suppress("/"), default="%")("type") + 
+                       pyparsing.Optional(sqlname + pyparsing.Suppress("."), default="%")("owner") +
+                       pyparsing.Optional(sqlname, default="%")("name") ) +
+                       pyparsing.stringEnd )
+    def parse_identifier(self, identifier):
+        """
+        >>> opts = OptionTestDummy(postgres=True, password='password')        
+        >>> db = DatabaseInstance('thedatabase theuser', opts)
+        >>> result = db.parse_identifier('scott.pets')
+        >>> result.owner
+        'scott'
+        >>> result.name
+        'pets'
+        >>> result = db.parse_identifier('scott/table/pets')
+        >>> (result.owner, result.type, result.name)
+        ('scott', 'table', 'pets')
+        >>> result = db.parse_identifier('table/scott.pets')
+        >>> (result.owner, result.type, result.name)
+        ('scott', 'table', 'pets')
+        >>> result = db.parse_identifier('')
+        >>> (result.owner, result.type, result.name)
+        ('', '', '')
+        >>> result = db.parse_identifier('table/scott.*')
+        >>> (str(result.owner), str(result.type), str(result.name))
+        ('scott', 'table', '%')
+        """
+        identifier = identifier.replace('*', '%')
+        result = self.ls_parser.parseString(identifier)
+        return result
+        
+                                          
+                      
 
 parser = optparse.OptionParser()
 parser.add_option('--postgres', action='store_true', help='Connect to postgreSQL: `connect --postgres [DBNAME [USERNAME]]`')
@@ -177,10 +214,6 @@ def connect(connstr):
     (options, args) = parser.parse_args(connstr)
     print options
     print args
-
-
-
-
 
 class MySQLInstance(DatabaseInstance):
     rdbms = 'mysql'
@@ -243,6 +276,10 @@ class OracleInstance(DatabaseInstance):
     def connect(self):
         self.connection = cx_Oracle.connect(user = self.username, password = self.password,
                                   dsn = self.dsn, mode = self.mode)    
+    def findAll(self, target):
+          
+        pass 
+        
                  
 if __name__ == '__main__':
     doctest.testmod()
