@@ -27,6 +27,7 @@ import sys, os, re, sqlpython, pyparsing, re, completion
 import datetime, pickle, binascii, subprocess, time, itertools, hashlib
 import traceback, operator
 from cmd2 import Cmd, make_option, options, Statekeeper, Cmd2TestCase, options_defined
+import operator
 from output_templates import output_templates
 from metadata import metaqueries
 from plothandler import Plot
@@ -855,57 +856,38 @@ class sqlpyPlus(sqlpython.sqlpython):
         self._pull(arg, opts)
 
     def _pull(self, arg, opts, vc=None):  
-        opts.exact = True
         statekeeper = Statekeeper(opts.dump and self, ('stdout',))
-        (username, gerald_schema) = self.metadata()
         try:
-            for description in self._matching_database_objects(arg, opts):            
-                self.poutput(description.path)
-                txt = description.dbobj.get_ddl()
-                if hasattr(description.dbobj, 'get_body_ddl'):
-                    bodytxt = description.dbobj.get_body_ddl()
-                else:
-                    bodytxt = ''
+            for (owner, object_type, name) in self.current_instance.objects(arg, opts):
+                obj = self.current_instance.object_metadata(owner, object_type, name)
+                txt = obj.get_ddl()
                 if opts.get('lines'):
                     txt = self._with_line_numbers(txt)    
-                    bodytxt = self._with_line_numbers(bodytxt)
                 if opts.dump:
-                    owner = description.owner or self.current_instance.username
-                    path = os.path.join(owner.lower(), description.type.lower()) \
-                           .replace(' ', '_')
+                    path = os.path.join(owner.lower(), object_type.lower()).replace(' ', '_')
                     try:
                         os.makedirs(path)
                     except OSError:
                         pass
-                    filename = os.path.join(path, '%s.sql' % description.unqualified_name.lower())
+                    filename = os.path.join(path, '%s.sql' % name.lower())
                     self.stdout = open(filename, 'w')
-                    if bodytxt:
-                        bodyfilename = os.path.join(path, '%s_body.sql' % description.unqualified_name.lower())
-                        bodyfile = open(bodyfilename, 'w')
                 if opts.get('num') is not None:
                     txt = txt.splitlines()
                     txt = centeredSlice(txt, center=opts.num+1, width=opts.width)
                     txt = '\n'.join(txt)
                 else:
-                    txt = 'REMARK BEGIN %s\n%s\nREMARK END\n' % (description.path, txt)
-                    if bodytxt:
-                        bodytxt = 'REMARK BEGIN %s\n%s\nREMARK END\n' % (description.path, bodytxt)
-
+                    txt = 'REMARK BEGIN %s/%s/%s\n%s\nREMARK END\n' % (owner, object_type, name, txt)
                 self.poutput(txt)
-                if bodytxt:
-                    if opts.dump:
-                        bodyfile.write(bodytxt)
-                    else:
-                        self.poutput(bodytxt)
-                if opts.full:
+                
+                
+                """if opts.full:
                     for dependent_type in ('constraints', 'triggers', 'indexes'):
                         if hasattr(description.dbobj, dependent_type):
                             for (depname, depobj) in getattr(description.dbobj, dependent_type).items():
                                 self.poutput('REMARK BEGIN\n%s\nREMARK END\n\n' % depobj.get_ddl())
+                                """
                 if opts.dump:
                     self.stdout.close()
-                    if bodytxt:
-                        bodyfile.close()
                     statekeeper.restore()
                     if vc:
                         subprocess.call(vc + [filename])                    
@@ -1074,28 +1056,31 @@ class sqlpyPlus(sqlpython.sqlpython):
                     #TODO: in postgres, _key_columns returns 'fishies_pkey' instead of 'n'        
         else:
             return []
+
+    standard_options = [
+              all_users_option,
+              make_option('-l', '--long', action='store_true', help='long descriptions'),
+              make_option('-r', '--reverse', action='store_true', help="Reverse order while sorting")]
         
-    @options([all_users_option,
-              make_option('-l', '--long', action='store_true', help='include column #, comments'),
+    @options(standard_options + [
               make_option('-A', '--alpha', action='store_true', help='List columns alphabetically')])
     def do_describe(self, arg, opts):
-        opts.exact = True
         rowlimit = self.rowlimit(arg)
         if opts.alpha:
             sortkey = operator.itemgetter('name')
         else:
             sortkey = operator.itemgetter('sequence')
-        for descrip in self._matching_database_objects(arg, opts):
-            self.tblname = descrip.fullname
+        for (owner, object_type, name) in self.current_instance.objects(arg, opts):
+            obj = self.current_instance.object_metadata(owner, object_type, name)
+            self.tblname = '%s %s.%s' % (object_type, owner, name)
             self.pfeedback(self.tblname)
-            if opts.long and hasattr(descrip.dbobj, 'comments'):
-                if descrip.dbobj.comments:
-                    self.poutput(descrip.dbobj.comments) 
-            if hasattr(descrip.dbobj, 'columns'):
-                cols = sorted(descrip.dbobj.columns.values(), key=sortkey)[:rowlimit]
-                if opts.long and hasattr(descrip.dbobj, 'constraints'):
-                    primary_key_columns = self._key_columns(descrip.dbobj, 'Primary')
-                    unique_key_columns = self._key_columns(descrip.dbobj, 'Unique')
+            if opts.long and hasattr(obj, 'comments') and obj.comments:
+                self.poutput(obj.comments) 
+            if hasattr(obj, 'columns'):
+                cols = sorted(obj.columns.values(), key=sortkey, reverse=bool(opts.reverse))[:rowlimit]
+                if opts.long and hasattr(obj, 'constraints'):
+                    primary_key_columns = self._key_columns(obj, 'Primary')
+                    unique_key_columns = self._key_columns(obj, 'Unique')
                     self.colnames = 'N Name Nullable Type Key Default Comments'.split()
                     self.rows = [(col['sequence'], col['name'], (col['nullable'] and 'NULL') or 'NOT NULL',
                                   self._col_type_descriptor(col), 
@@ -1109,18 +1094,17 @@ class sqlpyPlus(sqlpython.sqlpython):
                                  for col in cols]
                 self.coltypes = [str] * len(self.colnames)
                 self.poutput('%s\n\n' % self.tabular_output(arg.parsed.terminator, self.tblname))
-            elif hasattr(descrip.dbobj, 'increment_by'):
+            elif hasattr(obj, 'increment_by'):
                 self.colnames = 'name min_value max_value increment_by'.split()
                 self.coltypes = [str, int, int, int]
-                self.rows = [(getattr(descrip.dbobj, p) for p in self.colnames)]
+                self.rows = [(getattr(obj, p) for p in self.colnames)]
                 self.poutput('%s\n\n' % self.tabular_output(arg.parsed.terminator, self.tblname))
-            elif hasattr(descrip.dbobj, 'source'):
+            elif hasattr(obj, 'source'):
                 end_heading = re.compile(r'\bDECLARE|BEGIN\b', re.IGNORECASE)
-                for (index, (ln, line)) in enumerate(descrip.dbobj.source):
+                for (index, (ln, line)) in enumerate(obj.source):
                     if end_heading.search(line):
                         break
-                self.poutput(''.join(l for (ln, l) in descrip.dbobj.source[:index]))
-                        
+                self.poutput(''.join(l for (ln, l) in obj.source[:index]))
     @options([all_users_option])            
     def do_deps(self, arg, opts):
         '''Lists all objects that are dependent upon the object.'''
@@ -1267,11 +1251,7 @@ class sqlpyPlus(sqlpython.sqlpython):
     def _do_dir(self, type, arg, opts):
         self._do_ls("%s/%s%s%s" % (type, str(arg), arg.parsed.terminator, arg.parsed.suffix), opts)
 
-    standard_options = [
-              all_users_option,
-              make_option('-l', '--long', action='store_true', help='long descriptions'),
-              make_option('-r', '--reverse', action='store_true', help="Reverse order while sorting")]
-    
+   
     @options(standard_options)
     def do__dir_tables(self, arg, opts):
         'Shortcut for ``ls table/``'
@@ -1606,12 +1586,8 @@ class sqlpyPlus(sqlpython.sqlpython):
    
     def _do_ls(self, arg, opts):
         'Functional core of ``do_ls``, split out into an undecorated version to be callable from other methods'
-        opts.exact = True
-        (username, schemas) = self.metadata()
-        result = [descrip.path for descrip in self._matching_database_objects(arg, opts)]
-        if result:
-            result.sort(reverse=bool(opts.reverse))
-            self.poutput('\n'.join(result))
+        for row in self.current_instance.objects(arg, opts):
+            self.poutput('%s/%s/%s' % row)
                 
     @options(standard_options)
     def do_ls(self, arg, opts):
