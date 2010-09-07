@@ -196,9 +196,11 @@ class DatabaseInstance(object):
         result = {'owner': '%', 'type': '%', 'name': '%'}
         result.update(dict(self.ls_parser.parseString(identifier)))
         return result 
-    def findAll(self, target):
+    def objects(self, target, opts):
         identifier = self.parse_identifier(target)
         clauses = []
+        if (identifier['owner'] == '%') and (not opts.all):
+            identifier['owner'] = self.username
         for col in ('owner', 'type', 'name'):
             if ('%' in identifier[col]) or ('_' in identifier[col]):
                 operator = 'LIKE'
@@ -206,12 +208,19 @@ class DatabaseInstance(object):
                 operator = '='
             clause = '%s %s' % (operator, self.bindSyntax(col))
             clauses.append(clause)
+        if hasattr(opts, 'reverse') and opts.reverse:
+            sort_direction = 'DESC'
+        else:
+            sort_direction = 'ASC'
+        clauses.append(sort_direction)
         qry = self.all_object_qry % tuple(clauses)
-        if isinstance(self, MySQLInstance):
-            identifier = (identifier['owner'], identifier['type'], identifier['name']) 
-        result = self.connection.cursor().execute(qry, identifier) 
+        identifier = self.bindVariables(identifier)
+        result = self.connection.cursor().execute(qry, self.bindVariables(identifier)) 
         return result
-                                          
+    gerald_types = {'TABLE': gerald.oracle_schema.Table,
+                    'VIEW': gerald.oracle_schema.View}
+    def object_metadata(self, owner, object_type, name):
+        return self.gerald_types[object_type](name, self.connection.cursor(), owner)
                       
 
 parser = optparse.OptionParser()
@@ -248,6 +257,8 @@ class MySQLInstance(DatabaseInstance):
                                 port = self.port, sql_mode = 'ANSI')        
     def bindSyntax(self, varname):
         return '%s'
+    def bindVariables(self, identifier):
+        return (identifier['owner'], identifier['type'], identifier['name'])
     
 class PostgresInstance(DatabaseInstance):
     rdbms = 'postgres'
@@ -262,7 +273,20 @@ class PostgresInstance(DatabaseInstance):
                                  password = self.password, database = self.database,
                                  port = self.port)          
     def bindSyntax(self, varname):
-        return '%%(%s)s' % varname
+        return '%%(%s)s' % varname.lower()
+    def bindVariables(self, identifier):
+        return identifier
+    all_object_qry = """SELECT table_schema, table_type, table_name
+                        FROM   
+                               ( SELECT table_schema, table_type, table_name
+                                 FROM   information_schema.tables
+                                 UNION ALL
+                                 SELECT table_schema, 'view', table_name
+                                 FROM   information_schema.views )
+                        WHERE  ( (table_schema %s) OR (table_schema = 'PUBLIC') )
+                        AND    table_type %s
+                        AND    table_name %s
+                        ORDER BY table_schema, table_type, table_name %s"""
       
 class OracleInstance(DatabaseInstance):
     rdbms = 'oracle'
@@ -303,10 +327,14 @@ class OracleInstance(DatabaseInstance):
                         FROM   all_objects 
                         WHERE  owner %s
                         AND    object_type %s
-                        AND    object_name %s"""
+                        AND    object_name %s
+                        ORDER BY owner, object_type, object_name %s"""
     def bindSyntax(self, varname):
         return ':' + varname
-      
+    def bindVariables(self, identifier):
+        return {'owner': identifier['owner'].upper(),
+                'type': identifier['type'].upper(),
+                'name': identifier['name'].upper()}
                  
 if __name__ == '__main__':
     opts = OptionTestDummy(password='password')
