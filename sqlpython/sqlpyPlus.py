@@ -878,14 +878,6 @@ class sqlpyPlus(sqlpython.sqlpython):
                 else:
                     txt = 'REMARK BEGIN %s/%s/%s\n%s\nREMARK END\n' % (owner, object_type, name, txt)
                 self.poutput(txt)
-                
-                
-                """if opts.full:
-                    for dependent_type in ('constraints', 'triggers', 'indexes'):
-                        if hasattr(description.dbobj, dependent_type):
-                            for (depname, depobj) in getattr(description.dbobj, dependent_type).items():
-                                self.poutput('REMARK BEGIN\n%s\nREMARK END\n\n' % depobj.get_ddl())
-                                """
                 if opts.dump:
                     self.stdout.close()
                     statekeeper.restore()
@@ -1018,26 +1010,13 @@ class sqlpyPlus(sqlpython.sqlpython):
              ])                    
     def do_find(self, arg, opts):
         """Finds argument in source code or (with -c) in column definitions."""
-              
-        seek = re.compile(self._regex_form_of_search_pattern(arg, exact=opts.col),
-                          re.IGNORECASE)
-        qualified = opts.get('all')
-        for descrip in self._matching_database_objects('*', opts):
-            if opts.col:
-                if hasattr(descrip.dbobj, 'columns'):
-                    for col in descrip.dbobj.columns:
-                        if seek.search(col):
-                            self.poutput('%s.%s' % (m.fullname, col))
-            else:
-                if hasattr(descrip.dbobj, 'source'):
-                    name_printed = False
-                    for (line_num, line) in descrip.dbobj.source:
-                        if seek.search(line):
-                            if not name_printed:
-                                self.poutput(descrip.fullname)
-                                name_printed = True
-                            self.poutput('%d: %s' % (line_num, line))
-            
+        if opts.col:
+            for (owner, object_type, table_name, column_name) in self.current_instance.columns(arg, opts):
+                self.poutput('%s %s.%s.%s' % (object_type, owner, table_name, column_name))
+        else:
+            for (owner, object_type, name, line_number, txt) in self.current_instance.source(arg, opts):
+                self.poutput('%s %s.%s %d: %s' % (object_type, owner, name, line_number, txt))
+           
     def _col_type_descriptor(self, col):
         #if col['type'] in ('integer',):
         #    return col['type']
@@ -1299,12 +1278,12 @@ class sqlpyPlus(sqlpython.sqlpython):
         
     def do__dir_(self, arg, opts, plural_name, str_function):
         long = opts.get('long')
-        reverse = opts.get('reverse') or False
-        for descrip in self._matching_database_objects(arg, opts):
-            if hasattr(descrip.dbobj, plural_name):
-                self.pfeedback('%s on %s' % (plural_name.title(), descrip.fullname))
-                result = [str_function(depobj, long) for depobj in getattr(descrip.dbobj, plural_name).values()]
-                result.sort(reverse=opts.get('reverse') or False)
+        for (owner, object_type, name) in self.current_instance.objects(arg, opts):
+            obj = self.current_instance.object_metadata(owner, object_type, name)
+            if hasattr(obj, plural_name):
+                self.pfeedback('%s on %s' % (plural_name.title(), '%s %s.%s' % (object_type, owner, name)))
+                result = [str_function(depobj, long) for depobj in getattr(obj, plural_name).values()]
+                result.sort(reverse=bool(opts.reverse))
                 self.poutput('\n'.join(result))
         
     @options(standard_options)
@@ -1530,14 +1509,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         'WINDOW GROUP',         
         'XML SCHEMA')
         
-    def metadata(self):
-        username = self.current_instance.username
-        if self.rdbms == 'oracle':
-            username = username.upper()
-        elif self.rdbms == 'postgres':
-            username = username.lower()
-        return (username, self.current_instance.gerald)
-        
+       
     def _to_sql_wildcards(self, original):
         return original.replace('*','%').replace('?','_')
         #hmm... but these should be escape-able?
@@ -1545,46 +1517,7 @@ class sqlpyPlus(sqlpython.sqlpython):
     def _to_re_wildcards(self, original):
         result = re.escape(original)
         return result.replace('\\*','.*').replace('\\?','.')
-        
-    def _regex_form_of_search_pattern(self, s, exact=False):
-        if not s:
-            return '^[^\.]*$'
-        s = s.replace('$','\$')  # not re.escape(s) b/c ``?`` is valid in SQL and regex
-        if '.' in s:
-            seekpatt = r'[/\\]?%s[/\\]?' % (
-                s.replace('*', '.*').replace('?','.').replace('%', '.*'))        
-        else:
-            seekpatt = r'[/\\]?%s[/\\]?' % (
-                s.replace('*', '[^\.]*').replace('?','[^\.]').replace('%', '[^\.]*'))                    
-        if exact:
-            seekpatt = '^%s$' % seekpatt
-        return seekpatt
 
-    def do_refresh(self, arg):
-        '''Refreshes metadata for the specified schema; only required
-           if table structures, etc. have changed.'''
-        if self.current_instance.gerald.complete and self.current_instance.gerald.current:
-            self.current_instance.discover_metadata()
-        else:
-            self.pfeedback('Metadata discovery is already underway.')       
-        
-    def _print_gerald_status_warning(self, gerald_schema):
-        if not gerald_schema.complete:
-            self.pfeedback('Metadata is not available yet - still gathering')
-        elif not gerald_schema.current:
-            self.pfeedback('Metadata is stale - requested refresh still underway')
-                            
-    def _matching_database_objects(self, arg, opts):
-        (username, gerald_schema) = self.metadata()                
-        self._print_gerald_status_warning(gerald_schema)
-        if not gerald_schema.complete:
-            raise StopIteration
-        
-        seek = str(arg) and self._regex_form_of_search_pattern(arg, opts.get('exact'))
-        for (name, descrip) in gerald_schema.descriptions.items():
-            if descrip.match_pattern(seek, specific_owner = ((not opts.all) and username)):
-                yield descrip
-   
     def _do_ls(self, arg, opts):
         'Functional core of ``do_ls``, split out into an undecorated version to be callable from other methods'
         for row in self.current_instance.objects(arg, opts):
@@ -1604,8 +1537,8 @@ class sqlpyPlus(sqlpython.sqlpython):
     def do_grep(self, arg, opts):
         """grep {target} {table} [{table2,...}]
         search for {target} in any of {table}'s fields"""    
+        # TODO: permit regex
         arg = self.parsed(arg)
-        opts.exact = True
         args = arg.split()
         if len(args) < 2:
             self.perror(self.do_grep.__doc__)
@@ -1620,18 +1553,19 @@ class sqlpyPlus(sqlpython.sqlpython):
         re_pattern = re.compile(self._to_re_wildcards(pattern), 
                                 (opts.ignorecase and re.IGNORECASE) or 0)
         for target in targets:
-            for descrip in self._matching_database_objects(target, opts):
-                self.pfeedback(descrip.fullname)
-                if hasattr(descrip.dbobj, 'columns'):
+            for (owner, object_type, name) in self.current_instance.objects(target, opts):
+                obj = self.current_instance.object_metadata(owner, object_type, name)
+                self.pfeedback('%s %s.%s' % (object_type, owner, name))
+                if hasattr(obj, 'columns'):
                     clauses = []
-                    for col in descrip.dbobj.columns:
+                    for col in obj.columns:
                         clauses.append(comparitor % (col, sql_pattern))
-                    sql = "SELECT * FROM %s WHERE 1=0\n%s;" % (descrip.fullname, ' '.join(clauses))
+                    sql = "SELECT * FROM %s.%s WHERE 1=0\n%s;" % (owner, name, ' '.join(clauses))
                     sql = self.parsed(sql, terminator=arg.parsed.terminator or ';',
                                       suffix=arg.parsed.suffix)
                     self.do_select(sql)
-                elif hasattr(descrip.dbobj, 'source'):
-                    for (line_num, line) in descrip.dbobj.source:
+                elif hasattr(obj, 'source'):
+                    for (line_num, line) in obj.source:
                         if re_pattern.search(line):
                             self.poutput('%4d: %s' % (line_num, line))
                 
