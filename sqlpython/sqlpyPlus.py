@@ -1107,24 +1107,25 @@ class sqlpyPlus(sqlpython.sqlpython):
                 self.poutput(''.join(l for (ln, l) in obj.source[:index]))
     @options([all_users_option])            
     def do_deps(self, arg, opts):
-        '''Lists all objects that are dependent upon the object.'''
+        '''Lists indexes, constraints, and triggers depending on an object'''
         #TODO: doesn't account for views; don't know about primary keys
-        for descrip in self._matching_database_objects(arg, opts):
+        for (owner, object_type, name) in self.current_instance.objects(arg, opts):
+            obj = self.current_instance.object_metadata(owner, object_type, name)
             for deptype in ('indexes', 'constraints', 'triggers'):
-                if hasattr(descrip.dbobj, deptype):
-                    for (depname, depobj) in getattr(descrip.dbobj, deptype).items():
+                if hasattr(obj, deptype):
+                    for (depname, depobj) in getattr(obj, deptype).items():
                         self.poutput('%s %s' % (deptype, depname))
                 
     @options([all_users_option])        
     def do_comments(self, arg, opts):
         'Prints comments on a table and its columns.'
-        qualified = opts.get('all')
-        for descrip in self._matching_database_objects(arg, opts):
-            if hasattr(descrip.dbobj, 'comments'):
-                self.poutput(descrip.fullname)
-                self.poutput(descrip.dbobj.comments)
-                if hasattr(descrip.dbobj, 'columns'):
-                    columns = descrip.dbobj.columns.values()
+        for (owner, object_type, name) in self.current_instance.objects(arg, opts):
+            obj = self.current_instance.object_metadata(owner, object_type, name)
+            if hasattr(obj, 'comments'):
+                self.poutput('%s %s.%s' % object_type, owner, name)
+                self.poutput(obj.comments)
+                if hasattr(obj, 'columns'):
+                    columns = obj.columns.values()
                     columns.sort(key=operator.itemgetter('sequence'))
                     for col in columns:
                         comment = col.get('comment')
