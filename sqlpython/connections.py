@@ -323,10 +323,16 @@ class PostgresInstance(DatabaseInstance):
                         AND    table_type %s
                         AND    table_name %s
                         ORDER BY table_schema, table_type, table_name %s"""
-    column_qry = """SELECT table_schema, object_type, table_name, column_name      
-                    FROM   information_schema.columns
-                    WHERE  ( (table_schema %s %s) OR (table_schema = 'public'))
-                    AND    column_name %s %s """
+    column_qry = """SELECT c.table_schema, o.object_type, c.table_name, c.column_name      
+                    FROM   information_schema.columns c
+                    JOIN   ( SELECT table_type AS object_type, table_schema, table_name
+                             FROM   information_schema.tables
+                             UNION ALL
+                             SELECT 'view' AS object_type, table_schema, table_name
+                             FROM   information_schema.views ) o ON (    c.table_schema = o.table_schema
+                                                                     AND c.table_name = o.table_name )
+                    WHERE  ( (c.table_schema %s %s) OR (c.table_schema = 'public'))
+                    AND    c.column_name %s %s """
     source_qry = """SELECT owner, type, name, line, text
                     FROM   all_source
                     WHERE  owner %s %s
