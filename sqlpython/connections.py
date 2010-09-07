@@ -196,16 +196,19 @@ class DatabaseInstance(object):
         result = {'owner': '%', 'type': '%', 'name': '%'}
         result.update(dict(self.ls_parser.parseString(identifier)))
         return result 
+    def comparison_operator(self, target):
+        if ('%' in target) or ('_' in target):
+            operator = 'LIKE'
+        else:
+            operator = '='
+        return operator 
     def objects(self, target, opts):
         identifier = self.parse_identifier(target)
         clauses = []
         if (identifier['owner'] == '%') and (not opts.all):
             identifier['owner'] = self.username
         for col in ('owner', 'type', 'name'):
-            if ('%' in identifier[col]) or ('_' in identifier[col]):
-                operator = 'LIKE'
-            else:
-                operator = '='
+            operator = self.comparison_operator(identifier[col])
             clause = '%s %s' % (operator, self.bindSyntax(col))
             clauses.append(clause)
         if hasattr(opts, 'reverse') and opts.reverse:
@@ -214,9 +217,30 @@ class DatabaseInstance(object):
             sort_direction = 'ASC'
         clauses.append(sort_direction)
         qry = self.all_object_qry % tuple(clauses)
-        identifier = self.bindVariables(identifier)
-        result = self.connection.cursor().execute(qry, self.bindVariables(identifier)) 
+        binds = (('owner', identifier['owner']), ('type', identifier['type']), ('name', identifier['name']))
+        result = self.connection.cursor().execute(qry, self.bindVariables(binds)) 
         return result
+    def columns(self, target, opts):
+        if opts.all:
+            owner = '%'
+        else:
+            owner = self.username
+        qry = self.column_qry % (self.comparison_operator(owner), self.bindSyntax('owner'),
+                                 self.comparison_operator(target), self.bindSyntax('colname'))
+        binds = (('owner', owner), ('colname', target))
+        result = self.connection.cursor().execute(qry, self.bindVariables(binds))
+        return result
+    def source(self, target, opts):
+        if opts.all:
+            owner = '%'
+        else:
+            owner = self.username
+        qry = self.source_qry % (self.comparison_operator(owner), self.bindSyntax('owner'),
+                                                                  self.bindSyntax('target'))
+        binds = (('owner', owner), ('target', target))
+        result = self.connection.cursor().execute(qry, self.bindVariables(binds))
+        return result
+        
     gerald_types = {'TABLE': gerald.oracle_schema.Table,
                     'VIEW': gerald.oracle_schema.View}
     def object_metadata(self, owner, object_type, name):
@@ -257,12 +281,23 @@ class MySQLInstance(DatabaseInstance):
                                 port = self.port, sql_mode = 'ANSI')        
     def bindSyntax(self, varname):
         return '%s'
-    def bindVariables(self, identifier):
-        return (identifier['owner'], identifier['type'], identifier['name'])
+    def bindVariables(self, binds):
+        'Puts a tuple of (name, value) pairs into the bind format desired by MySQL'
+        return (i[1] for i in binds)
+    column_qry = """SELECT atc.owner, ao.object_type, atc.table_name, atc.column_name      
+                    FROM   all_tab_columns atc
+                    JOIN   all_objects ao ON (atc.table_name = ao.object_name AND atc.owner = ao.owner)
+                    WHERE  owner %s %s
+                    AND    column_name %s %s """
+    source_qry = """SELECT owner, type, name, line, text
+                    FROM   all_source
+                    WHERE  owner %s %s
+                    AND    UPPER(text) LIKE %s"""
     
 class PostgresInstance(DatabaseInstance):
     rdbms = 'postgres'
     default_port = 5432
+    case = str.lower
     def set_defaults(self):
         self.port = os.getenv('PGPORT') or self.default_port
         self.database = os.getenv('ORACLE_SID')
@@ -273,9 +308,10 @@ class PostgresInstance(DatabaseInstance):
                                  password = self.password, database = self.database,
                                  port = self.port)          
     def bindSyntax(self, varname):
-        return '%%(%s)s' % varname.lower()
-    def bindVariables(self, identifier):
-        return identifier
+        return '%%(%s)s' % varname
+    def bindVariables(self, binds):
+        'Puts a tuple of (name, value) pairs into the bind format desired by psycopg2'
+        return dict((b[0], b[1].lower()) for b in binds)
     all_object_qry = """SELECT table_schema, table_type, table_name
                         FROM   
                                ( SELECT table_schema, table_type, table_name
@@ -283,16 +319,25 @@ class PostgresInstance(DatabaseInstance):
                                  UNION ALL
                                  SELECT table_schema, 'view', table_name
                                  FROM   information_schema.views )
-                        WHERE  ( (table_schema %s) OR (table_schema = 'PUBLIC') )
+                        WHERE  ( (table_schema %s) OR (table_schema = 'public') )
                         AND    table_type %s
                         AND    table_name %s
                         ORDER BY table_schema, table_type, table_name %s"""
-      
+    column_qry = """SELECT table_schema, object_type, table_name, column_name      
+                    FROM   information_schema.columns
+                    WHERE  ( (table_schema %s %s) OR (table_schema = 'public'))
+                    AND    column_name %s %s """
+    source_qry = """SELECT owner, type, name, line, text
+                    FROM   all_source
+                    WHERE  owner %s %s
+                    AND    UPPER(text) LIKE %s"""
+
 class OracleInstance(DatabaseInstance):
     rdbms = 'oracle'
     default_port = 1521
     connection_parser = re.compile('(?P<username>[^/\s@]*)(/(?P<password>[^/\s@]*))?(@((?P<hostname>[^/\s:]*)(:(?P<port>\d{1,4}))?/)?(?P<database>[^/\s:]*))?(\s+as\s+(?P<mode>sys(dba|oper)))?',
                                      re.IGNORECASE)
+    case = str.upper
     def uri(self):
         if self.hostname:
             uri = '%s://%s:%s@%s:%s/%s' % (self.rdbms, self.username, self.password,
@@ -329,12 +374,20 @@ class OracleInstance(DatabaseInstance):
                         AND    object_type %s
                         AND    object_name %s
                         ORDER BY owner, object_type, object_name %s"""
+    column_qry = """SELECT atc.owner, ao.object_type, atc.table_name, atc.column_name      
+                    FROM   all_tab_columns atc
+                    JOIN   all_objects ao ON (atc.table_name = ao.object_name AND atc.owner = ao.owner)
+                    WHERE  atc.owner %s %s
+                    AND    atc.column_name %s %s """
+    source_qry = """SELECT owner, type, name, line, text
+                    FROM   all_source
+                    WHERE  owner %s %s
+                    AND    UPPER(text) LIKE %s"""
     def bindSyntax(self, varname):
         return ':' + varname
-    def bindVariables(self, identifier):
-        return {'owner': identifier['owner'].upper(),
-                'type': identifier['type'].upper(),
-                'name': identifier['name'].upper()}
+    def bindVariables(self, binds):
+        'Puts a tuple of (name, value) pairs into the bind format desired by cx_Oracle'
+        return dict((b[0], b[1].upper()) for b in binds)
                  
 if __name__ == '__main__':
     opts = OptionTestDummy(password='password')
