@@ -56,6 +56,12 @@ class ObjectDescriptor(object):
                                 compiled.match(self.type + r'/') or
                                  compiled.match(self.unqualified_name) or
                                  compiled.match(self.unqualified_path))
+       
+class DBOjbect(object):
+    def __init__(self, schema, object_type, name):
+        self.schema = schema
+        self.type = object_type
+        self.name = name
         
 class OptionTestDummy(object):
     mysql = None
@@ -218,8 +224,9 @@ class DatabaseInstance(object):
         clauses.append(sort_direction)
         qry = self.all_object_qry % tuple(clauses)
         binds = (('owner', identifier['owner']), ('type', identifier['type']), ('name', identifier['name']))
-        result = self.connection.cursor().execute(qry, self.bindVariables(binds)) 
-        return result
+        curs = self.connection.cursor()
+        curs.execute(qry, self.bindVariables(binds)) 
+        return curs
     def columns(self, target, opts):
         if opts.all:
             owner = '%'
@@ -228,8 +235,9 @@ class DatabaseInstance(object):
         qry = self.column_qry % (self.comparison_operator(owner), self.bindSyntax('owner'),
                                  self.comparison_operator(target), self.bindSyntax('colname'))
         binds = (('owner', owner), ('colname', target))
-        result = self.connection.cursor().execute(qry, self.bindVariables(binds))
-        return result
+        curs = self.connection.cursor()
+        curs.execute(qry, self.bindVariables(binds))
+        return curs
     def source(self, target, opts):
         if opts.all:
             owner = '%'
@@ -238,8 +246,9 @@ class DatabaseInstance(object):
         qry = self.source_qry % (self.comparison_operator(owner), self.bindSyntax('owner'),
                                                                   self.bindSyntax('target'))
         binds = (('owner', owner), ('target', target))
-        result = self.connection.cursor().execute(qry, self.bindVariables(binds))
-        return result
+        curs = self.connection.cursor()
+        curs.execute(qry, self.bindVariables(binds))
+        return curs
         
     gerald_types = {'TABLE': gerald.oracle_schema.Table,
                     'VIEW': gerald.oracle_schema.View}
@@ -313,30 +322,23 @@ class PostgresInstance(DatabaseInstance):
         'Puts a tuple of (name, value) pairs into the bind format desired by psycopg2'
         return dict((b[0], b[1].lower()) for b in binds)
     all_object_qry = """SELECT table_schema, table_type, table_name
-                        FROM   
-                               ( SELECT table_schema, table_type, table_name
-                                 FROM   information_schema.tables
-                                 UNION ALL
-                                 SELECT table_schema, 'view', table_name
-                                 FROM   information_schema.views )
+                        FROM   information_schema.tables
                         WHERE  ( (table_schema %s) OR (table_schema = 'public') )
                         AND    table_type %s
                         AND    table_name %s
                         ORDER BY table_schema, table_type, table_name %s"""
-    column_qry = """SELECT c.table_schema, o.object_type, c.table_name, c.column_name      
+    column_qry = """SELECT c.table_schema, t.table_type, c.table_name, c.column_name      
                     FROM   information_schema.columns c
-                    JOIN   ( SELECT table_type AS object_type, table_schema, table_name
-                             FROM   information_schema.tables
-                             UNION ALL
-                             SELECT 'view' AS object_type, table_schema, table_name
-                             FROM   information_schema.views ) o ON (    c.table_schema = o.table_schema
-                                                                     AND c.table_name = o.table_name )
+                    JOIN   information_schema.tables t ON (c.table_schema = t.table_schema
+                                                           AND c.table_name = t.table_name)
                     WHERE  ( (c.table_schema %s %s) OR (c.table_schema = 'public'))
                     AND    c.column_name %s %s """
     source_qry = """SELECT owner, type, name, line, text
                     FROM   all_source
                     WHERE  owner %s %s
                     AND    UPPER(text) LIKE %s"""
+    gerald_types = {'BASE TABLE': gerald.postgres_schema.Table,
+                    'VIEW': gerald.postgres_schema.View}
 
 class OracleInstance(DatabaseInstance):
     rdbms = 'oracle'
@@ -394,7 +396,10 @@ class OracleInstance(DatabaseInstance):
     def bindVariables(self, binds):
         'Puts a tuple of (name, value) pairs into the bind format desired by cx_Oracle'
         return dict((b[0], b[1].upper()) for b in binds)
-                 
+    gerald_types = {'TABLE': gerald.oracle_schema.Table,
+                    'VIEW': gerald.postgres_schema.View}
+
+                
 if __name__ == '__main__':
     opts = OptionTestDummy(password='password')
     db = DatabaseInstance('oracle://system:twttatl@orcl', opts)
