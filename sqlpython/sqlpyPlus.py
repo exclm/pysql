@@ -1304,8 +1304,7 @@ class sqlpyPlus(sqlpython.sqlpython):
     @options(standard_options)
     def do__dir_triggers(self, arg, opts):
         '''
-        Called with an exact table name, lists the indexes of that table.
-        Otherwise, acts as shortcut for `ls index/*(arg)*`
+        Called with an exact table name, lists the triggers of that table.
         '''
         self.do__dir_(arg, opts, 'triggers', self._str_trigger)
         
