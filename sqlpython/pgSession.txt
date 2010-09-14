@@ -65,8 +65,6 @@ Faust            Goethe
 
 5 rows selected.
 
-0:testuser@testplatform> refresh
-0:testuser@testplatform> py import time; time.sleep(120) # allow metadata to load
 0:testuser@testplatform> ls
 table/play
 0:testuser@testplatform> ls -l

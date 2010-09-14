@@ -112,7 +112,7 @@ class DatabaseInstance(object):
         self.arg = arg
         self.opts = opts
         self.default_rdbms = default_rdbms
-        self.determine_rdbms()
+        self.determine_rdbms()  # may be altered later as connect string is parsed
         if not self.parse_connect_uri(arg):
             self.set_defaults()        
             connectargs = self.connection_parser.search(self.arg)
@@ -133,12 +133,13 @@ class DatabaseInstance(object):
     def parse_connect_uri(self, uri):
         results = self.connection_uri_parser.search(uri)
         if results:
+            self.set_class_from_rdbms_name(results.group('rdbms'))     
             r = gerald.utilities.dburi.Connection().parse_uri(results.group('connect_string'))
             self.username = r.get('user') or self.username
             self.password = r.get('password') or self.password
             self.hostname = r.get('host') or self.hostname
-            self.set_class_from_rdbms_name(results.group('rdbms'))
-            self.port = self.port or self.default_port        
+            self.port = self.port or self.default_port
+            self.database = r.get('db_name')
             return True
         else:
             return False
@@ -150,9 +151,9 @@ class DatabaseInstance(object):
         return '%s://%s:%s@%s:%s/%s' % (self.rdbms, self.username, self.password,
                                          self.hostname, self.port, self.database)  
     def determine_rdbms(self):
-        if self.opts.mysql:
+        if self.opts.mysql or self.arg.startswith('mysql://'):
             self.__class__ = MySQLInstance
-        elif self.opts.postgres:
+        elif self.opts.postgres or self.arg.startswith('postgres://') or self.arg.startswith('postgresql://'):
             self.__class__ = PostgresInstance
         else:
             self.set_class_from_rdbms_name(self.default_rdbms)     
