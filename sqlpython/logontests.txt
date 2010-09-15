@@ -1,0 +1,27 @@
+Transcript file for testing of sqlpython; run tests with 
+`python mysqlpy.py --test logontests.txt`.
+The database ``testplatform`` must be running and must include 
+user ``testuser``, password ``testpassword``, with full rights on
+schema ``testuser``.
+
+SQL.No_Connection> set
+/.*/
+SQL.No_Connection> set colors off
+/.*/
+SQL.No_Connection> connect postgres://testuser:testpassword@localhost/testplatform
+0:testuser@testplatform> select datname from pg_catalog.pg_database where datname = 'testplatform';
+
+datname     
+------------
+testplatform
+
+1 row selected.
+
+0:testuser@testplatform> connect --postgres --password testpassword testplatform testuser
+0:testuser@testplatform> select datname from pg_catalog.pg_database where datname = 'testplatform';
+
+datname     
+------------
+testplatform
+
+1 row selected.
