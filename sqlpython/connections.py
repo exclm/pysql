@@ -199,7 +199,7 @@ class DatabaseInstance(object):
         >>> (str(result.owner), str(result.type), str(result.name))
         ('scott', 'table', '%')
         """
-        identifier = identifier.replace('*', '%')
+        identifier = self.sql_format_wildcards(identifier)
         result = {'owner': '%', 'type': '%', 'name': '%'}
         result.update(dict(self.ls_parser.parseString(identifier)))
         return result 
@@ -208,7 +208,9 @@ class DatabaseInstance(object):
             operator = 'LIKE'
         else:
             operator = '='
-        return operator 
+        return operator
+    def sql_format_wildcards(self, target):
+        return target.replace('*', '%').replace('?', '_')
     def objects(self, target, opts):
         identifier = self.parse_identifier(target)
         clauses = []
@@ -229,6 +231,7 @@ class DatabaseInstance(object):
         curs.execute(qry, self.bindVariables(binds)) 
         return curs
     def columns(self, target, opts):
+        target = self.sql_format_wildcards(target)
         if opts.all:
             owner = '%'
         else:
