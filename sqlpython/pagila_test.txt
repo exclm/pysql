@@ -1,0 +1,150 @@
+"""
+Run these against a ``pagila`` database (user paglia, password paglia) 
+created from http://pgfoundry.org/projects/dbsamples/
+"""
+SQL.No_Connection> connect postgres://pagila:pagila@localhost/pagila
+0:pagila@pagila> set color off
+colors - was: True
+now: False
+0:pagila@pagila> desc actor
+BASE TABLE public.actor
+Name        Nullable Type                       
+----------- -------- ---------------------------
+actor_id    NOT NULL integer                    
+first_name  NOT NULL varchar(45)                
+last_name   NOT NULL varchar(45)                
+last_update NOT NULL timestamp without time zone
+
+0:pagila@pagila> desc actor\g
+BASE TABLE public.actor
+
+
+**** Row: 1
+Name: actor_id
+Nullable: NOT NULL
+Type: integer
+
+**** Row: 2
+Name: first_name
+Nullable: NOT NULL
+Type: varchar(45)
+
+**** Row: 3
+Name: last_name
+Nullable: NOT NULL
+Type: varchar(45)
+
+**** Row: 4
+Name: last_update
+Nullable: NOT NULL
+Type: timestamp without time zone
+
+0:pagila@pagila> \d -l actor\g
+BASE TABLE public.actor
+
+
+**** Row: 1
+N: 1
+Name: actor_id
+Nullable: NOT NULL
+Type: integer
+Key: P
+Default: nextval('actor_actor_id_seq'::regclass)
+Comments: 
+
+**** Row: 2
+N: 2
+Name: first_name
+Nullable: NOT NULL
+Type: varchar(45)
+Key: 
+Default: 
+Comments: 
+
+**** Row: 3
+N: 3
+Name: last_name
+Nullable: NOT NULL
+Type: varchar(45)
+Key: 
+Default: 
+Comments: 
+
+**** Row: 4
+N: 4
+Name: last_update
+Nullable: NOT NULL
+Type: timestamp without time zone
+Key: 
+Default: now()
+Comments: 
+
+
+0:pagila@pagila> show constraints on actor
+Constraints on BASE TABLE public.actor
+Primary key "actor_pkey": (actor_id) 
+
+0:pagila@pagila> show indexes on actor
+Indexes on BASE TABLE public.actor
+idx_actor_last_name (last_name) btree 
+
+0:pagila@pagila> select actor_id, first_name, last_name from actor;3
+
+actor_id first_name last_name
+-------- ---------- ---------
+1        PENELOPE   GUINESS  
+2        NICK       WAHLBERG 
+3        ED         CHASE    
+
+3 rows selected.
+
+0:pagila@pagila> select actor_id, first_name, last_name from actor\j3
+
+
+{"actor": [
+        {"actor_id": 1, "first_name": "PENELOPE", "last_name": "GUINESS"},
+        {"actor_id": 2, "first_name": "NICK", "last_name": "WAHLBERG"},
+        {"actor_id": 3, "first_name": "ED", "last_name": "CHASE"}
+    ]
+}
+
+3 rows selected.
+
+0:pagila@pagila> set wild on
+wildsql - was: False
+now: True
+0:pagila@pagila> select #1, #2, #3 from actor;3
+
+actor_id first_name last_name
+-------- ---------- ---------
+1        PENELOPE   GUINESS  
+2        NICK       WAHLBERG 
+3        ED         CHASE    
+
+3 rows selected.
+
+0:pagila@pagila> select !#4 from actor;3
+
+actor_id first_name last_name
+-------- ---------- ---------
+1        PENELOPE   GUINESS  
+2        NICK       WAHLBERG 
+3        ED         CHASE    
+
+3 rows selected.
+
+0:pagila@pagila> select *name from actor;3
+
+first_name last_name
+---------- ---------
+PENELOPE   GUINESS  
+NICK       WAHLBERG 
+ED         CHASE    
+
+3 rows selected.
+
+0:pagila@pagila> show constraint on film_actor;
+Constraints on BASE TABLE public.film_actor
+Foreign key "film_actor_actor_id_fkey": columns (actor_id) in table "actor" 
+Foreign key "film_actor_film_id_fkey": columns (film_id) in table "film" 
+Primary key "film_actor_pkey": (film_id,actor_id) 

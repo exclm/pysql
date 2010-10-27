@@ -2,10 +2,13 @@ import re
 import os
 import getpass
 import gerald
+import gerald.utilities
+import gerald.utilities.dburi
 import time
 import optparse
 import doctest
 import pyparsing
+import dbapiext
 
 gerald_classes = {}
 
@@ -217,18 +220,17 @@ class DatabaseInstance(object):
         if (identifier['owner'] == '%') and (not opts.all):
             identifier['owner'] = self.username
         for col in ('owner', 'type', 'name'):
-            operator = self.comparison_operator(identifier[col])
-            clause = '%s %s' % (operator, self.bindSyntax(col))
-            clauses.append(clause)
+            if '_' in identifier[col] or '%' in identifier[col]:
+                identifier[col + '_op'] = 'LIKE'
+            else:
+                identifier[col + '_op'] = '='
         if hasattr(opts, 'reverse') and opts.reverse:
-            sort_direction = 'DESC'
+            identifier['sort_direction'] = 'DESC'
         else:
-            sort_direction = 'ASC'
-        clauses.append(sort_direction)
-        qry = self.all_object_qry % tuple(clauses)
-        binds = (('owner', identifier['owner']), ('type', identifier['type']), ('name', identifier['name']))
+            identifier['sort_direction'] = 'ASC'
         curs = self.connection.cursor()
-        curs.execute(qry, self.bindVariables(binds)) 
+        dbapiext.execute_f(curs, self.all_object_qry, **identifier)
+        #curs.execute(qry, self.bindVariables(binds)) 
         return curs
     def columns(self, target, opts):
         target = self.sql_format_wildcards(target)
@@ -306,6 +308,12 @@ class MySQLInstance(DatabaseInstance):
                     FROM   all_source
                     WHERE  owner %s %s
                     AND    UPPER(text) LIKE %s"""
+    all_object_qry = """SELECT table_schema, table_type, table_name
+                        FROM   information_schema.tables
+                        WHERE  table_schema %(owner_op)s %(owner)S
+                        AND    table_type %(type_op)s %(type)S
+                        AND    table_name %(name_op)s %(name)S
+                        ORDER BY table_schema, table_type, table_name %(sort_direction)s"""
     
 class PostgresInstance(DatabaseInstance):
     rdbms = 'postgres'
@@ -327,10 +335,10 @@ class PostgresInstance(DatabaseInstance):
         return dict((b[0], b[1].lower()) for b in binds)
     all_object_qry = """SELECT table_schema, table_type, table_name
                         FROM   information_schema.tables
-                        WHERE  ( (table_schema %s) OR (table_schema = 'public') )
-                        AND    table_type %s
-                        AND    table_name %s
-                        ORDER BY table_schema, table_type, table_name %s"""
+                        WHERE  ( (table_schema %(owner_op)s %(owner)S) OR (table_schema = 'public') )
+                        AND    table_type %(type_op)s %(type)S
+                        AND    table_name %(name_op)s %(name)S
+                        ORDER BY table_schema, table_type, table_name %(sort_direction)s"""
     column_qry = """SELECT c.table_schema, t.table_type, c.table_name, c.column_name      
                     FROM   information_schema.columns c
                     JOIN   information_schema.tables t ON (c.table_schema = t.table_schema
