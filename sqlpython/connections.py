@@ -390,10 +390,10 @@ class OracleInstance(DatabaseInstance):
                                   dsn = self.dsn, mode = self.mode)    
     all_object_qry = """SELECT owner, object_type, object_name 
                         FROM   all_objects 
-                        WHERE  owner %s
-                        AND    object_type %s
-                        AND    object_name %s
-                        ORDER BY owner, object_type, object_name %s"""
+                        WHERE  owner %(owner_op)s %(owner)S
+                        AND    object_type %(type_op)s %(type)S
+                        AND    object_name %(name_op)s %(name)S
+                        ORDER BY owner, object_type, object_name %(sort_direction)s"""
     column_qry = """SELECT atc.owner, ao.object_type, atc.table_name, atc.column_name      
                     FROM   all_tab_columns atc
                     JOIN   all_objects ao ON (atc.table_name = ao.object_name AND atc.owner = ao.owner)
