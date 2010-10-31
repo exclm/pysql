@@ -87,6 +87,8 @@ class DatabaseInstance(object):
     mode = 0
     connection_uri_parser = re.compile('(?P<rdbms>postgres|oracle|mysql|sqlite|mssql)://?(?P<connect_string>.*$)', re.IGNORECASE)    
     connection_parser = re.compile('((?P<database>\S+)(\s+(?P<username>\S+))?)?')    
+    def object_name_case(self, name):
+        return name.lower()
     def __init__(self, arg, opts, default_rdbms = 'oracle'):
         'no docstring'
         '''
@@ -214,48 +216,54 @@ class DatabaseInstance(object):
         return operator
     def sql_format_wildcards(self, target):
         return target.replace('*', '%').replace('?', '_')
+    def set_operators(self, selectors):
+        for selector in selectors.keys():
+            if '_' in selectors[selector] or '%' in selectors[selector]:
+                selectors[selector + '_op'] = 'LIKE'
+            else:
+                selectors[selector + '_op'] = '='
     def objects(self, target, opts):
         identifier = self.parse_identifier(target)
         clauses = []
         if (identifier['owner'] == '%') and (not opts.all):
             identifier['owner'] = self.username
-        for col in ('owner', 'type', 'name'):
-            if '_' in identifier[col] or '%' in identifier[col]:
-                identifier[col + '_op'] = 'LIKE'
-            else:
-                identifier[col + '_op'] = '='
+        self.set_operators(identifier)
         if hasattr(opts, 'reverse') and opts.reverse:
             identifier['sort_direction'] = 'DESC'
         else:
             identifier['sort_direction'] = 'ASC'
         curs = self.connection.cursor()
         dbapiext.execute_f(curs, self.all_object_qry, **identifier)
-        #curs.execute(qry, self.bindVariables(binds)) 
         return curs
     def columns(self, target, opts):
         target = self.sql_format_wildcards(target)
+        identifier = {'column_name': target}
         if opts.all:
-            owner = '%'
+            identifier['owner'] = '%'
         else:
-            owner = self.username
-        qry = self.column_qry % (self.comparison_operator(owner), self.bindSyntax('owner'),
-                                 self.comparison_operator(target), self.bindSyntax('colname'))
-        binds = (('owner', owner), ('colname', target))
+            identifier['owner'] = self.username
+        self.set_operators(identifier)
         curs = self.connection.cursor()
-        curs.execute(qry, self.bindVariables(binds))
+        dbapiext.execute_f(curs, self.column_qry, **identifier)
+        return curs
+    def _source(self, target, opts):
+        identifier = {'text': '%%%s%%' % target.upper()}
+        if opts.all:
+            identifier['owner'] = '%'
+        else:
+            identifier['owner'] = self.username
+        self.set_operators(identifier)
+        curs = self.connection.cursor()
+        dbapiext.execute_f(curs, self.source_qry, **identifier)
         return curs
     def source(self, target, opts):
-        if opts.all:
-            owner = '%'
-        else:
-            owner = self.username
-        qry = self.source_qry % (self.comparison_operator(owner), self.bindSyntax('owner'),
-                                                                  self.bindSyntax('target'))
-        binds = (('owner', owner), ('target', target))
-        curs = self.connection.cursor()
-        curs.execute(qry, self.bindVariables(binds))
-        return curs
-        
+        curs = self._source(target, opts)
+        target = re.compile(target.replace('%','.*').replace('_','.'))
+        for row in curs:
+            code = row[4]
+            for (line_number, line) in enumerate(code.splitlines()):
+                if target.search(line):
+                    yield (row[0], row[1], row[2], line_number, line)
     gerald_types = {'TABLE': gerald.oracle_schema.Table,
                     'VIEW': gerald.oracle_schema.View}
     def object_metadata(self, owner, object_type, name):
@@ -299,22 +307,26 @@ class MySQLInstance(DatabaseInstance):
     def bindVariables(self, binds):
         'Puts a tuple of (name, value) pairs into the bind format desired by MySQL'
         return (i[1] for i in binds)
-    column_qry = """SELECT atc.owner, ao.object_type, atc.table_name, atc.column_name      
-                    FROM   all_tab_columns atc
-                    JOIN   all_objects ao ON (atc.table_name = ao.object_name AND atc.owner = ao.owner)
-                    WHERE  owner %s %s
-                    AND    column_name %s %s """
-    source_qry = """SELECT owner, type, name, line, text
-                    FROM   all_source
-                    WHERE  owner %s %s
-                    AND    UPPER(text) LIKE %s"""
+    column_qry = """SELECT c.table_schema, t.table_type, c.table_name, c.column_name      
+                    FROM   information_schema.columns c
+                    JOIN   information_schema.tables t ON (c.table_schema = t.table_schema
+                                                           AND c.table_name = t.table_name)
+                    WHERE  ( (c.table_schema %(owner_op)s %(owner)S) OR (c.table_schema = 'public'))
+                    AND    c.column_name %(column_name_op)s %(column_name)S"""
+    source_qry = """SELECT r.routine_schema, r.routine_type, r.routine_name, 0 AS line, r.routine_definition
+                    FROM   information_schema.routines r
+                    WHERE  r.routine_schema %(owner_op)s %(owner)S
+                    AND    UPPER(r.routine_definition) LIKE %(text)S"""
     all_object_qry = """SELECT table_schema, table_type, table_name
                         FROM   information_schema.tables
                         WHERE  table_schema %(owner_op)s %(owner)S
                         AND    table_type %(type_op)s %(type)S
                         AND    table_name %(name_op)s %(name)S
                         ORDER BY table_schema, table_type, table_name %(sort_direction)s"""
-    
+    gerald_types = {'TABLE': gerald.mysql_schema.Table,
+                    'VIEW': gerald.mysql_schema.View}
+
+   
 class PostgresInstance(DatabaseInstance):
     rdbms = 'postgres'
     default_port = 5432
@@ -343,12 +355,12 @@ class PostgresInstance(DatabaseInstance):
                     FROM   information_schema.columns c
                     JOIN   information_schema.tables t ON (c.table_schema = t.table_schema
                                                            AND c.table_name = t.table_name)
-                    WHERE  ( (c.table_schema %s %s) OR (c.table_schema = 'public'))
-                    AND    c.column_name %s %s """
-    source_qry = """SELECT owner, type, name, line, text
-                    FROM   all_source
-                    WHERE  owner %s %s
-                    AND    UPPER(text) LIKE %s"""
+                    WHERE  ( (c.table_schema %(owner_op)s %(owner)S) OR (c.table_schema = 'public'))
+                    AND    c.column_name %(column_name_op)s %(column_name)S"""
+    source_qry = """SELECT r.routine_schema, r.routine_type, r.routine_name, 0 AS line, r.routine_definition
+                    FROM   information_schema.routines r
+                    WHERE  ( (r.routine_schema %(owner_op)s %(owner)S) OR (r.routine_schema = 'public') )
+                    AND    UPPER(r.routine_definition) LIKE %(text)S"""
     gerald_types = {'BASE TABLE': gerald.postgres_schema.Table,
                     'VIEW': gerald.postgres_schema.View}
 
@@ -358,6 +370,8 @@ class OracleInstance(DatabaseInstance):
     connection_parser = re.compile('(?P<username>[^/\s@]*)(/(?P<password>[^/\s@]*))?(@((?P<hostname>[^/\s:]*)(:(?P<port>\d{1,4}))?/)?(?P<database>[^/\s:]*))?(\s+as\s+(?P<mode>sys(dba|oper)))?',
                                      re.IGNORECASE)
     case = str.upper
+    def object_name_case(self, name):
+        return name.upper()
     def uri(self):
         if self.hostname:
             uri = '%s://%s:%s@%s:%s/%s' % (self.rdbms, self.username, self.password,
@@ -397,19 +411,21 @@ class OracleInstance(DatabaseInstance):
     column_qry = """SELECT atc.owner, ao.object_type, atc.table_name, atc.column_name      
                     FROM   all_tab_columns atc
                     JOIN   all_objects ao ON (atc.table_name = ao.object_name AND atc.owner = ao.owner)
-                    WHERE  atc.owner %s %s
-                    AND    atc.column_name %s %s """
+                    WHERE  atc.owner %(owner_op)s %(owner)S
+                    AND    atc.column_name %(column_name_op)s %(column_name)S """
     source_qry = """SELECT owner, type, name, line, text
                     FROM   all_source
-                    WHERE  owner %s %s
-                    AND    UPPER(text) LIKE %s"""
+                    WHERE  owner %(owner_op)s %(owner)S
+                    AND    UPPER(text) LIKE %(text)S"""
+    def source(self, target, opts):
+        return self._source(target, opts)
     def bindSyntax(self, varname):
         return ':' + varname
     def bindVariables(self, binds):
         'Puts a tuple of (name, value) pairs into the bind format desired by cx_Oracle'
         return dict((b[0], b[1].upper()) for b in binds)
     gerald_types = {'TABLE': gerald.oracle_schema.Table,
-                    'VIEW': gerald.postgres_schema.View}
+                    'VIEW': gerald.oracle_schema.View}
 
                 
 if __name__ == '__main__':
