@@ -1571,7 +1571,7 @@ class sqlpyPlus(sqlpython.sqlpython):
 
     def _cast_as_char(self):
         'self._cast_as_char() => Returns the RDBMS-equivalent "CAST(%s AS VARCHAR) expression.' 
-        converter = {'oracle': 'TO_CHAR(%s)'}.get(self.rdbms, 'CAST(%s AS VARCHAR)')
+        converter = {'oracle': 'TO_CHAR(%s)', 'mysql': 'CAST(%s AS CHAR)'}.get(self.rdbms, 'CAST(%s AS VARCHAR)')
         return converter
     
     def _execute(self, sql, bindvars={}):
