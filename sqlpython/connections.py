@@ -324,7 +324,8 @@ class MySQLInstance(DatabaseInstance):
                         AND    table_name %(name_op)s %(name)S
                         ORDER BY table_schema, table_type, table_name %(sort_direction)s"""
     gerald_types = {'TABLE': gerald.mysql_schema.Table,
-                    'VIEW': gerald.mysql_schema.View}
+                    'VIEW': gerald.mysql_schema.View,
+                    'BASE TABLE': gerald.mysql_schema.Table}
 
    
 class PostgresInstance(DatabaseInstance):
