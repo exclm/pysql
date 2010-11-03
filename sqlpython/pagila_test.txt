@@ -148,3 +148,34 @@ Constraints on BASE TABLE public.film_actor
 Foreign key "film_actor_actor_id_fkey": columns (actor_id) in table "actor" 
 Foreign key "film_actor_film_id_fkey": columns (film_id) in table "film" 
 Primary key "film_actor_pkey": (film_id,actor_id) 
+0:pagila@pagila> grep United country
+BASE TABLE public.country
+
+country_id country              last_update        
+---------- -------------------- -------------------
+101        United Arab Emirates /.*/
+102        United Kingdom       /.*/ 
+103        United States        /.*/
+
+3 rows selected.
+
+0:pagila@pagila> grep united country
+BASE TABLE public.country
+
+No rows Selected.
+
+0:pagila@pagila> grep -i united country
+BASE TABLE public.country
+
+country_id country              last_update        
+---------- -------------------- -------------------
+101        United Arab Emirates /.*/ 
+102        United Kingdom       /.*/
+103        United States        /.*/ 
+
+3 rows selected.
+
+0:pagila@pagila> find -c country
+BASE TABLE public.country.country
+VIEW public.customer_list.country
+VIEW public.staff_list.country
