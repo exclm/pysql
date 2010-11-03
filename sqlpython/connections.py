@@ -235,9 +235,10 @@ class DatabaseInstance(object):
         curs = self.connection.cursor()
         dbapiext.execute_f(curs, self.all_object_qry, **identifier)
         return curs
-    def columns(self, target, opts):
+    def columns(self, target, table_name, opts):
         target = self.sql_format_wildcards(target)
-        identifier = {'column_name': target}
+        table_name = self.sql_format_wildcards(table_name)
+        identifier = {'column_name': target, 'table_name': table_name}
         if opts.all:
             identifier['owner'] = '%'
         else:
@@ -312,6 +313,7 @@ class MySQLInstance(DatabaseInstance):
                     JOIN   information_schema.tables t ON (c.table_schema = t.table_schema
                                                            AND c.table_name = t.table_name)
                     WHERE  ( (c.table_schema %(owner_op)s %(owner)S) OR (c.table_schema = 'public'))
+                    AND    c.table_name %(table_name_op)s %(table_name)S
                     AND    c.column_name %(column_name_op)s %(column_name)S"""
     source_qry = """SELECT r.routine_schema, r.routine_type, r.routine_name, 0 AS line, r.routine_definition
                     FROM   information_schema.routines r
@@ -357,6 +359,7 @@ class PostgresInstance(DatabaseInstance):
                     JOIN   information_schema.tables t ON (c.table_schema = t.table_schema
                                                            AND c.table_name = t.table_name)
                     WHERE  ( (c.table_schema %(owner_op)s %(owner)S) OR (c.table_schema = 'public'))
+                    AND    c.table_name %(table_name_op)s %(table_name)S
                     AND    c.column_name %(column_name_op)s %(column_name)S"""
     source_qry = """SELECT r.routine_schema, r.routine_type, r.routine_name, 0 AS line, r.routine_definition
                     FROM   information_schema.routines r
@@ -413,6 +416,7 @@ class OracleInstance(DatabaseInstance):
                     FROM   all_tab_columns atc
                     JOIN   all_objects ao ON (atc.table_name = ao.object_name AND atc.owner = ao.owner)
                     WHERE  atc.owner %(owner_op)s %(owner)S
+                    AND    atc.table_name %(table_name_op)s %(table_name)S
                     AND    atc.column_name %(column_name_op)s %(column_name)S """
     source_qry = """SELECT owner, type, name, line, text
                     FROM   all_source

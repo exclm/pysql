@@ -58,6 +58,10 @@ Running
 
 sqlpython [username[/password][@SID]] ["SQL command 1", "@script.sql", "SQL command 2..."]
 
+or
+
+sqlpython [--postgres|mysql] database-name username
+
 Database connections can also be specified with URL syntax or with Oracle Easy Connect::
 
   oracle://username:password@SID
@@ -93,6 +97,3 @@ those databases has been very slight thus far.  Help in testing and improving sq
 functions against those databases is welcome.  Support for Microsoft SQL Server and sqlite
 will be available as soon as those databases are added to the Gerald project, and volunteers
 for Gerald will benefit sqlpython as well.
-
-As of 1.7.0, sqlpython sessions can only "see" metadata within the named schema belonging
-to the currently connected user.  A fix for this is expected for 1.7.1.

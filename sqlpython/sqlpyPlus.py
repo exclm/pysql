@@ -163,6 +163,10 @@ class SoftwareSearcher(object):
 Looked for these programs:
 %s""" % (self.purpose, __file__, "\n".join([s[0] for s in self.softwareList])))
 
+class Dummy_Options(object):
+    all = None
+dummy_options = Dummy_Options()
+
 softwareLists = {
     'diff/merge': [  
         ('/usr/bin/meld',"%s %s %s"),
@@ -588,16 +592,10 @@ class sqlpyPlus(sqlpython.sqlpython):
         r'select\s+(.*)from',
         re.IGNORECASE | re.DOTALL | re.MULTILINE)        
     def completedefault(self, text, line, begidx, endidx):
-        (username, gerald_schema) = self.metadata()
-        segment = completion.whichSegment(line)        
-        text = text.upper()
+        segment = completion.whichSegment(line)       
         if segment in ('select', 'where', 'having', 'set', 'order by', 'group by'):
-            completions = [c for c in schemas[username].column_names if c.startswith(text)] \
-                          or [c for c in schemas.qual_column_names if c.startswith(text)]
-                          # TODO: the latter not working
+            completions = [c[-1] for c in self.current_instance.columns(text + '%', '%', dummy_options)]
         elif segment in ('from', 'update', 'insert into'):
-            # print schemas[username].table_names
-            # TODO: from postgres, these table names are jrrt.fishies, etc.
             completions = [t for t in schemas[username].table_names if t.startswith(text)]
         elif segment == 'beginning':
             completions = [n for n in self.get_names() if n.startswith('do_')] + [
@@ -1011,7 +1009,7 @@ class sqlpyPlus(sqlpython.sqlpython):
     def do_find(self, arg, opts):
         """Finds argument in source code or (with -c) in column definitions."""
         if opts.col:
-            for (owner, object_type, table_name, column_name) in self.current_instance.columns(arg, opts):
+            for (owner, object_type, table_name, column_name) in self.current_instance.columns(arg, '%', opts):
                 self.poutput('%s %s.%s.%s' % (object_type, owner, table_name, column_name))
         else:
             for (owner, object_type, name, line_number, txt) in self.current_instance.source(arg, opts):
