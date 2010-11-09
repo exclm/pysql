@@ -10,7 +10,7 @@
 
 import cmd2,getpass,binascii,re,os,platform
 import pyparsing, connections
-__version__ = '1.7.0'
+__version__ = '1.7.2'
 try:
     import cx_Oracle
 except ImportError:
@@ -120,6 +120,7 @@ class sqlpython(cmd2.Cmd):
                                     help='close connection {N} (or current)'),
                    cmd2.make_option('-C', '--closeall', action='store_true',
                                     help='close all connections'),
+                   cmd2.make_option('--postgresql', action='store_true', help='Connect to postgreSQL: `connect --postgresql [DBNAME [USERNAME]]`'),
                    cmd2.make_option('--postgres', action='store_true', help='Connect to postgreSQL: `connect --postgres [DBNAME [USERNAME]]`'),
                    cmd2.make_option('--oracle', action='store_true', help='Connect to an Oracle database'),
                    cmd2.make_option('--mysql', action='store_true', help='Connect to a MySQL database'),
@@ -142,6 +143,7 @@ class sqlpython(cmd2.Cmd):
         connect user/password@SID  (Oracle is the default RDBMS target)
         connect --postgres --hostname=hostname dbname username
         connect --mysql dbname username'''
+        opts.postgres = opts.postgres or opts.postgresql
         if opts.closeall:
             self.closeall()
             return 

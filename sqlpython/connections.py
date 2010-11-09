@@ -30,8 +30,8 @@ try:
 except ImportError:
     pass
 
-#if not gerald_classes:
-#    raise ImportError, 'No Python database adapters installed!'
+if not gerald_classes:
+    raise ImportError, 'No Python database adapters installed!'
 
 class ObjectDescriptor(object):
     def __init__(self, name, dbobj):
@@ -247,8 +247,13 @@ class DatabaseInstance(object):
         curs = self.connection.cursor()
         dbapiext.execute_f(curs, self.column_qry, **identifier)
         return curs
+    def tables_and_views(self, target):
+        identifier = {'table_name': target + '%'}
+        curs = self.connection.cursor()
+        dbapiext.execute_f(curs, self.tables_and_views_qry, **identifier)
+        return curs
     def _source(self, target, opts):
-        identifier = {'text': '%%%s%%' % target.upper()}
+        identifier = {'text': '%%%s%%' % target.lower()}
         if opts.all:
             identifier['owner'] = '%'
         else:
@@ -265,10 +270,11 @@ class DatabaseInstance(object):
             for (line_number, line) in enumerate(code.splitlines()):
                 if target.search(line):
                     yield (row[0], row[1], row[2], line_number, line)
-    gerald_types = {'TABLE': gerald.oracle_schema.Table,
-                    'VIEW': gerald.oracle_schema.View}
     def object_metadata(self, owner, object_type, name):
         return self.gerald_types[object_type](name, self.connection.cursor(), owner)
+    tables_and_views_qry = """SELECT table_name
+                              FROM   information_schema.tables
+                              WHERE  table_name LIKE LOWER(%(table_name)S)"""
                       
 
 parser = optparse.OptionParser()
@@ -312,22 +318,24 @@ class MySQLInstance(DatabaseInstance):
                     FROM   information_schema.columns c
                     JOIN   information_schema.tables t ON (c.table_schema = t.table_schema
                                                            AND c.table_name = t.table_name)
-                    WHERE  ( (c.table_schema %(owner_op)s %(owner)S) OR (c.table_schema = 'public'))
-                    AND    c.table_name %(table_name_op)s %(table_name)S
-                    AND    c.column_name %(column_name_op)s %(column_name)S"""
+                    WHERE  ( (c.table_schema %(owner_op)s LOWER(%(owner)S)) OR (c.table_schema = 'public'))
+                    AND    c.table_name %(table_name_op)s LOWER(%(table_name)S)
+                    AND    LOWER(c.column_name) %(column_name_op)s LOWER(%(column_name)S)"""
     source_qry = """SELECT r.routine_schema, r.routine_type, r.routine_name, 0 AS line, r.routine_definition
                     FROM   information_schema.routines r
-                    WHERE  r.routine_schema %(owner_op)s %(owner)S
-                    AND    UPPER(r.routine_definition) LIKE %(text)S"""
+                    WHERE  r.routine_schema %(owner_op)s LOWER(%(owner)S)
+                    AND    LOWER(r.routine_definition) LIKE %(text)S"""
     all_object_qry = """SELECT table_schema, table_type, table_name
                         FROM   information_schema.tables
-                        WHERE  table_schema %(owner_op)s %(owner)S
-                        AND    table_type %(type_op)s %(type)S
-                        AND    table_name %(name_op)s %(name)S
+                        WHERE  table_schema %(owner_op)s LOWER(%(owner)S)
+                        AND    table_type %(type_op)s UPPER(%(type)S)
+                        AND    table_name %(name_op)s LOWER(%(name)S)
                         ORDER BY table_schema, table_type, table_name %(sort_direction)s"""
     gerald_types = {'TABLE': gerald.mysql_schema.Table,
                     'VIEW': gerald.mysql_schema.View,
-                    'BASE TABLE': gerald.mysql_schema.Table}
+                    'BASE TABLE': gerald.mysql_schema.Table,
+                    #  'SYSTEM VIEW': gerald.mysql_schema.Table - system views throw errors
+                    }
 
    
 class PostgresInstance(DatabaseInstance):
@@ -350,21 +358,21 @@ class PostgresInstance(DatabaseInstance):
         return dict((b[0], b[1].lower()) for b in binds)
     all_object_qry = """SELECT table_schema, table_type, table_name
                         FROM   information_schema.tables
-                        WHERE  ( (table_schema %(owner_op)s %(owner)S) OR (table_schema = 'public') )
-                        AND    table_type %(type_op)s %(type)S
-                        AND    table_name %(name_op)s %(name)S
+                        WHERE  ( (table_schema %(owner_op)s LOWER(%(owner)S)) OR (table_schema = 'public') )
+                        AND    table_type %(type_op)s UPPER(%(type)S)
+                        AND    table_name %(name_op)s LOWER(%(name)S)
                         ORDER BY table_schema, table_type, table_name %(sort_direction)s"""
     column_qry = """SELECT c.table_schema, t.table_type, c.table_name, c.column_name      
                     FROM   information_schema.columns c
                     JOIN   information_schema.tables t ON (c.table_schema = t.table_schema
                                                            AND c.table_name = t.table_name)
-                    WHERE  ( (c.table_schema %(owner_op)s %(owner)S) OR (c.table_schema = 'public'))
-                    AND    c.table_name %(table_name_op)s %(table_name)S
-                    AND    c.column_name %(column_name_op)s %(column_name)S"""
+                    WHERE  ( (c.table_schema %(owner_op)s LOWER(%(owner)S)) OR (c.table_schema = 'public'))
+                    AND    c.table_name %(table_name_op)s LOWER(%(table_name)S)
+                    AND    c.column_name %(column_name_op)s LOWER(%(column_name)S)"""
     source_qry = """SELECT r.routine_schema, r.routine_type, r.routine_name, 0 AS line, r.routine_definition
                     FROM   information_schema.routines r
-                    WHERE  ( (r.routine_schema %(owner_op)s %(owner)S) OR (r.routine_schema = 'public') )
-                    AND    UPPER(r.routine_definition) LIKE %(text)S"""
+                    WHERE  ( (r.routine_schema %(owner_op)s LOWER(%(owner)S)) OR (r.routine_schema = 'public') )
+                    AND    LOWER(r.routine_definition) LIKE %(text)S"""
     gerald_types = {'BASE TABLE': gerald.postgres_schema.Table,
                     'VIEW': gerald.postgres_schema.View}
 
@@ -373,7 +381,6 @@ class OracleInstance(DatabaseInstance):
     default_port = 1521
     connection_parser = re.compile('(?P<username>[^/\s@]*)(/(?P<password>[^/\s@]*))?(@((?P<hostname>[^/\s:]*)(:(?P<port>\d{1,4}))?/)?(?P<database>[^/\s:]*))?(\s+as\s+(?P<mode>sys(dba|oper)))?',
                                      re.IGNORECASE)
-    case = str.upper
     def object_name_case(self, name):
         return name.upper()
     def uri(self):
@@ -408,20 +415,23 @@ class OracleInstance(DatabaseInstance):
                                   dsn = self.dsn, mode = self.mode)    
     all_object_qry = """SELECT owner, object_type, object_name 
                         FROM   all_objects 
-                        WHERE  owner %(owner_op)s %(owner)S
-                        AND    object_type %(type_op)s %(type)S
-                        AND    object_name %(name_op)s %(name)S
+                        WHERE  owner %(owner_op)s UPPER(%(owner)S)
+                        AND    object_type %(type_op)s UPPER(%(type)S)
+                        AND    object_name %(name_op)s UPPER(%(name)S)
                         ORDER BY owner, object_type, object_name %(sort_direction)s"""
     column_qry = """SELECT atc.owner, ao.object_type, atc.table_name, atc.column_name      
                     FROM   all_tab_columns atc
                     JOIN   all_objects ao ON (atc.table_name = ao.object_name AND atc.owner = ao.owner)
-                    WHERE  atc.owner %(owner_op)s %(owner)S
-                    AND    atc.table_name %(table_name_op)s %(table_name)S
-                    AND    atc.column_name %(column_name_op)s %(column_name)S """
+                    WHERE  atc.owner %(owner_op)s UPPER(%(owner)S)
+                    AND    atc.table_name %(table_name_op)s UPPER(%(table_name)S)
+                    AND    atc.column_name %(column_name_op)s UPPER(%(column_name)S) """
     source_qry = """SELECT owner, type, name, line, text
                     FROM   all_source
                     WHERE  owner %(owner_op)s %(owner)S
-                    AND    UPPER(text) LIKE %(text)S"""
+                    AND    lower(text) LIKE %(text)S"""
+    tables_and_views_qry = """SELECT table_name
+                              FROM   all_tables
+                              WHERE  table_name LIKE UPPER(%(table_name)S)"""
     def source(self, target, opts):
         return self._source(target, opts)
     def bindSyntax(self, varname):
