@@ -137,4 +137,3 @@ Constraints on BASE TABLE sakila.film_actor
 Foreign key "fk_film_actor_actor": columns (actor_id) in table "actor" 
 Foreign key "fk_film_actor_film": columns (film_id) in table "film" 
 Primary key "PRIMARY": (actor_id,film_id) 
-0:sakila@sakila> 

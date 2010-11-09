@@ -164,7 +164,7 @@ Looked for these programs:
 %s""" % (self.purpose, __file__, "\n".join([s[0] for s in self.softwareList])))
 
 class Dummy_Options(object):
-    all = None
+    all = True
 dummy_options = Dummy_Options()
 
 softwareLists = {
@@ -596,7 +596,8 @@ class sqlpyPlus(sqlpython.sqlpython):
         if segment in ('select', 'where', 'having', 'set', 'order by', 'group by'):
             completions = [c[-1] for c in self.current_instance.columns(text + '%', '%', dummy_options)]
         elif segment in ('from', 'update', 'insert into'):
-            completions = [t for t in schemas[username].table_names if t.startswith(text)]
+            #print self.current_instance.tables_and_views(text)
+            completions = [t[0] for t in self.current_instance.tables_and_views(text)]
         elif segment == 'beginning':
             completions = [n for n in self.get_names() if n.startswith('do_')] + [
                            'insert', 'update', 'delete', 'drop', 'alter', 'begin', 'declare', 'create']

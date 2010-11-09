@@ -13,9 +13,9 @@ import sys, tempfile, optparse, unittest
 
 class mysqlpy(sqlpyPlus):
     '''
-MySqlPy V1.7.0 - 'sqlplus in python'
+MySqlPy V1.7.2 - 'sqlplus in python'
 Author: Luca.Canali@cern.ch
-Rev: 1.7.0, 06-Feb-10
+Rev: 1.7.2, 06-Feb-10
 
 Companion of SqlPython, a python module that reproduces Oracle's command line within python
 and sqlpyPlus. Major contributions by Catherine Devlin, http://catherinedevlin.blogspot.com

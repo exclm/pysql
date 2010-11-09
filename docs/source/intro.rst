@@ -10,7 +10,7 @@ Introduction
 SQLPython is a command-line interface to relational databases.  It was created as an alternative to Oracle's
 ``SQL\*Plus``, and can likewise be used instead of postgres' ``psql`` or mysql's ``mysql`` text clients.  
 For the most part, it can be used as any other text-based SQL interface would; this document focuses on 
-the extra capabilities 
+the extra capabilities.
 
 License
 -------
@@ -92,7 +92,7 @@ inspiration from two Perl-based open-source SQL clients,
 Non-Oracle RDBMS
 ----------------
 
-Version 1.7.0 of sqlpython works against PostgreSQL and MySQL, though the testing against
+Version 1.7.2 of sqlpython works against PostgreSQL and MySQL, though the testing against
 those databases has been very slight thus far.  Help in testing and improving sqlpython's
 functions against those databases is welcome.  Support for Microsoft SQL Server and sqlite
 will be available as soon as those databases are added to the Gerald project, and volunteers
