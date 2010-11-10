@@ -233,7 +233,7 @@ class DatabaseInstance(object):
         else:
             identifier['sort_direction'] = 'ASC'
         curs = self.connection.cursor()
-        dbapiext.execute_f(curs, self.all_object_qry, **identifier)
+        dbapiext.execute_f(curs, self.all_object_qry, paramstyle=self.paramstyle, **identifier)
         return curs
     def columns(self, target, table_name, opts):
         target = self.sql_format_wildcards(target)
@@ -245,12 +245,12 @@ class DatabaseInstance(object):
             identifier['owner'] = self.username
         self.set_operators(identifier)
         curs = self.connection.cursor()
-        dbapiext.execute_f(curs, self.column_qry, **identifier)
+        dbapiext.execute_f(curs, self.column_qry, paramstyle=self.paramstyle, **identifier)
         return curs
     def tables_and_views(self, target):
         identifier = {'table_name': target + '%'}
         curs = self.connection.cursor()
-        dbapiext.execute_f(curs, self.tables_and_views_qry, **identifier)
+        dbapiext.execute_f(curs, self.tables_and_views_qry, paramstyle=self.paramstyle, **identifier)
         return curs
     def _source(self, target, opts):
         identifier = {'text': '%%%s%%' % target.lower()}
@@ -260,7 +260,7 @@ class DatabaseInstance(object):
             identifier['owner'] = self.username
         self.set_operators(identifier)
         curs = self.connection.cursor()
-        dbapiext.execute_f(curs, self.source_qry, **identifier)
+        dbapiext.execute_f(curs, self.source_qry, paramstyle=self.paramstyle, **identifier)
         return curs
     def source(self, target, opts):
         curs = self._source(target, opts)
@@ -300,6 +300,7 @@ def connect(connstr):
 class MySQLInstance(DatabaseInstance):
     rdbms = 'mysql'
     default_port = 3306
+    paramstyle = ''
     def set_defaults(self):
         self.port = self.default_port       
         self.hostname = 'localhost'
@@ -342,6 +343,7 @@ class PostgresInstance(DatabaseInstance):
     rdbms = 'postgres'
     default_port = 5432
     case = str.lower
+    paramstyle = 'format'
     def set_defaults(self):
         self.port = os.getenv('PGPORT') or self.default_port
         self.database = os.getenv('ORACLE_SID')
@@ -379,6 +381,7 @@ class PostgresInstance(DatabaseInstance):
 class OracleInstance(DatabaseInstance):
     rdbms = 'oracle'
     default_port = 1521
+    paramstyle = 'named'
     connection_parser = re.compile('(?P<username>[^/\s@]*)(/(?P<password>[^/\s@]*))?(@((?P<hostname>[^/\s:]*)(:(?P<port>\d{1,4}))?/)?(?P<database>[^/\s:]*))?(\s+as\s+(?P<mode>sys(dba|oper)))?',
                                      re.IGNORECASE)
     def object_name_case(self, name):
