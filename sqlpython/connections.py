@@ -300,7 +300,7 @@ def connect(connstr):
 class MySQLInstance(DatabaseInstance):
     rdbms = 'mysql'
     default_port = 3306
-    paramstyle = ''
+    paramstyle = 'qmark'
     def set_defaults(self):
         self.port = self.default_port       
         self.hostname = 'localhost'
