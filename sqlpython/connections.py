@@ -346,9 +346,10 @@ class PostgresInstance(DatabaseInstance):
     paramstyle = 'format'
     def set_defaults(self):
         self.port = os.getenv('PGPORT') or self.default_port
-        self.database = os.getenv('ORACLE_SID')
-        self.hostname = os.getenv('PGHOST') or 'localhost'
-        self.username = os.getenv('USER')
+        self.database = os.getenv('PGDATABASE')
+        self.hostname = os.getenv('PGHOST') or os.getenv('PGHOSTADDR') or 'localhost'
+        self.username = os.getenv('PGUSER') or os.getenv('USER')
+        self.password = os.getenv('PGPASSWORD')
     def connect(self):
         self.connection = psycopg2.connect(host = self.hostname, user = self.username, 
                                  password = self.password, database = self.database,
