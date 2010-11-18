@@ -376,6 +376,7 @@ class PostgresInstance(DatabaseInstance):
                     FROM   information_schema.routines r
                     WHERE  ( (r.routine_schema %(owner_op)s LOWER(%(owner)S)) OR (r.routine_schema = 'public') )
                     AND    LOWER(r.routine_definition) LIKE %(text)S"""
+    parameter_qry = """SELECT name, unit, setting FROM pg_settings WHERE name LIKE LOWER('%%%s%%');""" 
     gerald_types = {'BASE TABLE': gerald.postgres_schema.Table,
                     'VIEW': gerald.postgres_schema.View}
 
@@ -436,6 +437,16 @@ class OracleInstance(DatabaseInstance):
     tables_and_views_qry = """SELECT table_name
                               FROM   all_tables
                               WHERE  table_name LIKE UPPER(%(table_name)S)"""
+    parameter_qry = """SELECT name, 
+                                              CASE type WHEN 1 THEN 'BOOLEAN'
+                                                        WHEN 2 THEN 'STRING'
+                                                        WHEN 3 THEN 'INTEGER'
+                                                        WHEN 4 THEN 'PARAMETER FILE'
+                                                        WHEN 5 THEN 'RESERVED'
+                                                        WHEN 6 THEN 'BIG INTEGER' END type, 
+                                                        value 
+                                       FROM v$parameter 
+                                       WHERE name LIKE LOWER('%%%s%%');"""
     def source(self, target, opts):
         return self._source(target, opts)
     def bindSyntax(self, varname):

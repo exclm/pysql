@@ -910,47 +910,37 @@ class sqlpyPlus(sqlpython.sqlpython):
         '''
         show                  - display value of all sqlpython parameters
         show (parameter name) - display value of a sqlpython parameter
-        show parameter (parameter name) - display value of an ORACLE parameter
+        show parameter (parameter name) - display value of a database parameter
         show err (object type/name)     - errors from latest PL/SQL object compilation.
         show all err (type/name)        - all compilation errors from the user's PL/SQL objects.
         show (index/schema/tablespace/trigger/view/constraint/comment) on (table)
         '''
-        if arg.startswith('param') and self.rdbms == 'oracle':
-            try:
-                paramname = arg.split()[1].lower()
-            except IndexError:
-                paramname = ''
-            self.onecmd(self.parsed("""SELECT name, 
-                                              CASE type WHEN 1 THEN 'BOOLEAN'
-                                                        WHEN 2 THEN 'STRING'
-                                                        WHEN 3 THEN 'INTEGER'
-                                                        WHEN 4 THEN 'PARAMETER FILE'
-                                                        WHEN 5 THEN 'RESERVED'
-                                                        WHEN 6 THEN 'BIG INTEGER' END type, 
-                                                        value 
-                                       FROM v$parameter 
-                                       WHERE name LIKE '%%%s%%';""" % paramname))
+        arg = arg.strip().replace('*', '%').replace('?', '_')
+        if not arg:
+            return Cmd.do_show(self, arg)
+        if arg.lower().startswith('param'):
+            arg = ' '.join(arg.split()[1:]) or '%'
         else:
             argpieces = arg.lower().split()
             argpieces = [a for a in argpieces if not a.startswith('-')]
-            try:
-                for (kwd, shortcut) in (
-                        ('ind', '\\di'), ('schema', '\\dn'), 
-                        ('tablesp', '\\db'), ('trig', '\\dg'), 
-                        ('view', '\\dv'), ('cons', '\\dc'),
-                        ('comm', '\\dd'), ('ref', 'ref')):
-                    if argpieces[0].lower().startswith(kwd):
-                        return self._show_shortcut(shortcut, argpieces)
-                if argpieces[0][:3] == 'err':
-                    return self._show_errors(all_users=False, limit=1, targets=argpieces[1:])
-                elif argpieces[0][:3] == 'tab':
-                    return self.do_ls('table/*')
-                elif (argpieces[0], argpieces[1][:3]) == ('all','err'):
-                    return self._show_errors(all_users=False, limit=None, targets=argpieces[2:])
-            except IndexError:
-                pass
+            for (kwd, shortcut) in (
+                    ('ind', '\\di'), ('schema', '\\dn'), 
+                    ('tablesp', '\\db'), ('trig', '\\dg'), 
+                    ('view', '\\dv'), ('cons', '\\dc'),
+                    ('comm', '\\dd'), ('ref', 'ref')):
+                if argpieces[0].lower().startswith(kwd):
+                    return self._show_shortcut(shortcut, argpieces)
+            if argpieces[0][:3] == 'err':
+                return self._show_errors(all_users=False, limit=1, targets=argpieces[1:])
+            elif argpieces[0][:3] == 'tab':
+                return self.do_ls('table/*')
+            elif (argpieces[0], argpieces[1:2][:3]) == ('all','err'):
+                return self._show_errors(all_users=False, limit=None, targets=argpieces[2:])
+        try:
             return Cmd.do_show(self, arg)
-            
+        except NotImplementedError:
+            return self.onecmd(self.current_instance.parameter_qry % arg)
+                       
     def _vc(self, arg, opts, program):
         if not os.path.exists('.%s' % program):
             create = raw_input('%s repository not yet in current directory (%s).  Create (y/N)? ' % 
