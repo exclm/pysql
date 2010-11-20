@@ -908,7 +908,7 @@ class sqlpyPlus(sqlpython.sqlpython):
    
     def _param_select(self, arg, seekme):
         seekme = seekme.replace('*','%').replace('?','_')
-        query = self.parsed(self.current_instance.parameter_qry % (seekme, arg.parsed.terminator or ';'))
+        query = self.parsed(self.current_instance.parameter_qry % (seekme, arg.parsed.terminator or ';', arg.parsed.suffix))
         return self.do_select(query)
     
     def do_show(self, arg):
