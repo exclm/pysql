@@ -783,7 +783,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             selecttext = self.expandWildSql(arg)
         else:
             selecttext = arg
-        self.querytext = 'select ' + selecttext
+        self.querytext = '%s %s' % (arg.parsed.command, selecttext)
         if self.varsUsed:
             self.curs.execute(self.querytext, self.varsUsed)
         else: # this is an ugly workaround for the evil paramstyle curse upon DB-API2
@@ -905,6 +905,11 @@ class sqlpyPlus(sqlpython.sqlpython):
         except IndexError:
             newarg = ''
         return self.onecmd(self.parsed(shortcut + ' ' + newarg))
+   
+    def _param_select(self, arg, seekme):
+        seekme = seekme.replace('*','%').replace('?','_')
+        query = self.parsed(self.current_instance.parameter_qry % (seekme, arg.parsed.terminator or ';'))
+        return self.do_select(query)
     
     def do_show(self, arg):
         '''
@@ -915,11 +920,8 @@ class sqlpyPlus(sqlpython.sqlpython):
         show all err (type/name)        - all compilation errors from the user's PL/SQL objects.
         show (index/schema/tablespace/trigger/view/constraint/comment) on (table)
         '''
-        arg = arg.strip().replace('*', '%').replace('?', '_')
-        if not arg:
+        if not arg.strip():
             return Cmd.do_show(self, arg)
-        if arg.lower().startswith('param'):
-            arg = ' '.join(arg.split()[1:]) or '%'
         else:
             argpieces = arg.lower().split()
             argpieces = [a for a in argpieces if not a.startswith('-')]
@@ -936,10 +938,19 @@ class sqlpyPlus(sqlpython.sqlpython):
                 return self.do_ls('table/*')
             elif (argpieces[0], argpieces[1:2][:3]) == ('all','err'):
                 return self._show_errors(all_users=False, limit=None, targets=argpieces[2:])
+            elif argpieces[0].startswith('variable') or argpieces[0].startswith('param'):
+                argpieces.pop(0)
+                if argpieces[:1] == ['like']:
+                    argpieces.pop(0)
+                if argpieces:
+                    target = argpieces[0]
+                else:
+                    target = '%'
+                return self._param_select(arg, target.strip("'"))
         try:
             return Cmd.do_show(self, arg)
         except NotImplementedError:
-            return self.onecmd(self.current_instance.parameter_qry % arg)
+            return self._param_select(arg, arg)
                        
     def _vc(self, arg, opts, program):
         if not os.path.exists('.%s' % program):
