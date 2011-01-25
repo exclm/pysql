@@ -222,11 +222,12 @@ class DatabaseInstance(object):
                 selectors[selector + '_op'] = 'LIKE'
             else:
                 selectors[selector + '_op'] = '='
+    def default_owner(self):
+        return self.username
     def objects(self, target, opts):
         identifier = self.parse_identifier(target)
-        clauses = []
         if (identifier['owner'] == '%') and (not opts.all):
-            identifier['owner'] = self.username
+            identifier['owner'] = self.default_owner()
         self.set_operators(identifier)
         if hasattr(opts, 'reverse') and opts.reverse:
             identifier['sort_direction'] = 'DESC'
@@ -315,7 +316,9 @@ class MySQLInstance(DatabaseInstance):
     def bindVariables(self, binds):
         'Puts a tuple of (name, value) pairs into the bind format desired by MySQL'
         return (i[1] for i in binds)
-    column_qry = """SELECT c.table_schema, t.table_type, c.table_name, c.column_name      
+    def default_owner(self):
+        return self.database
+    column_qry = """SELECT c.table_schema, t.table_type, c.table_name, c.column_name
                     FROM   information_schema.columns c
                     JOIN   information_schema.tables t ON (c.table_schema = t.table_schema
                                                            AND c.table_name = t.table_name)

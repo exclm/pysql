@@ -44,88 +44,10 @@ try:
 except (RuntimeError, ImportError):
     pass
 
-queries = {
-'resolve': """
-SELECT object_type, object_name, owner FROM (
-SELECT object_type, object_name, user AS owner, 1 priority
-FROM   user_objects
-WHERE object_name = :objName
-UNION ALL
-SELECT ao.object_type, ao.object_name, ao.owner, 2 priority
-FROM    all_objects ao
-JOIN      user_synonyms us ON (us.table_owner = ao.owner AND us.table_name = ao.object_name)
-WHERE us.synonym_name = :objName
-AND   ao.object_type != 'SYNONYM'
-UNION ALL
-SELECT ao.object_type, ao.object_name, ao.owner, 3 priority
-FROM    all_objects ao
-JOIN      all_synonyms asyn ON (asyn.table_owner = ao.owner AND asyn.table_name = ao.object_name)
-WHERE asyn.synonym_name = :objName
-AND   ao.object_type != 'SYNONYM'
-AND      asyn.owner = 'PUBLIC'
-UNION ALL 
-SELECT 'DIRECTORY' object_type, dir.directory_name, dir.owner, 6 priority
-FROM   all_directories dir
-WHERE  dir.directory_name = :objName
-UNION ALL 
-SELECT 'DATABASE LINK' object_type, db_link, owner, 7 priority
-FROM   all_db_links dbl
-WHERE  dbl.db_link = :objName
-) ORDER BY priority ASC,
-           length(object_type) ASC,
-           object_type DESC""", # preference: PACKAGE before PACKAGE BODY, TABLE before INDEX
-'tabComments': """
-SELECT comments
-FROM    all_tab_comments
-WHERE owner = :owner
-AND      table_name = :table_name""",
-'colComments': """
-SELECT
-atc.column_name,
-acc.comments             
-FROM all_tab_columns atc
-JOIN all_col_comments acc ON (atc.owner = acc.owner and atc.table_name = acc.table_name and atc.column_name = acc.column_name)
-WHERE atc.table_name = :object_name
-AND      atc.owner = :owner
-ORDER BY atc.column_id;""",
-'oneColComments': """
-SELECT atc.column_name,
-acc.comments             
-FROM all_tab_columns atc
-JOIN all_col_comments acc ON (atc.owner = acc.owner and atc.table_name = acc.table_name and atc.column_name = acc.column_name)
-WHERE atc.table_name = :object_name
-AND      atc.owner = :owner
-AND      acc.column_name = :column_name
-ORDER BY atc.column_id;""",
-#thanks to Senora.pm for "refs"
-'refs': """
-NULL               referenced_by, 
-c2.table_name      references, 
-c1.constraint_name constraint
-FROM
-user_constraints c1,
-user_constraints c2
-WHERE
-c1.table_name = :object_name
-and c1.constraint_type ='R'
-and c1.r_constraint_name = c2.constraint_name
-and c1.r_owner = c2.owner
-and c1.owner = :owner
-UNION
-SELECT c1.table_name      referenced_by, 
-NULL               references, 
-c1.constraint_name constraint
-FROM
-user_constraints c1,
-user_constraints c2
-WHERE
-c2.table_name = :object_name
-and c1.constraint_type ='R'
-and c1.r_constraint_name = c2.constraint_name
-and c1.r_owner = c2.owner
-and c1.owner = :owner       
 """
-}
+need expanded Gerald support to work for mysql:
+do_comments
+"""
 
 class SoftwareSearcher(object):
     def __init__(self, softwareList, purpose):
@@ -1113,28 +1035,6 @@ class sqlpyPlus(sqlpython.sqlpython):
                         else:
                             self.poutput(col['name'])
 
-    def _resolve(self, identifier):
-        parts = identifier.split('.')
-        if len(parts) == 2:
-            owner, object_name = parts
-            object_type = self.select_scalar_list('SELECT object_type FROM all_objects WHERE owner = :owner AND object_name = :object_name',
-                              {'owner': owner, 'object_name': object_name.upper()}
-                              )[0]
-        elif len(parts) == 1:
-            object_name = parts[0]
-            self._execute(queries['resolve'], {'objName':object_name.upper()})
-            object_type, object_name, owner = self.curs.fetchone()
-        return object_type, owner, object_name
-        
-    def resolve(self, identifier):
-        """Checks (my objects).name, (my synonyms).name, (public synonyms).name
-        to resolve a database object's name. """
-        try:
-            return self._resolve(identifier)
-        except (TypeError, IndexError):
-            self.pfeedback('Could not resolve object %s.' % identifier)
-            return '', '', ''
-        
     def spoolstop(self):
         if self.spoolFile:
             self.stdout = self.stdoutBeforeSpool
