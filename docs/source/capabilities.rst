@@ -282,8 +282,6 @@ enabled, column names in a SELECT statement do not need to be explicitly typed; 
 specified with special Wild SQL symbols: wildcards (`*`, `%`, `_`); column numbers (`#{N}`);
 and NOT-style exclusion (`!`).  The symbols can even be combined.
 
-TODO: column number Wild SQL is not working as of sqlpython 1.7.0
-
 ::
 
   jrrt@orcl> cat party
