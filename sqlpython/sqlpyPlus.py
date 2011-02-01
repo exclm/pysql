@@ -1023,7 +1023,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         for (owner, object_type, name) in self.current_instance.objects(arg, opts):
             obj = self.current_instance.object_metadata(owner, object_type, name)
             if hasattr(obj, 'comments'):
-                self.poutput('%s %s.%s' % object_type, owner, name)
+                self.poutput('%s %s.%s' % (object_type, owner, name))
                 self.poutput(obj.comments)
                 if hasattr(obj, 'columns'):
                     columns = obj.columns.values()
