@@ -24,7 +24,11 @@ or with a python-like shorthand
 - catherinedevlin.blogspot.com  May 31, 2006
 """
 import sys, os, re, sqlpython, pyparsing, re, completion
-import datetime, pickle, binascii, subprocess, time, itertools, hashlib
+import datetime, pickle, binascii, subprocess, time, itertools
+try:
+    from hashlib import md5
+except ImportError:
+    from md5 import new as md5
 import traceback, operator
 from cmd2 import Cmd, make_option, options, Statekeeper, Cmd2TestCase, options_defined
 import operator
@@ -236,7 +240,7 @@ class BlobDisplayer(object):
         self.url = ''
         if under_limit:
             self.blob = blob.read()
-            self.hashed = hashlib.md5(self.blob).hexdigest()
+            self.hashed = md5(self.blob).hexdigest()
             self.extension = imagedetect.extension_from_data(self.blob)
             if self.folder_ok():
                 self.file_name = '%s/%s%s' % (
