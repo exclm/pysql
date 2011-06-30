@@ -170,11 +170,12 @@ class DatabaseInstance(object):
         self.instance_number = instance_number
         self.prompt = "%d:%s@%s> " % (self.instance_number, self.username, self.database)  
     sqlname = pyparsing.Word(pyparsing.alphas + '$_#%*', pyparsing.alphanums + '$_#%*')
+    typname = pyparsing.Word(pyparsing.alphas + ' ')
     ls_parser = ( (pyparsing.Optional(sqlname("owner") + "/") + 
-                   pyparsing.Optional(sqlname("type") + "/") + 
+                   pyparsing.Optional(typname("type") + "/") +
                    pyparsing.Optional(sqlname("name")) +
                    pyparsing.stringEnd ) 
-                   | ( pyparsing.Optional(sqlname("type") + "/") + 
+                   | ( pyparsing.Optional(typname("type") + "/") +
                        pyparsing.Optional(sqlname("owner") + ".") +
                        pyparsing.Optional(sqlname("name")) +
                        pyparsing.stringEnd ))
