@@ -334,7 +334,7 @@ class MySQLInstance(DatabaseInstance):
                         FROM   information_schema.tables
                         WHERE  table_schema %(owner_op)s LOWER(%(owner)S)
                         AND    table_type %(type_op)s UPPER(%(type)S)
-                        AND    table_name %(name_op)s LOWER(%(name)S)
+                        AND    table_name %(name_op)s %(name)S
                         ORDER BY table_schema, table_type, table_name %(sort_direction)s"""
     parameter_qry = """SHOW variables LIKE '%%%s%%'%s%s""" 
     gerald_types = {'TABLE': gerald.mysql_schema.Table,
