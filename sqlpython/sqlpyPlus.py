@@ -1135,15 +1135,14 @@ class sqlpyPlus(sqlpython.sqlpython):
     def _do_dir(self, type, arg, opts):
         self._do_ls("%%/%s/%s%s%s" % (type, str(arg), arg.parsed.terminator, arg.parsed.suffix), opts)
 
-   
+
+    table_type_name = {'postgres': 'base table', 'mysql': 'BASE TABLE',
+                       'oracle': 'TABLE' }
     @options(standard_options)
     def do__dir_tables(self, arg, opts):
         'Shortcut for ``ls table/``'
-        if self.rdbms in ('postgres','mysql'):
-            target = 'base table'
-        else:
-            target = "table"
-        self._do_dir(target, arg, opts)
+        import pdb; pdb.set_trace()
+        self._do_dir(self.table_type_name[self.rdbms], arg, opts)
 
     @options(standard_options)
     def do__dir_views(self, arg, opts):
