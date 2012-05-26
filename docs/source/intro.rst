@@ -34,16 +34,17 @@ can easily install the latest release of sqlpython by issuing from a command pro
 
   easy_install sqlpython
   
-The development trunk 
-(very unstable) is at `assembla <https://www.assembla.com/wiki/show/sqlpython>`_; 
+The development trunk
+(very unstable) has been moved from `assembla <https://www.assembla.com/wiki/show/sqlpython>`_
+to `bitbucket <https://bitbucket.org/catherinedevlin/sqlpython>`;
 you can install the trunk on your machine with::
 
-  hg clone http://hg.assembla.com/python-cmd2 cmd2
+  hg clone https://bitbucket.org/catherinedevlin/cmd2
 	cd cmd2
 	python setup.py develop
 
 	cd ..
-	hg clone http://hg.assembla.com/sqlpython sqlpython
+	hg clone https://bitbucket.org/catherinedevlin/sqlpython
 	cd sqlpython
 	python setup.py develop
 
