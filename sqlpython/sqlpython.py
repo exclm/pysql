@@ -10,7 +10,7 @@
 
 import cmd2,getpass,binascii,re,os,platform
 import pyparsing, connections
-__version__ = '1.7.2'
+__version__ = '1.7.3'
 try:
     import cx_Oracle
 except ImportError:
