@@ -249,6 +249,8 @@ class DatabaseInstance(object):
         curs = self.connection.cursor()
         dbapiext.execute_f(curs, self.column_qry, paramstyle=self.paramstyle, **identifier)
         return curs
+    schema_long_query = "SELECT * FROM information_schema.schemata WHERE LOWER(schema_name) LIKE '%s' ORDER BY schema_name;"
+    schema_query = "SELECT schema_name FROM information_schema.schemata WHERE LOWER(schema_name) LIKE '%s' ORDER BY schema_name;"
     def tables_and_views(self, target):
         identifier = {'table_name': target + '%'}
         curs = self.connection.cursor()
@@ -475,7 +477,9 @@ class OracleInstance(DatabaseInstance):
         return dict((b[0], b[1].upper()) for b in binds)
     gerald_types = {'TABLE': gerald.oracle_schema.Table,
                     'VIEW': gerald.oracle_schema.View}
-
+    schema_long_query = "SELECT owner, count(*) AS objects FROM all_objects WHERE owner LIKE '%s' GROUP BY owner ORDER BY owner;"
+    schema_query = "SELECT DISTINCT owner FROM all_objects WHERE LOWER(owner) LIKE '%s' ORDER BY owner;"
+    
                 
 if __name__ == '__main__':
     opts = OptionTestDummy(password='password')
