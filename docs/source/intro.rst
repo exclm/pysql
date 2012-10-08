@@ -53,6 +53,19 @@ Using `hg pull`, `hg update` subsequently will update from the current trunk.
 You may also install from the trunk with easy_install::
 
   easy_install 
+  
+Finally, you will need database client software, access to a database server,
+and the Python library corresponding to your chosen database(s):
+
+Oracle
+  `cx_Oracle <http://pypi.python.org/pypi/cx_Oracle>`
+  
+PostgreSQL
+  `psycopg2 <http://pypi.python.org/pypi/psycopg2>`
+
+MySQL
+  `PyMySQL <http://pypi.python.org/pypi/PyMySQL>`
+  
 
 Running
 -------

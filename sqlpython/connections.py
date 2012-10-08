@@ -250,7 +250,6 @@ class DatabaseInstance(object):
         dbapiext.execute_f(curs, self.column_qry, paramstyle=self.paramstyle, **identifier)
         return curs
     def tables_and_views(self, target):
-        logging.debug('tables_and_views text: %s' % target)
         identifier = {'table_name': target + '%'}
         curs = self.connection.cursor()
         dbapiext.execute_f(curs, self.tables_and_views_qry, paramstyle=self.paramstyle, **identifier)
@@ -453,6 +452,10 @@ class OracleInstance(DatabaseInstance):
     tables_and_views_qry = """SELECT table_name
                               FROM   all_tables
                               WHERE  table_name LIKE UPPER(%(table_name)S)"""
+    tables_and_views_by_col_qry = """SELECT DISTINCT table_name
+                                     FROM   all_tab_columns
+                                     WHERE  table_name LIKE UPPER(%(table_name)S)
+                                     AND    LOWER(column_name) IN (%s) """    
     parameter_qry = """SELECT name, 
                                               CASE type WHEN 1 THEN 'BOOLEAN'
                                                         WHEN 2 THEN 'STRING'

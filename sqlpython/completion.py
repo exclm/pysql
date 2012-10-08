@@ -17,7 +17,8 @@ keywords = {'order by': pyparsing.Keyword('order', caseless=True) +
             'values': pyparsing.Keyword('values', caseless=True),
             'group by': pyparsing.Keyword('group', caseless=True) +
                         pyparsing.Keyword('by', caseless=True),
-            'where': pyparsing.Keyword('where', caseless=True)}
+            'where': pyparsing.Keyword('where', caseless=True),
+            'desc': pyparsing.Regex(r'^desc', flags=re.IGNORECASE),}
 for (name, parser) in keywords.items():
     parser.ignore(pyparsing.sglQuotedString)
     parser.ignore(pyparsing.dblQuotedString)
@@ -29,52 +30,55 @@ fromClauseFinder = re.compile(r".*(from|update)(.*)(where|set)",
                     re.IGNORECASE | re.DOTALL | re.MULTILINE)
 oracleTerms = oracleTerms = re.compile(r"[A-Z$_#][0-9A-Z_$#]*", re.IGNORECASE)
 def tableNamesFromFromClause(statement):
-    logging.debug('determining table name from statement %s' % statement)
     result = fromClauseFinder.search(statement)
     if not result:
         return []
     result = oracleTerms.findall(result.group(2))
     result = [r.upper() for r in result if r.upper() not in ('JOIN','ON')]
-    logging.debug(result)
     return result
-    
-def orderedParseResults(parsers, statement):
+
+def parse_results_in_order_of_appearance(parsers, statement):
+    '''Results are ordered by index of their appearance in ``statement``, ascending
+       (that is, early-in-statement to later-in-statement'''
     results = []
     for parser in parsers:
         results.extend(parser.scanString(statement))
     results.sort(cmp=lambda x,y:cmp(x[1],y[1]))
     return results
-        
+
 at_beginning = re.compile(r'^\s*\S+$')
 def whichSegment(statement):
     '''
+    >>> whichSegment("DESCRIBE ")
+    'desc'
+    >>> whichSegment("set ")
+    'set'
     >>> whichSegment("SELECT col FROM t")
     'from'
+    >>> whichSegment(r"  \dt ")
+    'desc'
     >>> whichSegment("SELECT * FROM t")
     'from'
-    >>> whichSegment("DESC ")
-    'DESC'
+    >>> whichSegment("SELECT * FROM t groUP  by")
+    'group by'
     >>> whichSegment("DES")
     'beginning'
     >>> whichSegment("")
     'beginning'
     >>> whichSegment("select  ")
     'select'
-    
     '''
-    logging.debug('determining segment for statement %s' % statement)
     if (not statement) or at_beginning.search(statement):
         return 'beginning'
-    results = orderedParseResults(keywords.values(), statement)
-    logging.debug(str(results))
+    if statement.strip().startswith(r'\d'):
+        return 'desc'
+    results = parse_results_in_order_of_appearance(keywords.values(), statement)
     if results:
         result = ' '.join(results[-1][0])
-        logging.debug('parse results found, segment is %s' % result)
-        return result
+        return result.lower()
     else:
         result = statement.split(None, 1)[0]
-        logging.debug('parse results not found, segment is %s' % result)
-        return result
+        return result.lower()
 
 columnparser = re.compile(r'\bselect\s+(.*?)\s+from\b', re.IGNORECASE | re.DOTALL)  
 sqlword = re.compile(r'[0-9a-zA-Z_#$]+')

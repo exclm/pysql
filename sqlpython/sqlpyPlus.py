@@ -524,11 +524,11 @@ class sqlpyPlus(sqlpython.sqlpython):
         segment = completion.whichSegment(line)       
         logging.debug('segment found is %s' % segment)
         completions = None
-        if segment in ('select', 'where', 'having', 'set', 'order by', 'group by'):
+        if segment in ('set',):
+            completions = self.settable.keys()
+        elif segment in ('select', 'where', 'having', 'set', 'order by', 'group by'):
             completions = [c[-1] for c in self.current_instance.columns(text + '%', '%', dummy_options)]
-        elif segment in ('from', 'update', 'insert into'):
-            logging.debug('completion of segment type %s' % segment)
-            logging.debug('text sent is %s' % text)
+        elif segment in ('from', 'update', 'insert into', 'desc', r'\d', 'head', 'refs'):
             if segment == 'from':
                 columnList = completion.columnList(line)
                 if columnList:
@@ -1022,6 +1022,9 @@ class sqlpyPlus(sqlpython.sqlpython):
                     if end_heading.search(line):
                         break
                 self.poutput(''.join(l for (ln, l) in obj.source[:index]))
+        if opts.long:
+            self.do__dir_indexes(arg)
+            self.do__dir_constraints(arg)
     @options([all_users_option])            
     def do_deps(self, arg, opts):
         '''Lists indexes, constraints, and triggers depending on an object'''
@@ -1126,9 +1129,11 @@ class sqlpyPlus(sqlpython.sqlpython):
         \dt _dir_tables
         \dv _dir_views
         \di _dir_indexes
-        \? help psql'''
+        \? help psql
+        
+        Append ``+`` for more detail (example: \dt+)'''
         commands = {}
-        for c in self.do_psql.__doc__.splitlines()[2:]:
+        for c in self.do_psql.__doc__.splitlines()[2:-2]:
             (abbrev, command) = c.split(None, 1)
             commands[abbrev] = command
         parts = arg.parsed.raw.split(None,1)
@@ -1137,8 +1142,13 @@ class sqlpyPlus(sqlpython.sqlpython):
             remainder = parts[1]
         except IndexError:
             remainder = ''
+        if abbrev.endswith('+'):
+            abbrev = abbrev[:-1]
+            modifier = '--long'
+        else:
+            modifier = ''
         if abbrev in commands:
-            newcommand = '%s %s' % (commands[abbrev], remainder)
+            newcommand = '%s %s %s' % (commands[abbrev], modifier, remainder)
             return self.onecmd(self.parsed(newcommand))
         else:
             self.perror('No abbreviated command for %s' % abbrev)
@@ -1159,16 +1169,6 @@ class sqlpyPlus(sqlpython.sqlpython):
     def do__dir_views(self, arg, opts):
         'Shortcut for ``ls table/``'
         self._do_dir('view', arg, opts)
-
-    @options(standard_options)
-    def do__dir_(self, arg, opts):
-        'Shortcut for ``ls table/``'
-        self._do_dir('', arg, opts)
-
-    @options(standard_options)
-    def do__dir_(self, arg, opts):
-        'Shortcut for ``ls table/``'
-        self._do_dir('', arg, opts)
         
     def _str_index(self, idx, long=False):
         return '%s (%s) %s %s' % (idx['name'], ','.join(idx['columns']),
@@ -1179,7 +1179,9 @@ class sqlpyPlus(sqlpython.sqlpython):
         if 'condition' in cons:
             details = '(%s)' % cons['condition']
         elif 'reftable' in cons:
-            details = 'columns (%s) in table "%s"' % (','.join(cons['columns']), cons['reftable'])
+            details = 'columns (%s) in table "%s" (%s)' % (','.join(cons['columns']), 
+                                                           cons['reftable'],
+                                                           ','.join(cons['refcolumns']))
         elif 'columns' in cons:
             details = '(%s)' % ','.join(cons['columns'])
         else:
