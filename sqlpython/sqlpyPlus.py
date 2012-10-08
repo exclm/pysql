@@ -1236,11 +1236,18 @@ class sqlpyPlus(sqlpython.sqlpython):
         self.sqlfeedback(sql)
         self.do_select(self.parsed(sql, terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix))
 
-    def do__dir_schemas(self, arg):
+    @options(standard_options)
+    def do__dir_schemas(self, arg, opts):
         '''
-        Lists all object owners, together with the number of objects they own.
+        Lists all database schemas, together with the number of objects they own.
         '''
-        sql = """SELECT owner, count(*) AS objects FROM all_objects GROUP BY owner ORDER BY owner;"""
+        if not self.current_instance:
+            return
+        if opts.long:
+            sql = self.current_instance.schema_long_query
+        else:
+            sql = self.current_instance.schema_query
+        sql = sql % (arg.lower() + '%')
         self.sqlfeedback(sql)
         self.do_select(self.parsed(sql, terminator=arg.parsed.terminator or ';', suffix=arg.parsed.suffix))
 
