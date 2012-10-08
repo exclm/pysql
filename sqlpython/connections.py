@@ -25,7 +25,7 @@ except ImportError:
     pass
 
 try:
-    import MySQLdb
+    import pymysql
     gerald_classes['mysql'] = gerald.MySQLSchema
 except ImportError:
     pass
@@ -250,9 +250,17 @@ class DatabaseInstance(object):
         dbapiext.execute_f(curs, self.column_qry, paramstyle=self.paramstyle, **identifier)
         return curs
     def tables_and_views(self, target):
+        logging.debug('tables_and_views text: %s' % target)
         identifier = {'table_name': target + '%'}
         curs = self.connection.cursor()
         dbapiext.execute_f(curs, self.tables_and_views_qry, paramstyle=self.paramstyle, **identifier)
+        return curs
+    def tables_and_views_by_col(self, target, cols):
+        identifier = {'table_name': target + '%'}        
+        column_list = ','.join("'%s'" % c for c in cols)
+        qry = self.tables_and_views_by_col_qry % column_list.lower()
+        curs = self.connection.cursor() 
+        dbapiext.execute_f(curs, qry, paramstyle=self.paramstyle, **identifier)
         return curs
     def _source(self, target, opts):
         identifier = {'text': '%%%s%%' % target.lower()}
@@ -277,7 +285,10 @@ class DatabaseInstance(object):
     tables_and_views_qry = """SELECT table_name
                               FROM   information_schema.tables
                               WHERE  table_name LIKE LOWER(%(table_name)S)"""
-                      
+    tables_and_views_by_col_qry = """SELECT DISTINCT table_name
+                                     FROM   information_schema.columns
+                                     WHERE  table_name LIKE LOWER(%%(table_name)S)
+                                     AND    column_name IN (%s) """
 
 parser = optparse.OptionParser()
 parser.add_option('--postgres', action='store_true', help='Connect to postgreSQL: `connect --postgres [DBNAME [USERNAME]]`')
@@ -309,7 +320,7 @@ class MySQLInstance(DatabaseInstance):
         self.username = os.getenv('USER')
         self.database = os.getenv('USER')
     def connect(self):
-        self.connection = MySQLdb.connect(host = self.hostname, user = self.username, 
+        self.connection = pymysql.connect(host = self.hostname, user = self.username, 
                                 passwd = self.password, db = self.database,
                                 port = self.port, sql_mode = 'ANSI')        
     def bindSyntax(self, varname):
