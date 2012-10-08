@@ -48,6 +48,9 @@ try:
 except (RuntimeError, ImportError):
     pass
 
+import logging
+logging.basicConfig(filename='sqlpyPlus.log', level=logging.DEBUG)
+
 """
 need expanded Gerald support to work for mysql:
 do_comments
@@ -519,11 +522,19 @@ class sqlpyPlus(sqlpython.sqlpython):
         re.IGNORECASE | re.DOTALL | re.MULTILINE)        
     def completedefault(self, text, line, begidx, endidx):
         segment = completion.whichSegment(line)       
+        logging.debug('segment found is %s' % segment)
+        completions = None
         if segment in ('select', 'where', 'having', 'set', 'order by', 'group by'):
             completions = [c[-1] for c in self.current_instance.columns(text + '%', '%', dummy_options)]
         elif segment in ('from', 'update', 'insert into'):
-            #print self.current_instance.tables_and_views(text)
-            completions = [t[0] for t in self.current_instance.tables_and_views(text)]
+            logging.debug('completion of segment type %s' % segment)
+            logging.debug('text sent is %s' % text)
+            if segment == 'from':
+                columnList = completion.columnList(line)
+                if columnList:
+                    completions = [t[0] for t in self.current_instance.tables_and_views_by_col(text, columnList)]
+            if completions is None:
+                completions = [t[0] for t in self.current_instance.tables_and_views(text)]
         elif segment == 'beginning':
             completions = [n for n in self.get_names() if n.startswith('do_')] + [
                            'insert', 'update', 'delete', 'drop', 'alter', 'begin', 'declare', 'create']
@@ -532,6 +543,7 @@ class sqlpyPlus(sqlpython.sqlpython):
             completions = [t for t in schemas[username].table_names if t.startswith(text)]
         else:
             completions = [r for r in completion.reserved if r.startswith(text)]
+        logging.debug('completions: %s' % str(completions))
         return completions
     
     columnlistPattern = pyparsing.SkipTo(pyparsing.CaselessKeyword('from'))('columns') + \
@@ -756,7 +768,7 @@ class sqlpyPlus(sqlpython.sqlpython):
         elif (self.rc < self.maxfetch and self.rc > 0):
             self.pfeedback('\n%d rows selected.\n' % self.rc)
         else:
-            self.pfeedback('\nSelected Max Num rows (%d)' % self.rc)
+            self.pfeedback('\nSelected Max Num rows (%d) (change with SET MAXFETCH #)' % self.rc)
         
     def do_cat(self, arg):
         '''Shortcut for SELECT * FROM
@@ -1141,7 +1153,6 @@ class sqlpyPlus(sqlpython.sqlpython):
     @options(standard_options)
     def do__dir_tables(self, arg, opts):
         'Shortcut for ``ls table/``'
-        import pdb; pdb.set_trace()
         self._do_dir(self.table_type_name[self.rdbms], arg, opts)
 
     @options(standard_options)

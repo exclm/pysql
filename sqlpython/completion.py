@@ -1,4 +1,7 @@
 import pyparsing, re, doctest
+import logging
+
+logging.basicConfig(filename='completion.log', level=logging.DEBUG)
 
 sqlStyleComment = pyparsing.Literal("--") + pyparsing.ZeroOrMore(pyparsing.CharsNotIn("\n"))
 keywords = {'order by': pyparsing.Keyword('order', caseless=True) +
@@ -26,11 +29,13 @@ fromClauseFinder = re.compile(r".*(from|update)(.*)(where|set)",
                     re.IGNORECASE | re.DOTALL | re.MULTILINE)
 oracleTerms = oracleTerms = re.compile(r"[A-Z$_#][0-9A-Z_$#]*", re.IGNORECASE)
 def tableNamesFromFromClause(statement):
+    logging.debug('determining table name from statement %s' % statement)
     result = fromClauseFinder.search(statement)
     if not result:
         return []
     result = oracleTerms.findall(result.group(2))
     result = [r.upper() for r in result if r.upper() not in ('JOIN','ON')]
+    logging.debug(result)
     return result
     
 def orderedParseResults(parsers, statement):
@@ -57,14 +62,37 @@ def whichSegment(statement):
     'select'
     
     '''
+    logging.debug('determining segment for statement %s' % statement)
     if (not statement) or at_beginning.search(statement):
         return 'beginning'
     results = orderedParseResults(keywords.values(), statement)
+    logging.debug(str(results))
     if results:
-        return ' '.join(results[-1][0])
+        result = ' '.join(results[-1][0])
+        logging.debug('parse results found, segment is %s' % result)
+        return result
     else:
-        return statement.split(None,1)[0]
-   
+        result = statement.split(None, 1)[0]
+        logging.debug('parse results not found, segment is %s' % result)
+        return result
+
+columnparser = re.compile(r'\bselect\s+(.*?)\s+from\b', re.IGNORECASE | re.DOTALL)  
+sqlword = re.compile(r'[0-9a-zA-Z_#$]+')
+def columnList(txt):
+    '''
+    >>> columnList('SELECT col1, col2, col3 FROM')
+    ['col1', 'col2', 'col3']
+    >>> columnList('select max(a), c.col2 - a.col1 from a, tab2 as c')
+    ['max', 'a', 'c', 'col2', 'a', 'col1']
+    '''
+    match = columnparser.search(txt)
+    if match:
+        txt = match.group(1)
+        words = sqlword.findall(txt)
+        return words
+    else:
+        return []
+        
 reserved = '''
       access
      add
